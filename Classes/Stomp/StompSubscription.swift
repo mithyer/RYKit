@@ -6,10 +6,9 @@
 //
 
 import Foundation
-import SwiftStomp
 
 // 订阅协议
-protocol StompSubscription: CustomDebugStringConvertible {
+public protocol StompSubscription: CustomDebugStringConvertible {
     
     var destination: String { get }
     var identifier: String { get }
@@ -18,7 +17,7 @@ protocol StompSubscription: CustomDebugStringConvertible {
     var callbackKey: String { get }
 }
 
-extension StompSubscription {
+public extension StompSubscription {
     
     var callbackKey: String { identifier }
     var subscribeHeaders: [String: String]? {

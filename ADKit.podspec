@@ -1,5 +1,5 @@
 #
-# Be sure to run `pod lib lint SwiftStomp.podspec' to ensure this is a
+# Be sure to run `pod lib lint ADKit.podspec' to ensure this is a
 # valid spec before submitting.
 #
 # Any lines starting with a # are optional, but their use is encouraged
@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.name             = 'ADKit'
   s.version          = '1.0.0'
   s.summary          = 'Kit for Aden'
-  s.description      =' Kit for Aden'
+  s.description      =' Kit for Aden.'
   s.homepage         = 'http://10.23.9.221/rui.mao/adkit'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author       = {'Romixery' => 'http://attar.ai'}
@@ -21,12 +21,12 @@ Pod::Spec.new do |s|
   s.tvos.deployment_target  = "13.0"
   
   s.swift_version    = '5.0'
-  s.source_files = 'SwiftStomp/Classes/**/*'
+  s.source_files = 'Classes/**/*'
   
   # s.resource_bundles = {
-  #   'SwiftStomp' => ['ADKit/Assets/*.png']
+  #   'ADKit' => ['ADKit/Assets/*.png']
   # }
 
-  s.public_header_files = 'Pod/Classes/**/*.h'
+  # s.public_header_files = 'Pod/Classes/**/*.h'
   s.dependency 'ReachabilitySwift', '~> 5.2.1'
 end

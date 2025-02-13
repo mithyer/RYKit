@@ -7,7 +7,7 @@
 
 import Foundation
 
-protocol HandshakeDataProtocol: Decodable {
+public protocol HandshakeDataProtocol: Decodable {
     var code: Int? { get }
     var handshakeId: String? { get }
     var expiresIn: Int? { get }
@@ -15,7 +15,7 @@ protocol HandshakeDataProtocol: Decodable {
 }
 
 // 连接相关的配置数据
-protocol StompChannel {
+public protocol StompChannel {
     associatedtype HandshakeDataType: HandshakeDataProtocol
     var userToken: String { get set }
     var handshakeURL: String { get }

@@ -6,10 +6,9 @@
 //
 
 import Foundation
-import SwiftStomp
 import Combine
 
-protocol StompPublishCapable: AnyObject {
+public protocol StompPublishCapable: AnyObject {
     associatedtype DecodableType: Decodable
     
     func setMessageCallback(identifier: String,
@@ -33,7 +32,7 @@ protocol StompPublishCapable: AnyObject {
     func send(body: Data, to destination: String, receiptId: String?, headers: [String : String]?)
 }
 
-enum SubscriptionError: Error {
+public enum SubscriptionError: Error {
     case stompNotConnected
     case stompError(StompError)
 }

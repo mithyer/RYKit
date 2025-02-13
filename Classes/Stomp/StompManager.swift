@@ -6,22 +6,21 @@
 //
 
 import Foundation
-import SwiftStomp
 import Combine
 
-enum ReceiveMessageStrategy {
+public enum ReceiveMessageStrategy {
     // 不过滤掉任何一条消息
     case all
     // throttle原理(Combine相同) https://juejin.cn/post/7097406389466693640
     case throttle(TimeInterval)
 }
 
-typealias DecodedPublishedSubject = PassthroughSubject<(any Decodable, any StompPublishCapable), Never>
+public typealias DecodedPublishedSubject = PassthroughSubject<(any Decodable, any StompPublishCapable), Never>
 
 private let stomp_queue = DispatchQueue.init(label: "com.stompv2.event", qos: .userInteractive, autoreleaseFrequency: .workItem)
 
 // 用于管理订阅回调的生命周期，释放后相应的回调会被移除
-class StompCallbackLifeHolder {
+public class StompCallbackLifeHolder {
     
     fileprivate weak var publisher: (any StompPublishCapable)?
     fileprivate let destination: String
@@ -49,7 +48,7 @@ class StompCallbackLifeHolder {
 }
 
 // 订阅管理类，主要使用的类
-class StompManager<CHANNEL: StompChannel> {
+public class StompManager<CHANNEL: StompChannel> {
     
     private let connection: StompConnection<CHANNEL>
     private var destinationToPublisher = [String: any StompPublishCapable]()
@@ -58,21 +57,21 @@ class StompManager<CHANNEL: StompChannel> {
     private var checkTimer: DispatchSourceTimer?
     
     // 用于汇总最后解析完成后的数据
-    var decodedPublishedSubject = DecodedPublishedSubject()
+    public var decodedPublishedSubject = DecodedPublishedSubject()
     
-    var connected: Bool {
+    public var connected: Bool {
         if case .connected = connection.status {
             return true
         }
         return false
     }
     
-    var userToken: String {
+    public var userToken: String {
         return connection.channel.userToken
     }
     
     // 不同的user对应不同的manager
-    init(userToken: String) {
+    public init(userToken: String) {
         connection = .init(userToken: userToken, callbackQueue: stomp_queue)
         connection.onDisconnected = { [weak self] in
             guard let self = self else {
@@ -152,7 +151,7 @@ class StompManager<CHANNEL: StompChannel> {
 
     
     // 可提前调用，也可订阅时自动懒加载
-    func startConnection(delay: UInt64 = 0) {
+    public func startConnection(delay: UInt64 = 0) {
         switch connection.status {
         case .unstarted, .disconnected:
             break
@@ -214,7 +213,7 @@ class StompManager<CHANNEL: StompChannel> {
     // receiveMessageStrategy: 接收消息的策略，可以选择在间隔时间类只接收最后一条消息，并忽略掉其他消息，用于处理大量返回数据
     // dataCallback: 数据返回回调
     // return的holder: 用户生命周期管理，释放后相应的订阅会被取消
-    func subscribe<T: Decodable, S: StompSubscription>(dataType: T.Type,
+    public func subscribe<T: Decodable, S: StompSubscription>(dataType: T.Type,
                                                        subscription: S,
                                                        receiveMessageStrategy: ReceiveMessageStrategy,
                                                        callbackQueue: DispatchQueue = DispatchQueue.main,
@@ -260,7 +259,7 @@ class StompManager<CHANNEL: StompChannel> {
         return StompCallbackLifeHolder(publisher: publisher, callbackKey: subscription.callbackKey)
     }
     // 取消destination对应的某单个订阅
-    func unsbscribe<S: StompSubscription>(subscription: S) {
+    public func unsbscribe<S: StompSubscription>(subscription: S) {
         stomp_queue.async { [weak self] in
             guard let self = self else {
                 return
@@ -275,7 +274,7 @@ class StompManager<CHANNEL: StompChannel> {
         }
     }
     // 取消destination对应的所有订阅
-    func unsbscribe(destination: String, with headers: [String: String]?) {
+    public func unsbscribe(destination: String, with headers: [String: String]?) {
         stomp_queue.async { [weak self] in
             guard let self = self else {
                 return
@@ -296,7 +295,7 @@ class StompManager<CHANNEL: StompChannel> {
 
 extension StompManager {
     
-    static var workQueue: DispatchQueue {
+    public static var workQueue: DispatchQueue {
         return stomp_queue
     }
 }

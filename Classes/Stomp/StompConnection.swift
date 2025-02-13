@@ -7,7 +7,6 @@
 // 用于管理stomp的握手、连接和数据回调
 
 import Foundation
-import SwiftStomp
 import Combine
 
 fileprivate enum FetchError: Error {

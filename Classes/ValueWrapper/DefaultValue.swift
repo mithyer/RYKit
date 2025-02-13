@@ -204,7 +204,7 @@ public protocol JsonDebugStringConvertable: CustomDebugStringConvertible {
     var debugDescription: String { get }
 }
 
-extension JsonDebugStringConvertable {
+public extension JsonDebugStringConvertable {
     private static func convertToJsonValue(_ value: Any) -> Any? {
         let mirror = Mirror(reflecting: value)
         // 处理Optional
