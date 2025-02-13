@@ -27,6 +27,6 @@ Pod::Spec.new do |s|
   #   'SwiftStomp' => ['ADKit/Assets/*.png']
   # }
 
-  # s.public_header_files = 'Pod/Classes/**/*.h'
+  s.public_header_files = 'Pod/Classes/**/*.h'
   s.dependency 'ReachabilitySwift', '~> 5.2.1'
 end
