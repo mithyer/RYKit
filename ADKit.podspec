@@ -8,13 +8,13 @@
 
 Pod::Spec.new do |s|
   s.name             = 'ADKit'
-  s.version          = '1.0.0'
+  s.version          = '1'
   s.summary          = 'Kit for Aden'
   s.description      =' Kit for Aden.'
   s.homepage         = 'http://10.23.9.221/rui.mao/adkit'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author       = {'Romixery' => 'http://attar.ai'}
-  s.source       = { :git => 'http://10.23.9.221/rui.mao/adkit',  :tag => "#{s.version}"}
+  s.source       = { :git => 'http://10.23.9.221/rui.mao/adkit',  :branch => "master"}
 
   s.ios.deployment_target = '13.0'
   s.osx.deployment_target = "10.15"
