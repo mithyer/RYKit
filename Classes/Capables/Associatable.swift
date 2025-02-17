@@ -11,15 +11,9 @@ fileprivate var associatedDictionaryKey: () = ()
 
 public protocol Associatable {
     
-    func associated<T: Initializable>(_ key: String) -> T
+    func associated<T>(_ key: String, initilizer: () -> T) -> T
 }
 
-public protocol Initializable {
-    
-    init()
-}
-
-extension NSObject: Initializable {}
 
 extension Associatable {
     
@@ -34,12 +28,12 @@ extension Associatable {
         }
     }
     
-    public func associated<T: Initializable>(_ key: String = "\(T.self)") -> T {
+    public func associated<T>(_ key: String = "\(T.self)", initilizer: () -> T) -> T {
         let dic = associatedDictionary
         let key = "\(T.self)"
         var t = dic[key] as? T
         if nil == t {
-            t = T()
+            t = initilizer()
             dic[key] = t
         }
         return t!
