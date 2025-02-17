@@ -299,3 +299,5 @@ extension StompManager {
         return stomp_queue
     }
 }
+
+extension StompManager: Associatable {}

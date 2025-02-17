@@ -1,0 +1,48 @@
+//
+//  Capables.swift
+//  ADKit
+//
+//  Created by ray on 2025/2/14.
+//
+
+import Foundation
+
+fileprivate var associatedDictionaryKey: () = ()
+
+public protocol Associatable {
+    
+    func associated<T: Initializable>(_ key: String) -> T
+}
+
+public protocol Initializable {
+    
+    init()
+}
+
+extension NSObject: Initializable {}
+
+extension Associatable {
+    
+    fileprivate var associatedDictionary: NSMutableDictionary {
+        get {
+            var dic = objc_getAssociatedObject(self, &associatedDictionaryKey) as? NSMutableDictionary
+            if nil == dic {
+                dic = NSMutableDictionary()
+                objc_setAssociatedObject(dic!, &associatedDictionaryKey, dic, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
+            return dic!
+        }
+    }
+    
+    public func associated<T: Initializable>(_ key: String = "\(T.self)") -> T {
+        let dic = associatedDictionary
+        let key = "\(T.self)"
+        var t = dic[key] as? T
+        if nil == t {
+            t = T()
+            dic[key] = t
+        }
+        return t!
+    }
+
+}
