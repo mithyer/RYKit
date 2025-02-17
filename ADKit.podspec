@@ -28,5 +28,5 @@ Pod::Spec.new do |s|
   # }
 
   # s.public_header_files = 'Pod/Classes/**/*.h'
-  s.dependency 'ReachabilitySwift', '~> 5.2.1'
+  s.dependency 'ReachabilitySwift', '~> 5.2.4'
 end
