@@ -63,23 +63,29 @@ fileprivate class MessageDispatcher<T: Decodable> {
         case .all:
             outterSubject
                 .subscribe(on: subscribeQueue)
-                .sink(receiveValue: dealWithMessage(message:))
+                .sink(receiveValue: { [unowned self] message in
+                    self.dealWithMessage(message)
+                })
                 .store(in: &cancelables)
         case .throttle(let timeInterval):
             outterSubject.first()
                 .subscribe(on: subscribeQueue)
-                .sink(receiveValue: dealWithMessage(message:))
+                .sink(receiveValue: { [unowned self] message in
+                    self.dealWithMessage(message)
+                })
                 .store(in: &cancelables)
             outterSubject
                 .dropFirst()
                 .subscribe(on: subscribeQueue)
                 .throttle(for: .init(floatLiteral: timeInterval), scheduler: subscribeQueue, latest: true)
-                .sink(receiveValue: dealWithMessage(message:))
+                .sink(receiveValue: { [unowned self] message in
+                    self.dealWithMessage(message)
+                })
                 .store(in: &cancelables)
         }
     }
     
-    func dealWithMessage(message: StompUpstreamMessage) {
+    func dealWithMessage(_ message: StompUpstreamMessage) {
         guard let publisher = self.publisher else {
             return
         }
@@ -125,6 +131,10 @@ fileprivate class MessageDispatcher<T: Decodable> {
             self.callback(res, headers)
         }
         return res
+    }
+    
+    deinit {
+        // debugPrint("MessageDispatcher destination: \(publisher?.destination ?? "") \(identifier) deinit")
     }
 }
 
