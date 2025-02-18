@@ -53,6 +53,69 @@ public extension Decodable {
         }
         self.init(fromJsonData: Data(), decoder: decoder)
     }
+    
+    init?(fromAny any: Any?, decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
+        guard let any = any else {
+            return nil
+        }
+        if let data = any as? Data {
+            if let res = Self.init(fromJsonData: data, decoder: decoder()) {
+                self = res
+                return
+            }
+        } else if let string = any as? String {
+            if let res = Self.init(fromJsonString: string, decoder: decoder()) {
+                self = res
+                return
+            }
+        } else if let dic = any as? [String: Any] {
+            if let res = Self.init(fromJsonDic: dic, decoder: decoder()) {
+                self = res
+                return
+            }
+        }
+        return nil
+    }
+}
+
+public extension Initilizable where Self: Decodable {
+    
+    init(fromAny any: Any?, defaultValue: @autoclosure () -> Self = Self(), decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
+        guard let any = any else {
+            self = defaultValue()
+            return
+        }
+        if let data = any as? Data {
+            if let res = Self.init(fromJsonData: data, decoder: decoder()) {
+                self = res
+                return
+            }
+        } else if let string = any as? String {
+            if let res = Self.init(fromJsonString: string, decoder: decoder()) {
+                self = res
+                return
+            }
+        } else if let dic = any as? [String: Any] {
+            if let res = Self.init(fromJsonDic: dic, decoder: decoder()) {
+                self = res
+                return
+            }
+        }
+        self = defaultValue()
+    }
+}
+
+public extension Array where Element: Initilizable & Decodable {
+    
+    init(fromAny any: Any, decoder: JSONDecoder = JSONDecoder()) {
+        guard let array = any as? [String: Any] else {
+            self = []
+            return
+        }
+        self = array.map {
+            Element.init(fromAny: $0, decoder: decoder)
+        }
+    }
 }
 
 public extension String {

@@ -128,6 +128,13 @@ public protocol Initilizable {
 }
 
 extension NSObject: Initilizable {}
+extension String: Initilizable {}
+extension Int: Initilizable {}
+extension Double: Initilizable {}
+extension Bool: Initilizable {}
+extension Dictionary: Initilizable {}
+extension Array: Initilizable {}
+extension Set: Initilizable {}
 
 public struct Provider {
     
