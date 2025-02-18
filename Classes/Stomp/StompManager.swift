@@ -15,7 +15,8 @@ public enum ReceiveMessageStrategy {
     case throttle(TimeInterval)
 }
 
-public typealias DecodedPublishedSubject = PassthroughSubject<(any Decodable, any StompPublishCapable), Never>
+public typealias DecodedPublishedSubject = PassthroughSubject<(decoded: any Decodable, publisher: any StompPublishCapable), Never>
+public typealias UnDecodedPublishedSubject = PassthroughSubject<(stringMessage: String?, dataMessage: Data?, publisher: any StompPublishCapable), Never>
 
 private let stomp_queue = DispatchQueue.init(label: "com.stompv2.event", qos: .userInteractive, autoreleaseFrequency: .workItem)
 
@@ -58,7 +59,8 @@ public class StompManager<CHANNEL: StompChannel> {
     
     // 用于汇总最后解析完成后的数据
     public var decodedPublishedSubject = DecodedPublishedSubject()
-    
+    public var unDecodedPublishedSubject = UnDecodedPublishedSubject()
+
     public var connected: Bool {
         if case .connected = connection.status {
             return true
@@ -193,6 +195,7 @@ public class StompManager<CHANNEL: StompChannel> {
         if nil == publisher || !(publisher is StompPublisher<T>) {
             publisher = StompPublisher(destination: destination,
                                        decodedPublishedSubject: decodedPublishedSubject,
+                                       unDecodedPublishedSubject: unDecodedPublishedSubject,
                                        type: T.self)
             destinationToPublisher[destination] = publisher!
         }

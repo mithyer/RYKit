@@ -25,7 +25,8 @@ public protocol StompPublishCapable: AnyObject {
     var hasCallbacks: Bool { get }
     var stomp: SwiftStomp? { get set }
     var decodedPublishedSubject: DecodedPublishedSubject? { get }
-    
+    var unDecodedPublishedSubject: UnDecodedPublishedSubject? { get }
+
 
     func subscribe(completed: @escaping (SubscriptionError?) -> Void)
     func unsubscribe(with headers: [String: String]?, completed: @escaping (SubscriptionError?) -> Void)
@@ -98,16 +99,22 @@ fileprivate class MessageDispatcher<T: Decodable> {
         guard let publisher = self.publisher else {
             return
         }
+        var stringMsg: String?
+        var dataMsg: Data?
         guard let res = {
             switch message {
             case let .data(data, _, _, headers):
+                dataMsg = data
                 return self.publishMessage(data: data, headers: headers)
             case let .text(message, _, _, headers):
+                stringMsg = message
                 return self.publishMessage(message: message, headers: headers)
             }
         }() else {
+            publisher.unDecodedPublishedSubject?.send((stringMsg, dataMsg, publisher))
             return
         }
+        publisher.unDecodedPublishedSubject?.send((stringMsg, dataMsg, publisher))
         publisher.decodedPublishedSubject?.send((res, publisher))
     }
     
@@ -156,6 +163,8 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
     var subscribed: Bool = false
     var subscribeHeaders: [String: String]?
     weak var decodedPublishedSubject: DecodedPublishedSubject?
+    weak var unDecodedPublishedSubject: UnDecodedPublishedSubject?
+
     fileprivate var dispatchers = [String: MessageDispatcher<T>]()
     private let subID: String
         
@@ -163,9 +172,13 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         return !dispatchers.isEmpty
     }
     
-    init(destination: String, decodedPublishedSubject: DecodedPublishedSubject?, type: T.Type) {
+    init(destination: String,
+         decodedPublishedSubject: DecodedPublishedSubject?,
+         unDecodedPublishedSubject: UnDecodedPublishedSubject?,
+         type: T.Type) {
         self.destination = destination
         self.decodedPublishedSubject = decodedPublishedSubject
+        self.unDecodedPublishedSubject = unDecodedPublishedSubject
         self.subID = UUID().uuidString
     }
     
