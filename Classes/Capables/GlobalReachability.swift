@@ -24,20 +24,24 @@ fileprivate var listeningCount: Int {
     }
 }
 
+private var reachability: Reachability?
+
 public class GlobalReachability {
     
     public static let shared = GlobalReachability()
     
-    private let reachability = try? Reachability()
-    
     private class Listener {
         
         weak var observer: AnyObject?
-        var callback: (Reachability.Connection) -> Void
         
         init(callback: @escaping (Reachability.Connection) -> Void) {
             listeningCount += 1
-            self.callback = callback
+            observer = NotificationCenter.default.addObserver(forName: .reachabilityChanged, object: reachability, queue: .main, using: { noti in
+                guard let reachability = noti.object as? Reachability else {
+                    return
+                }
+                callback(reachability.connection)
+            })
         }
         
         func removeObserver() -> Bool {
@@ -51,33 +55,26 @@ public class GlobalReachability {
         }
         
         deinit {
-            _ = removeObserver()
-        }
-    }
-    
-    public func listen(_ onChanged: @escaping (Reachability.Connection) -> Void) -> AnyObject? {
-        guard let reachability = reachability else {
-            return nil
-        }
-        let listener = Listener(callback: onChanged)
-        listener.observer = NotificationCenter.default.addObserver(forName: .reachabilityChanged, object: reachability, queue: .main, using: { [unowned listener] noti in
-            guard let reachability = noti.object as? Reachability else {
+            guard removeObserver() else {
                 return
             }
-            listener.callback(reachability.connection)
-        })
-        try? reachability.startNotifier()
-        return listener
-    }
-
-    public func unlisten(_ listener: AnyObject) {
-        guard let listener = listener as? Listener else {
-            return
-        }
-        if listener.removeObserver() {
             if listeningCount <= 0 {
                 reachability?.stopNotifier()
             }
         }
+    }
+    
+    public func listen(_ onChanged: @escaping (Reachability.Connection) -> Void) -> AnyObject? {
+        if nil == reachability {
+            reachability = try? Reachability()
+        }
+        guard let reachability = reachability else {
+            return nil
+        }
+        let listener = Listener(callback: onChanged)
+        DispatchQueue.main.async {
+            try? reachability.startNotifier()
+        }
+        return listener
     }
 }
