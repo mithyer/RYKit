@@ -232,7 +232,10 @@ class StompConnection<CHANNEL: StompChannel> {
         let connected: Bool = await withCheckedContinuation { con in
             eventListenCancellable = stomp.eventsUpstream
                 .receive(on: self.callbackQueue)
-                .sink { [unowned self, unowned stomp] event in
+                .sink {  [weak self, weak stomp] event in
+                guard let self = self, let stomp = stomp else {
+                    return
+                }
                 switch event {
                 case .connected(let type):
                     if type == .toStomp {
@@ -266,7 +269,10 @@ class StompConnection<CHANNEL: StompChannel> {
             eventListenCancellable = stomp
                 .eventsUpstream
                 .receive(on: self.callbackQueue)
-                .sink(receiveValue: { [unowned self, unowned stomp] event in
+                .sink(receiveValue: { [weak self, weak stomp] event in
+                    guard let self = self, let stomp = stomp else {
+                        return
+                    }
                     switch event {
                     case .disconnected(let type):
                         self.status = .disconnected
