@@ -63,14 +63,20 @@ fileprivate class MessageDispatcher<T: Decodable> {
         case .all:
             outterSubject
                 .subscribe(on: subscribeQueue)
-                .sink(receiveValue: { [unowned self] message in
+                .sink(receiveValue: { [weak self] message in
+                    guard let self = self else {
+                        return
+                    }
                     self.dealWithMessage(message)
                 })
                 .store(in: &cancelables)
         case .throttle(let timeInterval):
             outterSubject.first()
                 .subscribe(on: subscribeQueue)
-                .sink(receiveValue: { [unowned self] message in
+                .sink(receiveValue: { [weak self] message in
+                    guard let self = self else {
+                        return
+                    }
                     self.dealWithMessage(message)
                 })
                 .store(in: &cancelables)
@@ -78,7 +84,10 @@ fileprivate class MessageDispatcher<T: Decodable> {
                 .dropFirst()
                 .subscribe(on: subscribeQueue)
                 .throttle(for: .init(floatLiteral: timeInterval), scheduler: subscribeQueue, latest: true)
-                .sink(receiveValue: { [unowned self] message in
+                .sink(receiveValue: { [weak self] message in
+                    guard let self = self else {
+                        return
+                    }
                     self.dealWithMessage(message)
                 })
                 .store(in: &cancelables)
