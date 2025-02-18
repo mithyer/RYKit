@@ -32,7 +32,7 @@ public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible {
             return
         }
         
-        wrappedValue = tryMakeWrapperValue(container: container, decodedRawValueDescription: &decodedRawValueDescription)
+        self.wrappedValue = tryMakeWrapperValue(container: container, decodedRawValueDescription: &decodedRawValueDescription)
     }
 }
 
@@ -45,5 +45,11 @@ public extension KeyedDecodingContainer {
             return PreferValue(wrappedValue: value)
         }
         return PreferValue()
+    }
+}
+
+public extension KeyedEncodingContainer {
+    mutating func encode<T>(_ value: PreferValue<T>, forKey key: Key) throws {
+        try encode(value.wrappedValue, forKey: key)
     }
 }

@@ -55,6 +55,21 @@ public extension Decodable {
     }
 }
 
+public extension String {
+    
+    func toJsonModel<T: Decodable>() -> T? {
+        return T(fromJsonString: self) 
+    }
+    
+    func toJsonModel<T: Decodable>(withDefault value: @autoclosure () -> T) -> T {
+        if let res = T(fromJsonString: self) {
+            return res
+        }
+        debugPrint("String.toJsonModel \(T.self) parse \(self) failed, use default instead")
+        return value()
+    }
+}
+
 // 使Decodable而不具Encodable的obj能直接打印
 public protocol JsonDebugStringConvertable: CustomDebugStringConvertible {
     var debugDescription: String { get }

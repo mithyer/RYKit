@@ -84,6 +84,13 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
                 decodedRawValueDescription = "int: \(int)"
             }
         }
+    } else {
+        if let string = try? container.decode(String.self) {
+            decodedRawValueDescription = string
+            if let data = string.data(using: .utf8) {
+                value = try? JSONDecoder().decode(T.self, from: data)
+            }
+        }
     }
     return value
 }
@@ -115,6 +122,13 @@ public protocol DefaultValueProvider {
     static var `default`: Value { get }
 }
 
+public protocol Initilizable {
+    
+    init()
+}
+
+extension NSObject: Initilizable {}
+
 public struct Provider {
     
     public enum BoolFalse: DefaultValueProvider {
@@ -141,7 +155,7 @@ public struct Provider {
         public static let `default` = Decimal(exactly: 0)
     }
     
-    public enum ArrayEmpty<A>: DefaultValueProvider where A: Codable, A: RangeReplaceableCollection {
+    public enum ArrayEmpty<A>: DefaultValueProvider where A: Codable & RangeReplaceableCollection {
         public static var `default`: A { A() }
     }
     
@@ -149,8 +163,12 @@ public struct Provider {
         public static var `default`: [K: V] { Dictionary() }
     }
     
-    public enum CaseFirst<A>: DefaultValueProvider where A: Codable, A: CaseIterable {
+    public enum CaseFirst<A>: DefaultValueProvider where A: Codable & CaseIterable {
         public static var `default`: A { A.allCases.first! }
+    }
+    
+    public enum Init<A>: DefaultValueProvider where A: Initilizable & Codable {
+        public static var `default`: A  { A() }
     }
 }
 
