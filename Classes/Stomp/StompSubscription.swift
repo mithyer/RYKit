@@ -19,13 +19,9 @@ public protocol StompSubscription: CustomDebugStringConvertible {
 
 public extension StompSubscription {
     
+    var subscribeHeaders: [String: String]? { nil }
+    var unsubscribeHeaders: [String: String]? { nil }
     var callbackKey: String { identifier }
-    var subscribeHeaders: [String: String]? {
-        [StompCommonHeader.id.rawValue: identifier]
-    }
-    var unsubscribeHeaders: [String: String]? {
-        [StompCommonHeader.id.rawValue: identifier]
-    }
     var debugDescription: String {
         "\(destination) | \(identifier) | subscribeHeaders:\(subscribeHeaders ?? [:]) | unsubscribeHeaders:\(unsubscribeHeaders ?? [:]))"
     }

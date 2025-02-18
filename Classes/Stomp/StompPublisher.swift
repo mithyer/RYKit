@@ -157,6 +157,7 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
     var subscribeHeaders: [String: String]?
     weak var decodedPublishedSubject: DecodedPublishedSubject?
     fileprivate var dispatchers = [String: MessageDispatcher<T>]()
+    private let subID: String
         
     var hasCallbacks: Bool {
         return !dispatchers.isEmpty
@@ -165,6 +166,7 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
     init(destination: String, decodedPublishedSubject: DecodedPublishedSubject?, type: T.Type) {
         self.destination = destination
         self.decodedPublishedSubject = decodedPublishedSubject
+        self.subID = UUID().uuidString
     }
     
     
@@ -203,7 +205,9 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
             completed(.stompNotConnected)
             return
         }
-        stomp.subscribe(to: destination, headers: subscribeHeaders) { error in
+        var headers = subscribeHeaders ?? [:]
+        headers["id"] = subID
+        stomp.subscribe(to: destination, headers: headers) { error in
             if let error = error {
                 completed(.stompError(error))
             } else {
@@ -222,6 +226,8 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
             completed(.stompNotConnected)
             return
         }
+        var headers = subscribeHeaders ?? [:]
+        headers["id"] = subID
         stomp.unsubscribe(from: destination, headers: headers) { error in
             if let error = error {
                 completed(.stompError(error))
