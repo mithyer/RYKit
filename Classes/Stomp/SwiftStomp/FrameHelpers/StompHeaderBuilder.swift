@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class StompHeaderBuilder{
+class StompHeaderBuilder{
     private var headers = [String : String]()
     
     static func add(key : StompCommonHeader, value : Any) -> StompHeaderBuilder{

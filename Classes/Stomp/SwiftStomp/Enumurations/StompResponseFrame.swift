@@ -5,7 +5,7 @@
 //  Created by Ahmad Daneshvar on 5/16/24.
 //
 
-public enum StompResponseFrame : String{
+enum StompResponseFrame : String{
     case connected = "CONNECTED"
     case message = "MESSAGE"
     case receipt = "RECEIPT"

@@ -5,11 +5,11 @@
 //  Created by Ahmad Daneshvar on 5/16/24.
 //
 
-public enum StompError: Error {
+enum StompError: Error {
     case fromStomp(description: String, receiptId: String)
     case fromSocket(error: Error)
     
-    public var description: String {
+    var description: String {
         switch self {
         case .fromStomp(let desp, let receiptId):
             return "FromStompError: receiptId: \(String(describing: receiptId)), \(desp)"
@@ -19,10 +19,10 @@ public enum StompError: Error {
     }
 }
 
-//public struct StompError: Error {
-//    public let localizedDescription: String
-//    public let receiptId: String?
-//    public let type: StompErrorType
+//struct StompError: Error {
+//    let localizedDescription: String
+//    let receiptId: String?
+//    let type: StompErrorType
 //    
 //    
 //    init(type: StompErrorType, receiptId: String?, localizedDescription: String) {
@@ -39,7 +39,7 @@ public enum StompError: Error {
 //}
 //
 //extension StompError: CustomStringConvertible {
-//    public var description: String {
+//    var description: String {
 //        "StompError(\(type)) [receiptId: \(String(describing: receiptId))]: \(localizedDescription)"
 //    }
 //}

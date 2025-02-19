@@ -15,7 +15,7 @@ let NULL_CHAR = "\u{00}"
 
 
 // MARK: - SwiftStomp
-public class SwiftStomp: NSObject {
+class SwiftStomp: NSObject {
 
     fileprivate var host : URL
     fileprivate var httpConnectionHeaders : [String : String]?
@@ -37,39 +37,39 @@ public class SwiftStomp: NSObject {
     fileprivate var autoPingEnabled = false
     fileprivate var pingErrorOccurCount: Int = 0
 
-    public var maxPingErrorTolerance: Int = 3
-    public weak var delegate: SwiftStompDelegate?
+    var maxPingErrorTolerance: Int = 3
+    weak var delegate: SwiftStompDelegate?
     
     /// Streams
     fileprivate var _eventsUpstream = PassthroughSubject<StompUpstreamEvent, Never>()
     fileprivate var _messagesUpstream = PassthroughSubject<StompUpstreamMessage, Never>()
     fileprivate var _receiptsUpstream = PassthroughSubject<String, Never>()
     
-    public var eventsUpstream: AnyPublisher<StompUpstreamEvent, Never> {
+    var eventsUpstream: AnyPublisher<StompUpstreamEvent, Never> {
         _eventsUpstream.eraseToAnyPublisher()
     }
     
-    public var messagesUpstream: AnyPublisher<StompUpstreamMessage, Never> {
+    var messagesUpstream: AnyPublisher<StompUpstreamMessage, Never> {
         _messagesUpstream.eraseToAnyPublisher()
     }
     
-    public var receiptUpstream: AnyPublisher<String, Never> {
+    var receiptUpstream: AnyPublisher<String, Never> {
         _receiptsUpstream.eraseToAnyPublisher()
     }
     
-    public var enableLogging = false
-    public var isConnected : Bool {
+    var enableLogging = false
+    var isConnected : Bool {
         return self.status == .fullyConnected
     }
-    public var connectionStatus : StompConnectionStatus{
+    var connectionStatus : StompConnectionStatus{
         return self.status
     }
 
     // Private storage for the callbacksThread, not directly accessible outside of this class
     private var _callbacksThread: DispatchQueue?
 
-    // Public computed property
-    public var callbacksThread: DispatchQueue {
+    // computed property
+    var callbacksThread: DispatchQueue {
         // Getter returns _callbacksThread if it's not nil, otherwise returns DispatchQueue.main
         get {
             return _callbacksThread ?? DispatchQueue.main
@@ -80,9 +80,9 @@ public class SwiftStomp: NSObject {
         }
     }
 
-    public var autoReconnect = false
+    var autoReconnect = false
 
-    public init (host : URL, headers : [String : String]? = nil, httpConnectionHeaders : [String : String]? = nil){
+    init (host : URL, headers : [String : String]? = nil, httpConnectionHeaders : [String : String]? = nil){
         self.host = host
         self.stompConnectionHeaders = headers
         self.httpConnectionHeaders = httpConnectionHeaders
@@ -112,8 +112,8 @@ public class SwiftStomp: NSObject {
     }
 }
 
-/// Public Operating functions
-public extension SwiftStomp{
+/// Operating functions
+extension SwiftStomp{
     func connect(timeout : TimeInterval = 5, acceptVersion : String = "1.1,1.2", autoReconnect : Bool = false){
 
         self.stompLog(type: .info, message: "Connecting...  autoReconnect: \(autoReconnect)")
@@ -711,7 +711,7 @@ extension SwiftStomp: URLSessionWebSocketDelegate {
 }
 
 // MARK: - SwiftStomp delegate
-public protocol SwiftStompDelegate: AnyObject{
+protocol SwiftStompDelegate: AnyObject{
 
     func onConnect(swiftStomp : SwiftStomp, connectType : StompConnectType)
 

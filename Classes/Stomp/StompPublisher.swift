@@ -8,7 +8,12 @@
 import Foundation
 import Combine
 
-public protocol StompPublishCapable: AnyObject {
+public protocol StompPublishBaseCapable: AnyObject {
+    var destination: String { get }
+    func send(body: Data, to destination: String, receiptId: String?, headers: [String : String]?)
+}
+
+protocol StompPublishCapable: StompPublishBaseCapable {
     associatedtype DecodableType: Decodable
     
     func setMessageCallback(identifier: String,
@@ -20,7 +25,6 @@ public protocol StompPublishCapable: AnyObject {
     func removeMessageCallback(for identifier: String)
     func removeAllCallbacks()
     var subscribed: Bool { get set }
-    var destination: String { get }
     var subscribeHeaders: [String: String]? { get set }
     var hasCallbacks: Bool { get }
     var stomp: SwiftStomp? { get set }
@@ -30,10 +34,9 @@ public protocol StompPublishCapable: AnyObject {
 
     func subscribe(completed: @escaping (SubscriptionError?) -> Void)
     func unsubscribe(with headers: [String: String]?, completed: @escaping (SubscriptionError?) -> Void)
-    func send(body: Data, to destination: String, receiptId: String?, headers: [String : String]?)
 }
 
-public enum SubscriptionError: Error {
+enum SubscriptionError: Error {
     case stompNotConnected
     case stompError(StompError)
 }
@@ -158,7 +161,7 @@ fileprivate class MessageDispatcher<T: Decodable> {
 class StompPublisher<T: Decodable>: StompPublishCapable {
     
     typealias DecodableType = T
-    var stomp: SwiftStomp?
+    weak var stomp: SwiftStomp?
     let destination: String
     var subscribed: Bool = false
     var subscribeHeaders: [String: String]?

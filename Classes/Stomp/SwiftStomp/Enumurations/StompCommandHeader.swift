@@ -5,7 +5,7 @@
 //  Created by Ahmad Daneshvar on 5/16/24.
 //
 
-public enum StompCommonHeader : String{
+enum StompCommonHeader : String{
     case id = "id"
     case host = "host"
     case receipt = "receipt"

@@ -5,7 +5,7 @@
 //  Created by Ahmad Daneshvar on 5/16/24.
 //
 
-public enum StompConnectType{
+enum StompConnectType{
     case toSocketEndpoint
     case toStomp
 }

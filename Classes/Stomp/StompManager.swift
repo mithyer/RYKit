@@ -15,8 +15,8 @@ public enum ReceiveMessageStrategy {
     case throttle(TimeInterval)
 }
 
-public typealias DecodedPublishedSubject = PassthroughSubject<(decoded: any Decodable, publisher: any StompPublishCapable), Never>
-public typealias UnDecodedPublishedSubject = PassthroughSubject<(stringMessage: String?, dataMessage: Data?, publisher: any StompPublishCapable), Never>
+public typealias DecodedPublishedSubject = PassthroughSubject<(decoded: any Decodable, publisher: any StompPublishBaseCapable), Never>
+public typealias UnDecodedPublishedSubject = PassthroughSubject<(stringMessage: String?, dataMessage: Data?, publisher: any StompPublishBaseCapable), Never>
 
 private let stomp_queue = DispatchQueue.init(label: "com.stompv2.event", qos: .userInteractive, autoreleaseFrequency: .workItem)
 

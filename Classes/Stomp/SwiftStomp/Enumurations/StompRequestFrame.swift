@@ -5,7 +5,7 @@
 //  Created by Ahmad Daneshvar on 5/16/24.
 //
 
-public enum StompRequestFrame : String {
+enum StompRequestFrame : String {
     case connect = "CONNECT"
     case send = "SEND"
     case subscribe = "SUBSCRIBE"

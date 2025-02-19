@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum StompUpstreamMessage {
+enum StompUpstreamMessage {
     case text(message : String, messageId : String, destination : String, headers : [String : String])
     case data(data: Data,  messageId : String, destination : String, headers : [String : String])
 }
