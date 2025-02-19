@@ -21,12 +21,23 @@ Pod::Spec.new do |s|
   s.tvos.deployment_target  = "13.0"
   
   s.swift_version    = '5.0'
-  s.source_files = 'Classes/**/*'
-  
-  # s.resource_bundles = {
-  #   'ADKit' => ['ADKit/Assets/*.png']
-  # }
+  s.source_files = 'Classes/ADKit.swift'
 
-  # s.public_header_files = 'Pod/Classes/**/*.h'
+  s.subspec 'Capables' do |ss|
+    ss.source_files = 'Classes/Capables/**/*'
+  end
+
+  s.subspec 'Extensions' do |ss|
+    ss.source_files = 'Classes/Extensions/**/*'
+  end
+
+  s.subspec 'Stomp' do |ss|
+    ss.source_files = 'Classes/Stomp/*'
+  end
+
+  s.subspec 'ValueWrapper' do |ss|
+    ss.source_files = 'Classes/ValueWrapper/*'
+  end
+
   s.dependency 'ReachabilitySwift', '~> 5.2.4'
 end
