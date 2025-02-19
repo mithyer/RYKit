@@ -107,11 +107,12 @@ public extension Initilizable where Self: Decodable {
 
 public extension Array where Element: Initilizable & Decodable {
     
-    init(fromAny any: Any, decoder: JSONDecoder = JSONDecoder()) {
+    init(fromAny any: Any, decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
         guard let array = any as? [String: Any] else {
             self = []
             return
         }
+        let decoder = decoder()
         self = array.map {
             Element.init(fromAny: $0, decoder: decoder)
         }
