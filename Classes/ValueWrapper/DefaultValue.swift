@@ -122,19 +122,19 @@ public protocol DefaultValueProvider {
     static var `default`: Value { get }
 }
 
-public protocol Initilizable {
+public protocol Initializable {
     
     init()
 }
 
-extension NSObject: Initilizable {}
-extension String: Initilizable {}
-extension Int: Initilizable {}
-extension Double: Initilizable {}
-extension Bool: Initilizable {}
-extension Dictionary: Initilizable {}
-extension Array: Initilizable {}
-extension Set: Initilizable {}
+extension NSObject: Initializable {}
+extension String: Initializable {}
+extension Int: Initializable {}
+extension Double: Initializable {}
+extension Bool: Initializable {}
+extension Dictionary: Initializable {}
+extension Array: Initializable {}
+extension Set: Initializable {}
 
 public struct Provider {
     
@@ -174,7 +174,7 @@ public struct Provider {
         public static var `default`: A { A.allCases.first! }
     }
     
-    public enum Init<A>: DefaultValueProvider where A: Initilizable & Codable {
+    public enum Init<A>: DefaultValueProvider where A: Initializable & Codable {
         public static var `default`: A  { A() }
     }
 }

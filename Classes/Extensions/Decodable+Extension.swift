@@ -78,7 +78,7 @@ public extension Decodable {
     }
 }
 
-public extension Initilizable where Self: Decodable {
+public extension Initializable where Self: Decodable {
     
     init(fromAny any: Any?, defaultValue: @autoclosure () -> Self = Self(), decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
         guard let any = any else {
@@ -105,7 +105,7 @@ public extension Initilizable where Self: Decodable {
     }
 }
 
-public extension Array where Element: Initilizable & Decodable {
+public extension Array where Element: Initializable & Decodable {
     
     init(fromAny any: Any, decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
         guard let array = any as? [String: Any] else {

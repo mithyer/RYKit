@@ -11,7 +11,7 @@ fileprivate var associatedDictionaryKey: () = ()
 
 public protocol Associatable {
     
-    func associated<T>(_ key: String, initilizer: @autoclosure () -> T) -> T
+    func associated<T>(_ key: String, initializer: @autoclosure () -> T) -> T
 }
 
 
@@ -28,12 +28,12 @@ extension Associatable {
         }
     }
     
-    public func associated<T>(_ key: String = "\(T.self)", initilizer: @autoclosure () -> T) -> T {
+    public func associated<T>(_ key: String = "\(T.self)", initializer: @autoclosure () -> T) -> T {
         let dic = associatedDictionary
         let key = "\(T.self)"
         var t = dic[key] as? T
         if nil == t {
-            t = initilizer()
+            t = initializer()
             dic[key] = t
         }
         return t!
