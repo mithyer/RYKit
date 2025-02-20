@@ -228,10 +228,15 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         }
         var headers = subscribeHeaders ?? [:]
         headers["id"] = hashedStompID
+        let stompID = stompID
         stomp.subscribe(to: destination, headers: headers) { error in
             if let error = error {
+                debugPrint("=====STOMPV2 NOTICE: subscribe faild \(error), waiting retry")
+                debugPrint(stompID)
                 completed(.stompError(error))
             } else {
+                debugPrint("=====STOMPV2 NOTICE: subscribe successed")
+                debugPrint(stompID)
                 self.subscribed = true
                 completed(nil)
             }
@@ -247,10 +252,16 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
             completed(.stompNotConnected)
             return
         }
+        let stompID = stompID
+        let destination = destination
         stomp.unsubscribe(from: destination, headers: ["id": hashedStompID]) { error in
             if let error = error {
+                debugPrint("=====STOMPV2 NOTICE: UnSubscribe faild \(error)")
+                debugPrint(stompID)
                 completed(.stompError(error))
             } else {
+                debugPrint("=====STOMPV2 NOTICE: Unsubscribe successed")
+                debugPrint(stompID)
                 self.subscribed = true
                 completed(nil)
             }

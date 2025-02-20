@@ -119,13 +119,8 @@ public class StompManager<CHANNEL: StompChannel> {
             publisher.subscribe() { [weak self] error in
                 stomp_queue.async {
                     if nil != error {
-                        debugPrint("=====STOMPV2 NOTICE: subscribe faild, waiting retry")
-                        debugPrint(stompID)
                         self?.waitToSubscribeStompIDs.insert(stompID)
                         self?.startRepeatCheck()
-                    } else {
-                        debugPrint("=====STOMPV2 NOTICE: subscribe successed")
-                        debugPrint(stompID)
                     }
                 }
             }
@@ -250,13 +245,8 @@ public class StompManager<CHANNEL: StompChannel> {
                     publisher.stomp = stomp
                     publisher.subscribe() { [weak self] error in
                         if nil != error {
-                            debugPrint("=====STOMPV2 NOTICE: subscribe faild, waiting retry")
-                            debugPrint(stompID)
                             self?.waitToSubscribeStompIDs.insert(subscription.destination)
                             self?.startRepeatCheck()
-                        } else {
-                            debugPrint("=====STOMPV2 NOTICE: subscribe successed")
-                            debugPrint(stompID)
                         }
                     }
                 } else {
