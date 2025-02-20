@@ -9,6 +9,7 @@ import Foundation
 import Combine
 
 public protocol StompPublishBaseCapable: AnyObject {
+    var stompID: String { get }
     var destination: String { get }
     func send(body: Data, to destination: String, receiptId: String?, headers: [String : String]?)
 }
@@ -33,7 +34,7 @@ protocol StompPublishCapable: StompPublishBaseCapable {
 
 
     func subscribe(completed: @escaping (SubscriptionError?) -> Void)
-    func unsubscribe(with headers: [String: String]?, completed: @escaping (SubscriptionError?) -> Void)
+    func unsubscribe(completed: @escaping (SubscriptionError?) -> Void)
 }
 
 enum SubscriptionError: Error {
@@ -117,6 +118,7 @@ fileprivate class MessageDispatcher<T: Decodable> {
             publisher.unDecodedPublishedSubject?.send((stringMsg, dataMsg, publisher))
             return
         }
+        debugPrint("received msg: \(identifier): \(publisher.stompID)")
         publisher.unDecodedPublishedSubject?.send((stringMsg, dataMsg, publisher))
         publisher.decodedPublishedSubject?.send((res, publisher))
     }
@@ -162,27 +164,30 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
     
     typealias DecodableType = T
     weak var stomp: SwiftStomp?
+    let stompID: String
     let destination: String
     var subscribed: Bool = false
     var subscribeHeaders: [String: String]?
     weak var decodedPublishedSubject: DecodedPublishedSubject?
     weak var unDecodedPublishedSubject: UnDecodedPublishedSubject?
 
-    fileprivate var dispatchers = [String: MessageDispatcher<T>]()
-    private let subID: String
-        
+    private var dispatchers = [String: MessageDispatcher<T>]()
+    private let hashedStompID: String
+
     var hasCallbacks: Bool {
         return !dispatchers.isEmpty
     }
     
     init(destination: String,
+         stompID: String,
          decodedPublishedSubject: DecodedPublishedSubject?,
          unDecodedPublishedSubject: UnDecodedPublishedSubject?,
          type: T.Type) {
         self.destination = destination
+        self.stompID = stompID
+        self.hashedStompID = stompID.sha1
         self.decodedPublishedSubject = decodedPublishedSubject
         self.unDecodedPublishedSubject = unDecodedPublishedSubject
-        self.subID = UUID().uuidString
     }
     
     
@@ -222,7 +227,7 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
             return
         }
         var headers = subscribeHeaders ?? [:]
-        headers["id"] = subID
+        headers["id"] = hashedStompID
         stomp.subscribe(to: destination, headers: headers) { error in
             if let error = error {
                 completed(.stompError(error))
@@ -233,7 +238,7 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         }
     }
     
-    func unsubscribe(with headers: [String: String]?, completed: @escaping (SubscriptionError?) -> Void) {
+    func unsubscribe(completed: @escaping (SubscriptionError?) -> Void) {
         if !self.subscribed {
             completed(nil)
             return
@@ -242,9 +247,7 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
             completed(.stompNotConnected)
             return
         }
-        var headers = subscribeHeaders ?? [:]
-        headers["id"] = subID
-        stomp.unsubscribe(from: destination, headers: headers) { error in
+        stomp.unsubscribe(from: destination, headers: ["id": hashedStompID]) { error in
             if let error = error {
                 completed(.stompError(error))
             } else {

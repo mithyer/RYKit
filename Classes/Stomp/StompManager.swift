@@ -42,7 +42,7 @@ public class StompCallbackLifeHolder {
         stomp_queue.async { [callbackKey = self.callbackKey] in
             publisher.removeMessageCallback(for: callbackKey)
             if !publisher.hasCallbacks {
-                publisher.unsubscribe(with: nil) { _ in }
+                publisher.unsubscribe() { _ in }
             }
         }
     }
@@ -52,8 +52,8 @@ public class StompCallbackLifeHolder {
 public class StompManager<CHANNEL: StompChannel> {
     
     private let connection: StompConnection<CHANNEL>
-    private var destinationToPublisher = [String: any StompPublishCapable]()
-    private var waitToSubscribeDestinations = Set<String>()
+    private var stompIDToPublisher = [String: any StompPublishCapable]()
+    private var waitToSubscribeStompIDs = Set<String>()
     private var publisherLock = NSLock()
     private var checkTimer: DispatchSourceTimer?
     
@@ -80,8 +80,8 @@ public class StompManager<CHANNEL: StompChannel> {
                 return
             }
             publisherLock.lock()
-            self.destinationToPublisher.forEach { destination, publisher in
-                self.waitToSubscribeDestinations.insert(destination)
+            self.stompIDToPublisher.forEach { stompID, publisher in
+                self.waitToSubscribeStompIDs.insert(stompID)
             }
             publisherLock.unlock()
             debugPrint("=====STOMPV2 TRY RECONNECTION AFTER DISCONNECTED=====")
@@ -100,14 +100,14 @@ public class StompManager<CHANNEL: StompChannel> {
     }
     
     private func checkWaitToSubscribeDestinations() -> Bool? {
-        if self.waitToSubscribeDestinations.isEmpty {
+        if self.waitToSubscribeStompIDs.isEmpty {
             return nil
         }
         guard case .connected = self.connection.status else {
             return false
         }
-        waitToSubscribeDestinations.forEach({ destination in
-            let publisher = self.publisher(by: destination)
+        waitToSubscribeStompIDs.forEach({ stompID in
+            let publisher = self.publisher(by: stompID)
             guard let publisher = publisher, let stomp = self.connection.stomp else {
                 return
             }
@@ -119,21 +119,23 @@ public class StompManager<CHANNEL: StompChannel> {
             publisher.subscribe() { [weak self] error in
                 stomp_queue.async {
                     if nil != error {
-                        debugPrint("=====STOMPV2 NOTICE: subscribe faild, waiting retry \(destination)")
-                        self?.waitToSubscribeDestinations.insert(destination)
+                        debugPrint("=====STOMPV2 NOTICE: subscribe faild, waiting retry")
+                        debugPrint(stompID)
+                        self?.waitToSubscribeStompIDs.insert(stompID)
                         self?.startRepeatCheck()
                     } else {
-                        debugPrint("=====STOMPV2 NOTICE: subscribe successed \(destination)")
+                        debugPrint("=====STOMPV2 NOTICE: subscribe successed")
+                        debugPrint(stompID)
                     }
                 }
             }
         })
-        waitToSubscribeDestinations.removeAll()
+        waitToSubscribeStompIDs.removeAll()
         return true
     }
     
     private func startRepeatCheck() {
-        if self.waitToSubscribeDestinations.isEmpty || nil != checkTimer {
+        if self.waitToSubscribeStompIDs.isEmpty || nil != checkTimer {
             return
         }
         let timer = DispatchSource.makeTimerSource(flags: [], queue: stomp_queue)
@@ -186,28 +188,29 @@ public class StompManager<CHANNEL: StompChannel> {
         }
     }
     
-    private func publisher<T: Decodable>(by destination: String, dataType: T.Type) -> StompPublisher<T> {
+    private func publisher<T: Decodable>(by destination: String, stompID: String, dataType: T.Type) -> StompPublisher<T> {
         publisherLock.lock()
         defer {
             publisherLock.unlock()
         }
-        var publisher = self.destinationToPublisher[destination]
+        var publisher = self.stompIDToPublisher[stompID]
         if nil == publisher || !(publisher is StompPublisher<T>) {
             publisher = StompPublisher(destination: destination,
-                                       decodedPublishedSubject: decodedPublishedSubject,
-                                       unDecodedPublishedSubject: unDecodedPublishedSubject,
-                                       type: T.self)
-            destinationToPublisher[destination] = publisher!
+                                        stompID: stompID,
+                                        decodedPublishedSubject: decodedPublishedSubject,
+                                        unDecodedPublishedSubject: unDecodedPublishedSubject,
+                                        type: T.self)
+            stompIDToPublisher[stompID] = publisher!
         }
         return publisher as! StompPublisher<T>
     }
     
-    private func publisher(by destination: String) -> (any StompPublishCapable)? {
+    private func publisher(by stompID: String) -> (any StompPublishCapable)? {
         publisherLock.lock()
         defer {
             publisherLock.unlock()
         }
-        return self.destinationToPublisher[destination]
+        return self.stompIDToPublisher[stompID]
     }
     
 
@@ -216,22 +219,23 @@ public class StompManager<CHANNEL: StompChannel> {
     // receiveMessageStrategy: 接收消息的策略，可以选择在间隔时间类只接收最后一条消息，并忽略掉其他消息，用于处理大量返回数据
     // dataCallback: 数据返回回调
     // return的holder: 用户生命周期管理，释放后相应的订阅会被取消
-    public func subscribe<T: Decodable, S: StompSubscription>(dataType: T.Type,
-                                                       subscription: S,
-                                                       receiveMessageStrategy: ReceiveMessageStrategy,
-                                                       callbackQueue: DispatchQueue = DispatchQueue.main,
-                                                       dataCallback: @escaping (T, [String: String]?) -> Void) -> StompCallbackLifeHolder? {
+    public func subscribe<T: Decodable>(dataType: T.Type,
+                                        subscription: StompSubInfo,
+                                        receiveMessageStrategy: ReceiveMessageStrategy,
+                                        callbackQueue: DispatchQueue = DispatchQueue.main,
+                                        dataCallback: @escaping (T, [String: String]?) -> Void) -> StompCallbackLifeHolder? {
         if subscription.destination.isEmpty || subscription.identifier.isEmpty {
             debugPrint("=====STOMPV2 ERROR: Cannot subscribe, destination or identifier is empty")
             return nil
         }
         startConnection()
-        let publisher = self.publisher(by: subscription.destination, dataType: dataType)
+        let stompID = subscription.stompID(token: userToken)
+        let publisher = self.publisher(by: subscription.destination, stompID: stompID, dataType: dataType)
+        publisher.subscribeHeaders =  subscription.headers
         stomp_queue.async { [weak self] in
             guard let self = self else {
                 return
             }
-            publisher.subscribeHeaders =  subscription.subscribeHeaders
             let preExist = publisher.setMessageCallback(identifier: subscription.identifier,
                                                         outterSubject: connection.messageSubject,
                                                         strategy: receiveMessageStrategy,
@@ -239,54 +243,43 @@ public class StompManager<CHANNEL: StompChannel> {
                                                         callbackQueue: callbackQueue,
                                                         callback: dataCallback)
             if preExist {
-                debugPrint("=====STOMPV2 WARNING: subscription exist \(subscription), will be override")
+                debugPrint("=====STOMPV2 WARNING: subscription exist \(subscription.identifier), will be override")
             }
             if !publisher.subscribed {
                 if case .connected(let stomp) = self.connection.status {
                     publisher.stomp = stomp
                     publisher.subscribe() { [weak self] error in
                         if nil != error {
-                            debugPrint("=====STOMPV2 NOTICE: subscribe faild, waiting retry \(subscription)")
-                            self?.waitToSubscribeDestinations.insert(subscription.destination)
+                            debugPrint("=====STOMPV2 NOTICE: subscribe faild, waiting retry")
+                            debugPrint(stompID)
+                            self?.waitToSubscribeStompIDs.insert(subscription.destination)
                             self?.startRepeatCheck()
                         } else {
-                            debugPrint("=====STOMPV2 NOTICE: subscribe successed \(subscription)")
+                            debugPrint("=====STOMPV2 NOTICE: subscribe successed")
+                            debugPrint(stompID)
                         }
                     }
                 } else {
-                    waitToSubscribeDestinations.insert(subscription.destination)
+                    waitToSubscribeStompIDs.insert(stompID)
                     startRepeatCheck()
                 }
             }
         }
-        return StompCallbackLifeHolder(publisher: publisher, callbackKey: subscription.callbackKey)
+        return StompCallbackLifeHolder(publisher: publisher, callbackKey: subscription.identifier)
     }
     // 取消destination对应的某单个订阅
-    public func unsbscribe<S: StompSubscription>(subscription: S) {
+    public func unsbscribe(subscription: StompSubInfo) {
         stomp_queue.async { [weak self] in
             guard let self = self else {
                 return
             }
-            guard let publisher = publisher(by: subscription.destination) else {
+            guard let publisher = publisher(by: subscription.stompID(token: userToken)) else {
                 return
             }
-            publisher.removeMessageCallback(for: subscription.callbackKey)
+            publisher.removeMessageCallback(for: subscription.identifier)
             if !publisher.hasCallbacks {
-                publisher.unsubscribe(with: subscription.unsubscribeHeaders) { _ in }
+                publisher.unsubscribe() { _ in }
             }
-        }
-    }
-    // 取消destination对应的所有订阅
-    public func unsbscribe(destination: String, with headers: [String: String]?) {
-        stomp_queue.async { [weak self] in
-            guard let self = self else {
-                return
-            }
-            guard let publisher = publisher(by: destination) else {
-                return
-            }
-            publisher.removeAllCallbacks()
-            publisher.unsubscribe(with: headers) { _ in }
         }
     }
 

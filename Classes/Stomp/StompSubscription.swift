@@ -7,22 +7,30 @@
 
 import Foundation
 
-// 订阅协议
-public protocol StompSubscription: CustomDebugStringConvertible {
-    
-    var destination: String { get }
-    var identifier: String { get }
-    var subscribeHeaders: [String: String]? { get }
-    var unsubscribeHeaders: [String: String]? { get }
-    var callbackKey: String { get }
-}
 
-public extension StompSubscription {
+public class StompSubInfo: CustomDebugStringConvertible {
     
-    var subscribeHeaders: [String: String]? { nil }
-    var unsubscribeHeaders: [String: String]? { nil }
-    var callbackKey: String { identifier }
-    var debugDescription: String {
-        "\(destination) | \(identifier) | subscribeHeaders:\(subscribeHeaders ?? [:]) | unsubscribeHeaders:\(unsubscribeHeaders ?? [:]))"
+    public let destination: String
+    public let headers: [String: String]?
+    public let identifier: String
+    
+    public init(identifier: String, destination: String, headers: [String : String]?) {
+        self.destination = destination
+        self.headers = headers
+        self.identifier = identifier
+    }
+    
+    private var stompIDDic = [String: String]()
+    public func stompID(token: String) -> String {
+        var stompID = stompIDDic[token]
+        if nil == stompID {
+            stompID = "user: \(token), destination: \(destination)\(nil == headers ? "" : ", headers: \(headers!.sortedURLParams)")"
+            stompIDDic[token] = stompID
+        }
+        return stompID!
+    }
+    
+    public var debugDescription: String {
+        "\(destination) | identifier: \(identifier) | headers:\(headers ?? [:])) "
     }
 }
