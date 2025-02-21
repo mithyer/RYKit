@@ -135,11 +135,10 @@ public extension String {
 }
 
 // 使Decodable而不具Encodable的obj能直接打印
-public protocol JsonDebugStringConvertable: CustomDebugStringConvertible {
-    var debugDescription: String { get }
-}
+protocol JsonDebugStringConvertable: CustomDebugStringConvertible {}
 
-public extension JsonDebugStringConvertable {
+extension JsonDebugStringConvertable {
+    
     private static func convertToJsonValue(_ value: Any) -> Any? {
         let mirror = Mirror(reflecting: value)
         // 处理Optional
@@ -152,6 +151,11 @@ public extension JsonDebugStringConvertable {
         // 处理DefaultValue类型
         let typeName = String(describing: type(of: value))
         if typeName.starts(with: "DefaultValue<") {
+            if let wrappedValue = mirror.children.first(where: { $0.label == "wrappedValue" }) {
+                return convertToJsonValue(wrappedValue.value)
+            }
+        }
+        if typeName.starts(with: "PreferValue<") {
             if let wrappedValue = mirror.children.first(where: { $0.label == "wrappedValue" }) {
                 return convertToJsonValue(wrappedValue.value)
             }
