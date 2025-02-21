@@ -135,7 +135,7 @@ public extension String {
 }
 
 // 使Decodable而不具Encodable的obj能直接打印
-protocol JsonDebugStringConvertable: CustomDebugStringConvertible {}
+public protocol JsonDebugStringConvertable: CustomDebugStringConvertible {}
 
 extension JsonDebugStringConvertable {
     
@@ -187,7 +187,7 @@ extension JsonDebugStringConvertable {
         return result
     }
     
-    var debugDescription: String {
+    public var debugDescription: String {
         #if DEBUG
         let jsonValue = Self.convertToJsonValue(self)
         if let jsonData = try? JSONSerialization.data(withJSONObject: jsonValue ?? [:]),

@@ -35,7 +35,6 @@ public class StompCallbackLifeHolder {
     }
     
     deinit {
-        debugPrint("=====STOMP NOTICE: subsciption: \(destination), \(callbackKey) will be removed because no holder exist")
         guard let publisher = publisher else {
             return
         }
@@ -60,6 +59,7 @@ public class StompManager<CHANNEL: StompChannel> {
     // 用于汇总最后解析完成后的数据
     public var decodedPublishedSubject = DecodedPublishedSubject()
     public var unDecodedPublishedSubject = UnDecodedPublishedSubject()
+    public var enableLog: Bool = false
 
     public var connected: Bool {
         if case .connected = connection.status {
@@ -84,12 +84,12 @@ public class StompManager<CHANNEL: StompChannel> {
                 self.waitToSubscribeStompIDs.insert(stompID)
             }
             publisherLock.unlock()
-            debugPrint("=====STOMP TRY RECONNECTION AFTER DISCONNECTED=====")
+            stomp_log("TRY RECONNECTION AFTER DISCONNECTED")
             self.startConnection(delay: 5)
             self.startRepeatCheck()
         }
         connection.onReceiveError = { error in
-            debugPrint("=====STOMP RECEIVED ERROR: \(error)")
+            stomp_log("STOMP RECEIVED ERROR: \(error)", .error)
         }
         connection.onConnected =  { [weak self] stomp in
             guard let self = self else {
@@ -164,7 +164,7 @@ public class StompManager<CHANNEL: StompChannel> {
                 return
             }
             while !(await self.tryConnection()) {
-                debugPrint("=====STOMP WILL RETRY CONNECTION AFTER \(secondsToWait) seconds=====")
+                stomp_log("STOMP WILL RETRY CONNECTION AFTER \(secondsToWait) seconds")
                 try? await Task.sleep(nanoseconds: secondsToWait * 1_000_000_000)
                 secondsToWait = min(secondsToWait * 2, 60)
             }
@@ -220,7 +220,7 @@ public class StompManager<CHANNEL: StompChannel> {
                                         callbackQueue: DispatchQueue = DispatchQueue.main,
                                         dataCallback: @escaping (T, [String: String]?) -> Void) -> StompCallbackLifeHolder? {
         if subscription.destination.isEmpty || subscription.identifier.isEmpty {
-            debugPrint("=====STOMP ERROR: Cannot subscribe, destination or identifier is empty")
+            stomp_log("Cannot subscribe, destination or identifier is empty", .error)
             return nil
         }
         startConnection()
@@ -238,7 +238,7 @@ public class StompManager<CHANNEL: StompChannel> {
                                                         callbackQueue: callbackQueue,
                                                         callback: dataCallback)
             if preExist {
-                debugPrint("=====STOMP WARNING: subscription exist \(subscription.identifier), will be override")
+                stomp_log("subscription exist \(subscription.identifier), will be override", .warning)
             }
             if !publisher.subscribed {
                 if case .connected(let stomp) = self.connection.status {
@@ -275,7 +275,7 @@ public class StompManager<CHANNEL: StompChannel> {
 
     deinit {
         checkTimer?.cancel()
-        debugPrint("=====STOMP NOTICE: StompManager destroyed(user token: \(userToken)")
+        stomp_log("StompManager destroyed(user token: \(userToken)")
     }
 }
 

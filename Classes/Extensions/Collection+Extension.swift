@@ -9,8 +9,7 @@ import CommonCrypto
 
 extension String {
     
-    var sha1: String {
-        
+    public var sha1: String {
         let data = Data(self.utf8)
         var digest = [UInt8](repeating: 0, count:Int(CC_SHA1_DIGEST_LENGTH))
         data.withUnsafeBytes {
@@ -23,24 +22,27 @@ extension String {
 
 extension Dictionary where Key == String, Value == String {
     
-    var sha1: String {
-        
-        let str = sortedURLParams
-        let data = Data(str.utf8)
-        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
-        _ = data.withUnsafeBytes { buffer in
-            CC_SHA1(buffer.baseAddress, CC_LONG(data.count), &digest)
-        }
-        return digest.map { String(format: "%02hhx", $0) }.joined()
+    public var sha1: String {
+        sortedURLParams.sha1
     }
     
-    var sortedURLParams: String {
-        
+    public var sortedURLParams: String {
         let sortedKeys = self.keys.sorted()
         let str = sortedKeys.map { key in
             let value = self[key] ?? ""
             return "\(key)=\(value)"
         }.joined(separator: "&")
         return str
+    }
+}
+
+extension Array where Element == String {
+    
+    public var sha1: String {
+        sortedJoined.sha1
+    }
+    
+    public var sortedJoined: String {
+        sorted().joined(separator: ",")
     }
 }

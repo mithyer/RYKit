@@ -26,6 +26,7 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebug
 
     public init(wrappedValue: Provider.Value) {
         self.wrappedValue = wrappedValue
+        self.useDefaultValue = false
     }
 
     public init(from decoder: Decoder) throws {

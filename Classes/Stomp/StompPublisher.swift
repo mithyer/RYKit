@@ -118,7 +118,7 @@ fileprivate class MessageDispatcher<T: Decodable> {
             publisher.unDecodedPublishedSubject?.send((stringMsg, dataMsg, publisher))
             return
         }
-        debugPrint("received msg: \(identifier): \(publisher.stompID)")
+        stomp_log("received msg: \(identifier): \(publisher.stompID)\n\(nil != stringMsg ? stringMsg! : "")\(nil != dataMsg ? "data message" : "")", .message, .all)
         publisher.unDecodedPublishedSubject?.send((stringMsg, dataMsg, publisher))
         publisher.decodedPublishedSubject?.send((res, publisher))
     }
@@ -128,7 +128,7 @@ fileprivate class MessageDispatcher<T: Decodable> {
         do {
             res = try decoder.decode(T.self, from: data)
         } catch let e {
-            debugPrint("STOMP: StompPublisher.publishMessage data decoded error: \(e)")
+            stomp_log("StompPublisher.publishMessage data decoded error: \(e)", .error)
             return nil
         }
         callbackQueue?.async {
@@ -145,7 +145,7 @@ fileprivate class MessageDispatcher<T: Decodable> {
             }
             res = try decoder.decode(T.self, from: data)
         } catch let e {
-            debugPrint("STOMP: StompPublisher.publishMessage data decoded error: \(e)")
+            stomp_log("StompPublisher.publishMessage data decoded error: \(e)", .error)
             return nil
         }
         callbackQueue?.async {
@@ -155,7 +155,7 @@ fileprivate class MessageDispatcher<T: Decodable> {
     }
     
     deinit {
-        // debugPrint("MessageDispatcher destination: \(publisher?.destination ?? "") \(identifier) deinit")
+        // stomp_log("MessageDispatcher destination: \(publisher?.destination ?? "") \(identifier) deinit")
     }
 }
 
@@ -231,12 +231,10 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         let stompID = stompID
         stomp.subscribe(to: destination, headers: headers) { error in
             if let error = error {
-                debugPrint("=====STOMP NOTICE: subscribe faild \(error), waiting retry")
-                debugPrint(stompID)
+                stomp_log("subscribe faild \n\(stompID)\n\(error), waiting retry", .error)
                 completed(.stompError(error))
             } else {
-                debugPrint("=====STOMP NOTICE: subscribe successed")
-                debugPrint(stompID)
+                stomp_log("subscribe successed\n\(stompID)")
                 self.subscribed = true
                 completed(nil)
             }
@@ -256,12 +254,10 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         let destination = destination
         stomp.unsubscribe(from: destination, headers: ["id": hashedStompID]) { error in
             if let error = error {
-                debugPrint("=====STOMP NOTICE: UnSubscribe faild \(error)")
-                debugPrint(stompID)
+                stomp_log("UnSubscribe faild \n\(stompID)\n\(error)", .error)
                 completed(.stompError(error))
             } else {
-                debugPrint("=====STOMP NOTICE: Unsubscribe successed")
-                debugPrint(stompID)
+                stomp_log("Unsubscribe successed\n\(stompID)")
                 self.subscribed = true
                 completed(nil)
             }

@@ -21,10 +21,10 @@ public class StompSubInfo: CustomDebugStringConvertible {
     }
     
     func stompID(token: String) -> String {
-        "user: \(token), destination: \(destination)\(nil == headers ? "" : ", headers: \(headers!.sortedURLParams)")"
+        "user: \(token), destination: \(destination)\(nil == headers ? "" : ", subHeaders: \(headers!.sortedURLParams)")"
     }
     
     public var debugDescription: String {
-        "\(destination) | identifier: \(identifier) | headers:\(headers ?? [:])) "
+        "\(destination) | identifier: \(identifier) | subHeaders:\(headers ?? [:])) "
     }
 }
