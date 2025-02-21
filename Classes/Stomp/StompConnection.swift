@@ -55,7 +55,7 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
         }
         if case let .successed(data) = status {
             if let expireDate = expireDate, expireDate > Date() {
-                debugPrint("STOMPV2 NOTICE: use old handshakeID")
+                debugPrint("STOMP NOTICE: use old handshakeID")
                 completedCall = nil
                 completed(.success((false, data)))
                 return
@@ -78,7 +78,7 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
             debugPrint("STOMP FAILED ERROR: \(self.status.fetchError ?? .undefined)")
             self.completedCall = nil
         }
-        debugPrint("STOMPV2 NOTICE: fetch new handshakeID")
+        debugPrint("STOMP NOTICE: fetch new handshakeID")
         func startTask() {
             curTask = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
                 self?.taskQueue.async {
@@ -206,10 +206,10 @@ class StompConnection<CHANNEL: StompChannel> {
         switch fetchRes {
         case let .success((_, data)):
             handshakeData = data
-            debugPrint("=====STOMPV2 handshakeId fetched: \(data.handshakeId ?? "")")
+            debugPrint("=====STOMP handshakeId fetched: \(data.handshakeId ?? "")")
         case .failure(let failure):
             status = .failed(.handshakeInit)
-            debugPrint("=====STOMPV2 ERROR: \(failure)")
+            debugPrint("=====STOMP ERROR: \(failure)")
             return false
         }
         status = .connecting
@@ -239,13 +239,13 @@ class StompConnection<CHANNEL: StompChannel> {
                 switch event {
                 case .connected(let type):
                     if type == .toStomp {
-                        debugPrint("=====STOMPV2: Stomp Connected 1 ======")
+                        debugPrint("=====STOMP: Stomp Connected 1 ======")
                         self.status = .connected(stomp)
                         self.eventListenCancellable = nil
                         con.resume(returning: true)
                         self.onConnected?(stomp)
                     } else {
-                        debugPrint("=====STOMPV2: WebSocket Connected 1 ======")
+                        debugPrint("=====STOMP: WebSocket Connected 1 ======")
                     }
                 case .disconnected(_):
                     self.status = .disconnected
@@ -254,10 +254,10 @@ class StompConnection<CHANNEL: StompChannel> {
                 case let .error(error):
                     if case let .fromSocket(error) = error, let nsError = error as NSError?  {
                         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorTimedOut {
-                            debugPrint("=====STOMPV2: WebSocket timeout ======")
+                            debugPrint("=====STOMP: WebSocket timeout ======")
                         }
                     }
-                    debugPrint("=====STOMPV2 ERROR: \(error)")
+                    debugPrint("=====STOMP ERROR: \(error)")
                     self.status = .failed(.connection(error))
                     self.eventListenCancellable = nil
                     con.resume(returning: false)
@@ -276,19 +276,19 @@ class StompConnection<CHANNEL: StompChannel> {
                     switch event {
                     case .disconnected(let type):
                         self.status = .disconnected
-                        debugPrint("=====STOMPV2 DISCONNECTED: \(type)")
+                        debugPrint("=====STOMP DISCONNECTED: \(type)")
                         self.onDisconnected?()
                     case .error(let error):
-                        debugPrint("=====STOMPV2 ERROR: \(error)")
+                        debugPrint("=====STOMP ERROR: \(error)")
                         self.onReceiveError?(error)
                     case .connected(let type):
-                        debugPrint("=====STOMPV2 CONNECTED \(type)")
+                        debugPrint("=====STOMP CONNECTED \(type)")
                         if type == .toStomp {
-                            debugPrint("=====STOMPV2: Stomp Connected 2 ======")
+                            debugPrint("=====STOMP: Stomp Connected 2 ======")
                             self.status = .connected(stomp)
                             self.onConnected?(stomp)
                         } else {
-                            debugPrint("=====STOMPV2: WebSocket Connected 2 ======")
+                            debugPrint("=====STOMP: WebSocket Connected 2 ======")
                         }
                     }
             })

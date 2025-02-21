@@ -141,7 +141,7 @@ fileprivate class MessageDispatcher<T: Decodable> {
         let res: T
         do {
             guard let data = message.data(using: .utf8) else {
-                throw NSError.init(domain: "stompv2.publisher", code: -1, userInfo: [NSLocalizedDescriptionKey : "data error"])
+                throw NSError.init(domain: "stomp.publisher", code: -1, userInfo: [NSLocalizedDescriptionKey : "data error"])
             }
             res = try decoder.decode(T.self, from: data)
         } catch let e {
@@ -231,11 +231,11 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         let stompID = stompID
         stomp.subscribe(to: destination, headers: headers) { error in
             if let error = error {
-                debugPrint("=====STOMPV2 NOTICE: subscribe faild \(error), waiting retry")
+                debugPrint("=====STOMP NOTICE: subscribe faild \(error), waiting retry")
                 debugPrint(stompID)
                 completed(.stompError(error))
             } else {
-                debugPrint("=====STOMPV2 NOTICE: subscribe successed")
+                debugPrint("=====STOMP NOTICE: subscribe successed")
                 debugPrint(stompID)
                 self.subscribed = true
                 completed(nil)
@@ -256,11 +256,11 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         let destination = destination
         stomp.unsubscribe(from: destination, headers: ["id": hashedStompID]) { error in
             if let error = error {
-                debugPrint("=====STOMPV2 NOTICE: UnSubscribe faild \(error)")
+                debugPrint("=====STOMP NOTICE: UnSubscribe faild \(error)")
                 debugPrint(stompID)
                 completed(.stompError(error))
             } else {
-                debugPrint("=====STOMPV2 NOTICE: Unsubscribe successed")
+                debugPrint("=====STOMP NOTICE: Unsubscribe successed")
                 debugPrint(stompID)
                 self.subscribed = true
                 completed(nil)

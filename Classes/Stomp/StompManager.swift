@@ -18,7 +18,7 @@ public enum ReceiveMessageStrategy {
 public typealias DecodedPublishedSubject = PassthroughSubject<(decoded: any Decodable, publisher: any StompPublishBaseCapable), Never>
 public typealias UnDecodedPublishedSubject = PassthroughSubject<(stringMessage: String?, dataMessage: Data?, publisher: any StompPublishBaseCapable), Never>
 
-private let stomp_queue = DispatchQueue.init(label: "com.stompv2.event", qos: .userInteractive, autoreleaseFrequency: .workItem)
+private let stomp_queue = DispatchQueue.init(label: "com.stomp.event", qos: .userInteractive, autoreleaseFrequency: .workItem)
 
 // 用于管理订阅回调的生命周期，释放后相应的回调会被移除
 public class StompCallbackLifeHolder {
@@ -35,7 +35,7 @@ public class StompCallbackLifeHolder {
     }
     
     deinit {
-        debugPrint("=====STOMPV2 NOTICE: subsciption: \(destination), \(callbackKey) will be removed because no holder exist")
+        debugPrint("=====STOMP NOTICE: subsciption: \(destination), \(callbackKey) will be removed because no holder exist")
         guard let publisher = publisher else {
             return
         }
@@ -84,12 +84,12 @@ public class StompManager<CHANNEL: StompChannel> {
                 self.waitToSubscribeStompIDs.insert(stompID)
             }
             publisherLock.unlock()
-            debugPrint("=====STOMPV2 TRY RECONNECTION AFTER DISCONNECTED=====")
+            debugPrint("=====STOMP TRY RECONNECTION AFTER DISCONNECTED=====")
             self.startConnection(delay: 5)
             self.startRepeatCheck()
         }
         connection.onReceiveError = { error in
-            debugPrint("=====STOMPV2 RECEIVED ERROR: \(error)")
+            debugPrint("=====STOMP RECEIVED ERROR: \(error)")
         }
         connection.onConnected =  { [weak self] stomp in
             guard let self = self else {
@@ -164,7 +164,7 @@ public class StompManager<CHANNEL: StompChannel> {
                 return
             }
             while !(await self.tryConnection()) {
-                debugPrint("=====STOMPV2 WILL RETRY CONNECTION AFTER \(secondsToWait) seconds=====")
+                debugPrint("=====STOMP WILL RETRY CONNECTION AFTER \(secondsToWait) seconds=====")
                 try? await Task.sleep(nanoseconds: secondsToWait * 1_000_000_000)
                 secondsToWait = min(secondsToWait * 2, 60)
             }
@@ -220,7 +220,7 @@ public class StompManager<CHANNEL: StompChannel> {
                                         callbackQueue: DispatchQueue = DispatchQueue.main,
                                         dataCallback: @escaping (T, [String: String]?) -> Void) -> StompCallbackLifeHolder? {
         if subscription.destination.isEmpty || subscription.identifier.isEmpty {
-            debugPrint("=====STOMPV2 ERROR: Cannot subscribe, destination or identifier is empty")
+            debugPrint("=====STOMP ERROR: Cannot subscribe, destination or identifier is empty")
             return nil
         }
         startConnection()
@@ -238,7 +238,7 @@ public class StompManager<CHANNEL: StompChannel> {
                                                         callbackQueue: callbackQueue,
                                                         callback: dataCallback)
             if preExist {
-                debugPrint("=====STOMPV2 WARNING: subscription exist \(subscription.identifier), will be override")
+                debugPrint("=====STOMP WARNING: subscription exist \(subscription.identifier), will be override")
             }
             if !publisher.subscribed {
                 if case .connected(let stomp) = self.connection.status {
@@ -275,7 +275,7 @@ public class StompManager<CHANNEL: StompChannel> {
 
     deinit {
         checkTimer?.cancel()
-        debugPrint("=====STOMPV2 NOTICE: StompManager destroyed(user token: \(userToken)")
+        debugPrint("=====STOMP NOTICE: StompManager destroyed(user token: \(userToken)")
     }
 }
 

@@ -20,14 +20,8 @@ public class StompSubInfo: CustomDebugStringConvertible {
         self.identifier = identifier
     }
     
-    private var stompIDDic = [String: String]()
-    public func stompID(token: String) -> String {
-        var stompID = stompIDDic[token]
-        if nil == stompID {
-            stompID = "user: \(token), destination: \(destination)\(nil == headers ? "" : ", headers: \(headers!.sortedURLParams)")"
-            stompIDDic[token] = stompID
-        }
-        return stompID!
+    func stompID(token: String) -> String {
+        "user: \(token), destination: \(destination)\(nil == headers ? "" : ", headers: \(headers!.sortedURLParams)")"
     }
     
     public var debugDescription: String {
