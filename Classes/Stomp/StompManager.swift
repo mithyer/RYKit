@@ -48,7 +48,7 @@ public class StompCallbackLifeHolder {
 }
 
 // 订阅管理类，主要使用的类
-public class StompManager<CHANNEL: StompChannel> {
+open class StompManager<CHANNEL: StompChannel> {
     
     private let connection: StompConnection<CHANNEL>
     private var stompIDToPublisher = [String: any StompPublishCapable]()
