@@ -41,7 +41,7 @@ public extension Decodable {
                 debugPrint("Decodable.fromJsonString Error: \(e)")
             }
         }
-        self.init(fromJsonData: Data(), decoder: decoder)
+        return nil
     }
     
     init?(fromJsonDic dic: [String: Any], decoder: JSONDecoder = JSONDecoder()) {
