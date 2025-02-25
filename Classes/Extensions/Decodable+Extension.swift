@@ -121,13 +121,16 @@ public extension Array where Element: Initializable & Decodable {
 
 public extension String {
     
-    func toJsonModel<T: Decodable>() -> T? {
-        return T(fromJsonString: self) 
+    func toJsonModel<T: Decodable>(_ validationCheck: ((T) -> Bool)? = nil) -> T? {
+        if let model = T(fromJsonString: self), validationCheck?(model) ?? true {
+            return model
+        }
+        return nil
     }
     
-    func toJsonModel<T: Decodable>(withDefault value: @autoclosure () -> T) -> T {
-        if let res = T(fromJsonString: self) {
-            return res
+    func toJsonModel<T: Decodable>(_ validationCheck: ((T) -> Bool)? = nil, withDefault value: @autoclosure () -> T) -> T {
+        if let model = T(fromJsonString: self), validationCheck?(model) ?? true {
+            return model
         }
         debugPrint("String.toJsonModel \(T.self) parse \(self) failed, use default instead")
         return value()
