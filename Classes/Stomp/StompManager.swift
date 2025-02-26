@@ -218,7 +218,7 @@ open class StompManager<CHANNEL: StompChannel> {
                                         subscription: StompSubInfo,
                                         receiveMessageStrategy: ReceiveMessageStrategy,
                                         callbackQueue: DispatchQueue = DispatchQueue.main,
-                                        dataCallback: @escaping (T, [String: String]?) -> Void) -> StompCallbackLifeHolder? {
+                                        dataCallback: @escaping (T?, [String: String]?, Any) -> Void) -> StompCallbackLifeHolder? {
         if subscription.destination.isEmpty || subscription.identifier.isEmpty {
             stomp_log("Cannot subscribe, destination or identifier is empty", .error)
             return nil

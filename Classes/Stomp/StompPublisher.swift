@@ -22,7 +22,7 @@ protocol StompPublishCapable: StompPublishBaseCapable {
                             strategy: ReceiveMessageStrategy,
                             subscribeQueue: DispatchQueue,
                             callbackQueue: DispatchQueue,
-                            callback: @escaping (DecodableType, [String : String]?) -> Void) -> Bool
+                            callback: @escaping (DecodableType?, [String : String]?, Any) -> Void) -> Bool
     func removeMessageCallback(for identifier: String)
     func removeAllCallbacks()
     var subscribed: Bool { get set }
@@ -45,7 +45,7 @@ enum SubscriptionError: Error {
 fileprivate class MessageDispatcher<T: Decodable> {
     
     let identifier: String
-    let callback: (T, [String: String]?) -> Void
+    let callback: (T?, [String: String]?, Any) -> Void
     let decoder = JSONDecoder()
     var cancelables = Set<AnyCancellable>()
     weak var callbackQueue: DispatchQueue?
@@ -53,11 +53,11 @@ fileprivate class MessageDispatcher<T: Decodable> {
 
     init(identifier: String,
          publisher: any StompPublishCapable,
-         outterSubject: PassthroughSubject<StompUpstreamMessage, Never>,
+         outterSubject: Publishers.Filter<PassthroughSubject<StompUpstreamMessage, Never>>,
          strategy: ReceiveMessageStrategy,
          subscribeQueue: DispatchQueue,
          callbackQueue: DispatchQueue,
-         callback: @escaping (T, [String : String]?) -> Void) {
+         callback: @escaping (T?, [String : String]?, Any) -> Void) {
         
         self.identifier = identifier
         self.callback = callback
@@ -124,32 +124,30 @@ fileprivate class MessageDispatcher<T: Decodable> {
     }
     
     func publishMessage(data: Data, headers: [String: String]?) -> T? {
-        let res: T
+        var res: T?
         do {
             res = try decoder.decode(T.self, from: data)
         } catch let e {
             stomp_log("StompPublisher.publishMessage data decoded error: \(e)", .error)
-            return nil
         }
         callbackQueue?.async {
-            self.callback(res, headers)
+            self.callback(res, headers, data)
         }
         return res
     }
     
     func publishMessage(message: String, headers: [String: String]?) -> T? {
-        let res: T
+        var res: T?
         do {
             guard let data = message.data(using: .utf8) else {
                 throw NSError.init(domain: "stomp.publisher", code: -1, userInfo: [NSLocalizedDescriptionKey : "data error"])
             }
             res = try decoder.decode(T.self, from: data)
         } catch let e {
-            stomp_log("StompPublisher.publishMessage data decoded error: \(e)", .error)
-            return nil
+            stomp_log("StompPublisher.publishMessage message decoded error: \(message) \n \(e)", .error)
         }
         callbackQueue?.async {
-            self.callback(res, headers)
+            self.callback(res, headers, message)
         }
         return res
     }
@@ -196,12 +194,18 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
                             strategy: ReceiveMessageStrategy,
                             subscribeQueue: DispatchQueue,
                             callbackQueue: DispatchQueue,
-                            callback: @escaping (T, [String : String]?) -> Void) -> Bool {
-        
+                            callback: @escaping (T?, [String : String]?, Any) -> Void) -> Bool {
         let preHave = dispatchers.keys.contains(identifier)
+        let hashedStompID = self.hashedStompID
         dispatchers[identifier] = MessageDispatcher(identifier: identifier,
                                                    publisher: self,
-                                                   outterSubject: outterSubject,
+                                                    outterSubject: outterSubject.filter({ message in
+            guard let subID = message.subscriptionID else {
+                stomp_log("Message has no subscription ID", .error)
+                return false
+            }
+            return subID == hashedStompID
+        }),
                                                    strategy: strategy,
                                                    subscribeQueue: subscribeQueue,
                                                    callbackQueue: callbackQueue,
@@ -231,10 +235,10 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         let stompID = stompID
         stomp.subscribe(to: destination, headers: headers) { error in
             if let error = error {
-                stomp_log("subscribe faild \n\(stompID)\n\(error), waiting retry", .error)
+                stomp_log("subscribe faild \n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\n\(error), waiting retry", .error)
                 completed(.stompError(error))
             } else {
-                stomp_log("subscribe successed\n\(stompID)")
+                stomp_log("subscribe successed\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))")
                 self.subscribed = true
                 completed(nil)
             }
@@ -254,10 +258,10 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         let destination = destination
         stomp.unsubscribe(from: destination, headers: ["id": hashedStompID]) { error in
             if let error = error {
-                stomp_log("UnSubscribe faild \n\(stompID)\n\(error)", .error)
+                stomp_log("Remove Subscribed faild \n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\n\(error)", .error)
                 completed(.stompError(error))
             } else {
-                stomp_log("Unsubscribe successed\n\(stompID)")
+                stomp_log("Remove subscribed successed\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))")
                 self.subscribed = true
                 completed(nil)
             }
