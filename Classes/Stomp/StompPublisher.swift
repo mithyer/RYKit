@@ -183,7 +183,7 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
          type: T.Type) {
         self.destination = destination
         self.stompID = stompID
-        self.hashedStompID = stompID.sha1
+        self.hashedStompID = "ios_\(stompID.sha1)"
         self.decodedPublishedSubject = decodedPublishedSubject
         self.unDecodedPublishedSubject = unDecodedPublishedSubject
     }
@@ -197,14 +197,21 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
                             callback: @escaping (T?, [String : String]?, Any) -> Void) -> Bool {
         let preHave = dispatchers.keys.contains(identifier)
         let hashedStompID = self.hashedStompID
+        let destination = self.destination
         dispatchers[identifier] = MessageDispatcher(identifier: identifier,
                                                    publisher: self,
                                                     outterSubject: outterSubject.filter({ message in
+            if message.destination != destination {
+                return false
+            }
             guard let subID = message.subscriptionID else {
                 stomp_log("Message has no subscription ID", .error)
                 return false
             }
-            return subID == hashedStompID
+            if subID != hashedStompID {
+                return false
+            }
+            return true
         }),
                                                    strategy: strategy,
                                                    subscribeQueue: subscribeQueue,

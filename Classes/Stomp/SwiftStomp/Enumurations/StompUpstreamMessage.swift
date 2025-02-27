@@ -13,10 +13,19 @@ enum StompUpstreamMessage {
     
     var subscriptionID: String? {
         switch self {
-        case .text(let message, let messageId, let destination, let headers):
+        case .text(_, _, _, let headers):
             return headers[StompCommonHeader.subscription.rawValue]
-        case .data(let data, let messageId, let destination, let headers):
+        case .data(_, _, _, let headers):
             return headers[StompCommonHeader.subscription.rawValue]
+        }
+    }
+    
+    var destination: String? {
+        switch self {
+        case .text(_, _, let destination, _):
+            return destination
+        case .data(_, _, let destination, _):
+            return destination
         }
     }
 }

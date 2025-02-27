@@ -218,6 +218,7 @@ open class StompManager<CHANNEL: StompChannel> {
                                         subscription: StompSubInfo,
                                         receiveMessageStrategy: ReceiveMessageStrategy,
                                         callbackQueue: DispatchQueue = DispatchQueue.main,
+                                        subscribedCallback: ((Result<(), Error>) -> Void)? = nil,
                                         dataCallback: @escaping (T?, [String: String]?, Any) -> Void) -> StompCallbackLifeHolder? {
         if subscription.destination.isEmpty || subscription.identifier.isEmpty {
             stomp_log("Cannot subscribe, destination or identifier is empty", .error)
@@ -244,9 +245,12 @@ open class StompManager<CHANNEL: StompChannel> {
                 if case .connected(let stomp) = self.connection.status {
                     publisher.stomp = stomp
                     publisher.subscribe() { [weak self] error in
-                        if nil != error {
+                        if let error = error {
                             self?.waitToSubscribeStompIDs.insert(subscription.destination)
                             self?.startRepeatCheck()
+                            subscribedCallback?(.failure(error))
+                        } else {
+                            subscribedCallback?(.success(()))
                         }
                     }
                 } else {
