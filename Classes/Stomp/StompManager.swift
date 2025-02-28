@@ -55,7 +55,8 @@ open class StompManager<CHANNEL: StompChannel> {
     private var waitToSubscribeStompIDs = Set<String>()
     private var publisherLock = NSLock()
     private var checkTimer: DispatchSourceTimer?
-    
+    private var secondsToWaitReConnection: UInt64 = 5
+
     // 用于汇总最后解析完成后的数据
     public var decodedPublishedSubject = DecodedPublishedSubject()
     public var unDecodedPublishedSubject = UnDecodedPublishedSubject()
@@ -95,6 +96,7 @@ open class StompManager<CHANNEL: StompChannel> {
             guard let self = self else {
                 return
             }
+            secondsToWaitReConnection = 5
             _ = checkWaitToSubscribeDestinations()
         }
     }
@@ -157,16 +159,15 @@ open class StompManager<CHANNEL: StompChannel> {
         default:
             return
         }
-        var secondsToWait: UInt64 = 5
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
             guard let self = self else {
                 return
             }
             while !(await self.tryConnection()) {
-                stomp_log("STOMP WILL RETRY CONNECTION AFTER \(secondsToWait) seconds")
-                try? await Task.sleep(nanoseconds: secondsToWait * 1_000_000_000)
-                secondsToWait = min(secondsToWait * 2, 60)
+                stomp_log("STOMP WILL RETRY CONNECTION AFTER \(secondsToWaitReConnection) seconds")
+                try? await Task.sleep(nanoseconds: secondsToWaitReConnection * 1_000_000_000)
+                secondsToWaitReConnection = min(secondsToWaitReConnection * 2, 60)
             }
         }
     }

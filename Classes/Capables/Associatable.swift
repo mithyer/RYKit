@@ -29,7 +29,7 @@ extension Associatable {
             var dic = objc_getAssociatedObject(self, &associatedDictionaryKey) as? NSMutableDictionary
             if nil == dic {
                 dic = NSMutableDictionary()
-                objc_setAssociatedObject(dic!, &associatedDictionaryKey, dic, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                objc_setAssociatedObject(self, &associatedDictionaryKey, dic, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             }
             return dic!
         }
