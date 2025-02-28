@@ -11,9 +11,16 @@ fileprivate var associatedDictionaryKey: () = ()
 
 public protocol Associatable {
     
-    func associated<T>(_ key: String, initializer: @autoclosure () -> T) -> T
+    func associated<T>(_ key: String, initializer: @autoclosure () -> T?) -> T?
+    func setAssociated<T>(_ key: String, value: T?)
 }
 
+fileprivate class Wrapper<T> {
+    var v: T?
+    init(_ t: T?) {
+        self.v = t
+    }
+}
 
 extension Associatable {
     
@@ -28,15 +35,22 @@ extension Associatable {
         }
     }
     
-    public func associated<T>(_ key: String = "\(T.self)", initializer: @autoclosure () -> T) -> T {
+    public func associated<T>(_ key: String = "\(T.self)", initializer: @autoclosure () -> T?) -> T? {
         let dic = associatedDictionary
-        let key = "\(T.self)"
-        var t = dic[key] as? T
-        if nil == t {
-            t = initializer()
-            dic[key] = t
+        var wrapper = dic[key] as? Wrapper<T>
+        if nil == wrapper {
+            wrapper = Wrapper(initializer())
+            dic[key] = wrapper!
         }
-        return t!
+        return wrapper!.v
     }
-
+    
+    public func setAssociated<T>(_ key: String = "\(T.self)", value: T?) {
+        let dic = associatedDictionary
+        if let wrapper = dic[key] as? Wrapper<T> {
+            wrapper.v = value
+        } else {
+            dic[key] = Wrapper(value)
+        }
+    }
 }

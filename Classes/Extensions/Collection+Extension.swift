@@ -39,10 +39,10 @@ extension Dictionary where Key == String, Value == String {
 extension Array where Element == String {
     
     public var sha1: String {
-        sortedJoined.sha1
+        sortedJoined(separator: ",").sha1
     }
     
-    public var sortedJoined: String {
-        sorted().joined(separator: ",")
+    public func sortedJoined(separator: String) -> String {
+        sorted().joined(separator: separator)
     }
 }
