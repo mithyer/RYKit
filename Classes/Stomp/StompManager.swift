@@ -258,6 +258,8 @@ open class StompManager<CHANNEL: StompChannel> {
                     waitToSubscribeStompIDs.insert(stompID)
                     startRepeatCheck()
                 }
+            } else {
+                stomp_log("publiser already subscribed \(stompID)")
             }
         }
         return StompCallbackLifeHolder(publisher: publisher, callbackKey: subscription.identifier)

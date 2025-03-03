@@ -7,7 +7,7 @@
 
 import Foundation
 
-fileprivate var associatedDictionaryKey: () = ()
+fileprivate var associatedDictionaryKey: Int = 0
 
 public protocol Associatable {
     
