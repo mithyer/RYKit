@@ -274,7 +274,7 @@ extension SwiftStomp{
             completion?(error)
         }
 
-        self.stompLog(type: .info, message: "Stomp: Ping sent!")
+        // self.stompLog(type: .info, message: "Stomp: Ping sent!")
 
         //** Reset ping timer
         self.resetPingTimer()
