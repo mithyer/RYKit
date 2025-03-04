@@ -238,14 +238,15 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
             return
         }
         var headers = subscribeHeaders ?? [:]
+        let hashedStompID = hashedStompID
         headers["id"] = hashedStompID
         let stompID = stompID
         stomp.subscribe(to: destination, headers: headers) { error in
             if let error = error {
-                stomp_log("subscribe faild \n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\n\(error), waiting retry", .error)
+                stomp_log("subscribe faild \n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\nid: hashedStompID\n\(error), waiting retry", .error)
                 completed(.stompError(error))
             } else {
-                stomp_log("subscribe successed\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))")
+                stomp_log("subscribe successed\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\nid: \(hashedStompID)")
                 self.subscribed = true
                 completed(nil)
             }

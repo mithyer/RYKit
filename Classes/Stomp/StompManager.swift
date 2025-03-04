@@ -80,6 +80,12 @@ open class StompManager<CHANNEL: StompChannel> {
             guard let self = self else {
                 return
             }
+            switch self.connection.status {
+            case .connecting, .fetchingHandShakeId:
+                return
+            default:
+                break
+            }
             publisherLock.lock()
             self.stompIDToPublisher.forEach { stompID, publisher in
                 self.waitToSubscribeStompIDs.insert(stompID)
@@ -95,6 +101,9 @@ open class StompManager<CHANNEL: StompChannel> {
         connection.onConnected =  { [weak self] stomp in
             guard let self = self else {
                 return
+            }
+            stompIDToPublisher.values.forEach { publisher in
+                publisher.stomp = stomp
             }
             secondsToWaitReConnection = 5
             _ = checkWaitToSubscribeDestinations()

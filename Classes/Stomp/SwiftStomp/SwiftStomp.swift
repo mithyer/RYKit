@@ -37,7 +37,7 @@ class SwiftStomp: NSObject {
     fileprivate var autoPingEnabled = false
     fileprivate var pingErrorOccurCount: Int = 0
 
-    var maxPingErrorTolerance: Int = 3
+    var maxPingErrorTolerance: Int = 2
     weak var delegate: SwiftStompDelegate?
     
     /// Streams
@@ -559,7 +559,10 @@ fileprivate extension SwiftStomp{
                 t.invalidate()
             }
             
-            func handlePingFailure() {
+            var confirmPingFailure = { [weak self] in
+                guard let self = self else {
+                    return
+                }
                 self.pingErrorOccurCount += 1
                 guard self.pingErrorOccurCount >= self.maxPingErrorTolerance else {
                     return
@@ -598,10 +601,10 @@ fileprivate extension SwiftStomp{
                         self.disconnect(force: true)
                     case NSURLErrorTimedOut:
                         self.stompLog(type: .info, message: "ping timed out")
-                        handlePingFailure()
+                        confirmPingFailure()
                     default:
                         self.stompLog(type: .info, message: "ping other error: \(error)")
-                        handlePingFailure()
+                        confirmPingFailure()
                     }
                 }
             }

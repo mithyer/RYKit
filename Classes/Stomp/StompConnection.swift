@@ -225,9 +225,9 @@ class StompConnection<CHANNEL: StompChannel> {
         let stomp = stomp!
         stomp.callbacksThread = callbackQueue
         stomp.autoReconnect = false
-        stomp.enableAutoPing(pingInterval: 15)
+        stomp.enableAutoPing(pingInterval: 12)
 #if DEBUG
-        // stomp.enableLogging = true
+        stomp.enableLogging = true
 #endif
         let connected: Bool = await withCheckedContinuation { con in
             eventListenCancellable = stomp.eventsUpstream
@@ -275,6 +275,7 @@ class StompConnection<CHANNEL: StompChannel> {
                     }
                     switch event {
                     case .disconnected(let type):
+                        self.stomp = nil
                         self.status = .disconnected
                         stomp_log("DISCONNECTED: \(type)")
                         self.onDisconnected?()
