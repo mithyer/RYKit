@@ -301,3 +301,8 @@ extension StompManager {
 }
 
 extension StompManager: Associatable {}
+
+public struct StompManagerLogConfig {
+    
+    public static var logReceivedMessage: Bool = false
+}
