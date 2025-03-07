@@ -145,7 +145,6 @@ class StompConnection<CHANNEL: StompChannel> {
     
     enum Status {
         case unstarted
-        case fetchingHandShakeId
         case connecting
         case connected(SwiftStomp)
         case disconnected
@@ -200,7 +199,7 @@ class StompConnection<CHANNEL: StompChannel> {
         if case .connected = status {
             return true
         }
-        status = .fetchingHandShakeId
+        status = .connecting
         let fetchRes = await fetchHandshakeId()
         let handshakeData: CHANNEL.HandshakeDataType
         switch fetchRes {
@@ -212,7 +211,6 @@ class StompConnection<CHANNEL: StompChannel> {
             stomp_log("\(failure)", .error)
             return false
         }
-        status = .connecting
         guard let stompURL = channel.stompURL(from: handshakeData), let url = URL(string: stompURL) else {
             status = .failed(.urlInit)
             return false

@@ -81,7 +81,7 @@ open class StompManager<CHANNEL: StompChannel> {
                 return
             }
             switch self.connection.status {
-            case .connecting, .fetchingHandShakeId:
+            case .connecting:
                 return
             default:
                 break
@@ -169,12 +169,14 @@ open class StompManager<CHANNEL: StompChannel> {
         default:
             return
         }
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
-            while let self = self, !(await self.tryConnection()) {
-                stomp_log("StompManager(\(userToken) WILL RETRY CONNECTION AFTER \(secondsToWaitReConnection) seconds")
-                try? await Task.sleep(nanoseconds: secondsToWaitReConnection * 1_000_000_000)
-                secondsToWaitReConnection = min(secondsToWaitReConnection * 2, 60)
+        StompManager.workQueue.async {
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
+                while let self = self, !(await self.tryConnection()) {
+                    stomp_log("StompManager(\(userToken) WILL RETRY CONNECTION AFTER \(secondsToWaitReConnection) seconds")
+                    try? await Task.sleep(nanoseconds: secondsToWaitReConnection * 1_000_000_000)
+                    secondsToWaitReConnection = min(secondsToWaitReConnection * 2, 60)
+                }
             }
         }
     }
