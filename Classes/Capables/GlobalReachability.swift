@@ -6,6 +6,7 @@
 //
 
 import Reachability
+import Combine
 
 fileprivate var lock = NSLock()
 fileprivate var _listeningCount = 0
@@ -34,14 +35,23 @@ public class GlobalReachability {
         
         weak var observer: AnyObject?
         
-        init(callback: @escaping (Reachability.Connection) -> Void) {
+        var reachabilitySubjectCancelation: AnyCancellable?
+        
+        init(connection: Reachability.Connection, callback: @escaping (Reachability.Connection) -> Void) {
             listeningCount += 1
-            observer = NotificationCenter.default.addObserver(forName: .reachabilityChanged, object: reachability, queue: .main, using: { noti in
+            let subeject = CurrentValueSubject<Reachability.Connection, Never>(connection)
+            observer = NotificationCenter.default.addObserver(forName: .reachabilityChanged, object: nil, queue: .main, using: { noti in
                 guard let reachability = noti.object as? Reachability else {
                     return
                 }
-                callback(reachability.connection)
+                subeject.send(reachability.connection)
             })
+            reachabilitySubjectCancelation = subeject
+                .removeDuplicates()
+                .subscribe(on: DispatchQueue.main)
+                .sink { connection in
+                callback(connection)
+            }
         }
         
         func removeObserver() -> Bool {
@@ -71,7 +81,7 @@ public class GlobalReachability {
         guard let reachability = reachability else {
             return nil
         }
-        let listener = Listener(callback: onChanged)
+        let listener = Listener(connection: reachability.connection, callback: onChanged)
         DispatchQueue.main.async {
             try? reachability.startNotifier()
         }

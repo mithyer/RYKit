@@ -92,7 +92,7 @@ open class StompManager<CHANNEL: StompChannel> {
             }
             publisherLock.unlock()
             stomp_log("StompManager(\(userToken)) TRY RECONNECTION AFTER DISCONNECTED")
-            self.startConnection(delay: 5)
+            self.startConnection(delay: 1)
             self.startRepeatCheck()
         }
         connection.onReceiveError = { error in
@@ -175,7 +175,7 @@ open class StompManager<CHANNEL: StompChannel> {
                 while let self = self, !(await self.tryConnection()) {
                     stomp_log("StompManager(\(userToken) WILL RETRY CONNECTION AFTER \(secondsToWaitReConnection) seconds")
                     try? await Task.sleep(nanoseconds: secondsToWaitReConnection * 1_000_000_000)
-                    secondsToWaitReConnection = min(secondsToWaitReConnection * 2, 60)
+                    secondsToWaitReConnection = min(secondsToWaitReConnection + 1, 30)
                 }
             }
         }
