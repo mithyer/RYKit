@@ -160,7 +160,7 @@ public struct Provider {
     }
     
     public enum DecimalZero: DefaultValueProvider {
-        public static let `default` = Decimal(exactly: 0)
+        public static let `default` = Decimal(exactly: 0)!
     }
     
     public enum ArrayEmpty<A>: DefaultValueProvider where A: Codable & RangeReplaceableCollection {
@@ -186,6 +186,7 @@ public struct Default {
     public typealias BoolTrue = DefaultValue<Provider.BoolTrue>
     public typealias IntZero = DefaultValue<Provider.IntZero>
     public typealias DoubleZero = DefaultValue<Provider.DoubleZero>
+    public typealias DecimalZero = DefaultValue<Provider.DecimalZero>
     public typealias StringEmpty = DefaultValue<Provider.StringEmpty>
     public typealias ArrayEmpty<A: Codable & RangeReplaceableCollection> = DefaultValue<Provider.ArrayEmpty<A>>
     public typealias DicEmpty<K: Hashable & Codable, V: Codable> = DefaultValue<Provider.DicEmpty<K, V>>
