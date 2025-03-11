@@ -264,13 +264,13 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         }
         let stompID = stompID
         let destination = destination
+        self.subscribed = false
         stomp.unsubscribe(from: destination, headers: ["id": hashedStompID]) { error in
             if let error = error {
                 stomp_log("Remove Subscribed faild \n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\n\(error)", .error)
                 completed(.stompError(error))
             } else {
                 stomp_log("Remove subscribed successed\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))")
-                self.subscribed = true
                 completed(nil)
             }
         }
