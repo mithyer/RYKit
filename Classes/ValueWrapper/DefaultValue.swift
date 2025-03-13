@@ -160,7 +160,7 @@ public struct Provider {
     }
     
     public enum DecimalZero: DefaultValueProvider {
-        public static let `default` = Decimal(exactly: 0)!
+        public static let `default` = Decimal.zero
     }
     
     public enum ArrayEmpty<A>: DefaultValueProvider where A: Codable & RangeReplaceableCollection {
