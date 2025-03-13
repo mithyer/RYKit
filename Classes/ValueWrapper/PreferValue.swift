@@ -13,10 +13,14 @@ import Foundation
 public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible {
     
     public var wrappedValue: T?
-    public var decodedRawValueDescription: String?
+    public var rawValue: Any?
+    
+    enum CodingKeys: CodingKey {
+        case wrappedValue
+    }
     
     public var debugDescription: String {
-        return "\(nil != wrappedValue ? "\(wrappedValue!)" : "null")| \(decodedRawValueDescription ?? "")"
+        return "\(nil != wrappedValue ? "\(wrappedValue!)" : "null")| \(rawValue ?? "")"
     }
     
     public init() {}
@@ -32,7 +36,7 @@ public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible {
             return
         }
         
-        self.wrappedValue = tryMakeWrapperValue(container: container, decodedRawValueDescription: &decodedRawValueDescription)
+        self.wrappedValue = tryMakeWrapperValue(container: container, rawValue: &rawValue)
     }
 }
 

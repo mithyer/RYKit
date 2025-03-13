@@ -10,14 +10,21 @@
 import Foundation
 
 @propertyWrapper
-public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebugStringConvertible {
+public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomStringConvertible {
     
     public var wrappedValue: Provider.Value
     private var useDefaultValue = true
-    private var decodedRawValueDescription: String?
+    private var rawValue: Any?
+    
+    enum CodingKeys: CodingKey {
+        case wrappedValue
+    }
 
-    public var debugDescription: String {
-        return "\(useDefaultValue ? "default": "parsed"): \(wrappedValue) | \(decodedRawValueDescription ?? "")"
+    public var description: String {
+        if let rawValue = rawValue {
+            return "\(Provider.Value.self): \(wrappedValue), \(type(of: rawValue)): \(rawValue)"
+        }
+        return "\(Provider.Value.self): \(wrappedValue)"
     }
     
     public init() {
@@ -35,7 +42,7 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebug
         if container.decodeNil() {
             wrappedValue = Provider.default
         } else {
-            let value: Provider.Value? = tryMakeWrapperValue(container: container, decodedRawValueDescription: &decodedRawValueDescription)
+            let value: Provider.Value? = tryMakeWrapperValue(container: container, rawValue: &rawValue)
             if let value = value {
                 wrappedValue = value
                 useDefaultValue = false
@@ -46,58 +53,55 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebug
     }
 }
 
-func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContainer, decodedRawValueDescription: inout String?) -> T? {
+func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContainer, rawValue: inout Any?) -> T? {
     var value = try? container.decode(T.self)
     if nil != value {
         return value
     }
+    
     if T.self == Int.self {
-        if let string = try? container.decode(String.self) {
+        if let decimal = try? container.decode(Decimal.self) {
+            value = (decimal as NSDecimalNumber).intValue as? T
+            rawValue = decimal
+        } else if let string = try? container.decode(String.self) {
             value = Int(string) as? T
-            decodedRawValueDescription = "string: \(string)"
-        } else if let double = try? container.decode(Double.self) {
-            value = Int(double) as? T
-            decodedRawValueDescription = "double: \(double)"
+            rawValue = string
         }
     } else if T.self == Double.self {
         if let string = try? container.decode(String.self) {
             value = Double(string) as? T
-            decodedRawValueDescription = "string: \(string)"
+            rawValue = string
         }
     } else if T.self == String.self {
-        if let int = try? container.decode(Int.self) {
-            value = "\(int)" as? T
-            decodedRawValueDescription = "int: \(int)"
-        } else if let double = try? container.decode(Double.self) {
-            value = "\(double)" as? T
-            decodedRawValueDescription = "double: \(double)"
+        if let decimal = try? container.decode(Decimal.self) {
+            value = "\(decimal)" as? T
+            rawValue = decimal
+        } else if let bool = try? container.decode(Bool.self) {
+            value = "\(bool)" as? T
+            rawValue = bool
         }
     } else if T.self == Bool.self {
         if let string = try? container.decode(String.self) {
             value = ["true", "y", "t", "yes", "1"].contains { string.caseInsensitiveCompare($0) == .orderedSame } as? T
-            decodedRawValueDescription = "string: \(string)"
+            rawValue = string
         } else if let int = try? container.decode(Int.self) {
             if int == 1 {
                 value = true as? T
-                decodedRawValueDescription = "int: \(int)"
+                rawValue = int
             } else if int == 0 {
                 value = false as? T
-                decodedRawValueDescription = "int: \(int)"
+                rawValue = int
             }
         }
     } else {
-        if let string = try? container.decode(String.self) {
-            decodedRawValueDescription = string
-            if let data = string.data(using: .utf8) {
-                value = try? JSONDecoder().decode(T.self, from: data)
-            }
+        if let string = try? container.decode(String.self),
+           let data = string.data(using: .utf8) {
+            value = try? JSONDecoder().decode(T.self, from: data)
+            rawValue = string
         }
     }
     return value
 }
-
-extension DefaultValue: Equatable where Provider.Value: Equatable {}
-extension DefaultValue: Hashable where Provider.Value: Hashable {}
 
 public extension KeyedDecodingContainer {
     func decode<P>(_: DefaultValue<P>.Type, forKey key: Key) throws -> DefaultValue<P> {
