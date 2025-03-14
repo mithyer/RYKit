@@ -278,7 +278,12 @@ open class StompManager<CHANNEL: StompChannel> {
             }
         }
         return StompCallbackLifeHolder(publisher: publisher, callbackKey: subscription.identifier) { [weak self] in
-            self?.stompIDToPublisher.removeValue(forKey: stompID)
+            guard let self else {
+                return
+            }
+            publisherLock.lock()
+            stompIDToPublisher.removeValue(forKey: stompID)
+            publisherLock.unlock()
         }
     }
     // 取消destination对应的某单个订阅
