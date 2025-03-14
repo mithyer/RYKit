@@ -70,7 +70,7 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpMethod = "POST"
         request.httpBody = try! JSONSerialization.data(withJSONObject: channel.handshakeParams, options: [])
-        request.timeoutInterval = 12
+        request.timeoutInterval = 30
         self.status = .fetching(retryTime: 0)
         
         func completeWithFailure() {
@@ -261,7 +261,7 @@ class StompConnection<CHANNEL: StompChannel> {
                     con.resume(returning: false)
                 }
             }
-            stomp.connect(timeout: 15)
+            stomp.connect(timeout: 30)
         }
         if connected {
             eventListenCancellable = stomp
