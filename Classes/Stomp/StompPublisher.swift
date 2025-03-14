@@ -243,10 +243,10 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         let stompID = stompID
         stomp.subscribe(to: destination, headers: headers) { error in
             if let error = error {
-                stomp_log("subscribe faild \n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\nid: hashedStompID\n\(error), waiting retry", .error)
+                stomp_log("Add sub faild(header-id: \(hashedStompID))\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\n\(error), waiting retry", .error)
                 completed(.stompError(error))
             } else {
-                stomp_log("subscribe successed\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\nid: \(hashedStompID)")
+                stomp_log("Add sub successed(header-id: \(hashedStompID))\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))")
                 self.subscribed = true
                 completed(nil)
             }
@@ -265,12 +265,13 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         let stompID = stompID
         let destination = destination
         self.subscribed = false
+        let hashedStompID = hashedStompID
         stomp.unsubscribe(from: destination, headers: ["id": hashedStompID]) { error in
             if let error = error {
-                stomp_log("Remove Subscribed faild \n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\n\(error)", .error)
+                stomp_log("Remove sub faild(header-id: \(hashedStompID))\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))\n\(error)", .error)
                 completed(.stompError(error))
             } else {
-                stomp_log("Remove subscribed successed\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))")
+                stomp_log("Remove sub successed(header-id: \(hashedStompID))\n\(stompID.replacingOccurrences(of: ", ", with: "\n"))")
                 completed(nil)
             }
         }

@@ -27,22 +27,26 @@ public class StompCallbackLifeHolder {
     fileprivate let destination: String
     fileprivate let callbackKey: String
     fileprivate weak var stomp: SwiftStomp?
+    fileprivate var onDeinit: (() -> Void)?
     
-    fileprivate init(publisher: any StompPublishCapable, callbackKey: String) {
+    fileprivate init(publisher: any StompPublishCapable, callbackKey: String, onDeinit: @escaping () -> Void) {
         self.destination = publisher.destination
         self.publisher = publisher
         self.callbackKey = callbackKey
+        self.onDeinit = onDeinit
     }
     
     deinit {
         guard let publisher = publisher else {
             return
         }
+        let onDeinit = self.onDeinit
         stomp_queue.async { [callbackKey = self.callbackKey] in
             publisher.removeMessageCallback(for: callbackKey)
             if !publisher.hasCallbacks {
                 publisher.unsubscribe() { _ in }
             }
+            onDeinit?()
         }
     }
 }
@@ -88,7 +92,9 @@ open class StompManager<CHANNEL: StompChannel> {
             }
             publisherLock.lock()
             self.stompIDToPublisher.forEach { stompID, publisher in
-                self.waitToSubscribeStompIDs.insert(stompID)
+                if publisher.subscribed {
+                    self.waitToSubscribeStompIDs.insert(stompID)
+                }
             }
             publisherLock.unlock()
             stomp_log("StompManager(\(userToken)) TRY RECONNECTION AFTER DISCONNECTED")
@@ -271,7 +277,9 @@ open class StompManager<CHANNEL: StompChannel> {
                 stomp_log("StompManager(\(userToken) publiser already subscribed \(stompID)")
             }
         }
-        return StompCallbackLifeHolder(publisher: publisher, callbackKey: subscription.identifier)
+        return StompCallbackLifeHolder(publisher: publisher, callbackKey: subscription.identifier) { [weak self] in
+            self?.stompIDToPublisher.removeValue(forKey: stompID)
+        }
     }
     // 取消destination对应的某单个订阅
     public func unsbscribe(subscription: StompSubInfo) {
