@@ -211,7 +211,9 @@ class StompConnection<CHANNEL: StompChannel> {
             stomp_log("\(failure)", .error)
             return false
         }
-        guard let stompURL = channel.stompURL(from: handshakeData), let url = URL(string: stompURL) else {
+
+        guard let stompURL = channel.stompURL(from: handshakeData)?.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: stompURL) else {
             status = .failed(.urlInit)
             return false
         }
