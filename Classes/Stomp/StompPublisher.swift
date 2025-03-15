@@ -118,7 +118,7 @@ fileprivate class MessageDispatcher<T: Decodable> {
             publisher.unDecodedPublishedSubject?.send((stringMsg, dataMsg, publisher))
             return
         }
-        stomp_log("received msg: \(identifier): \(publisher.stompID)\ndata: \(nil != stringMsg ? stringMsg! : "")\(nil != dataMsg ? "data message" : "")", .message, StompManagerLogConfig.logReceivedMessage ? .basic : .all)
+        stomp_log("received msg: \(identifier): \(publisher.stompID)\ndata: \(nil != stringMsg ? stringMsg! : "")\(nil != dataMsg ? "data message" : "")", .message, StompLog.logReceivedStompMessage ? .basic : .all)
         publisher.unDecodedPublishedSubject?.send((stringMsg, dataMsg, publisher))
         publisher.decodedPublishedSubject?.send((res, publisher))
     }

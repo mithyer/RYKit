@@ -30,6 +30,12 @@ public struct StompLog {
     
     public static var level: Level = .basic
     
+    public static var logReceivedStompMessage: Bool = false
+    
+    public static var enableRawLog: Bool = false
+
+    public static var onReceivedRawLog: ((String) -> Void)?
+
     static func log(_ str: String, level: Level, logCase: LogCase) {
         let limitLevel = self.level
         if level.rawValue > limitLevel.rawValue {

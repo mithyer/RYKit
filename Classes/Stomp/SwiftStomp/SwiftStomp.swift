@@ -57,7 +57,6 @@ class SwiftStomp: NSObject {
         _receiptsUpstream.eraseToAnyPublisher()
     }
     
-    var enableLogging = false
     var isConnected : Bool {
         return self.status == .fullyConnected
     }
@@ -304,13 +303,15 @@ extension SwiftStomp{
 /// Helper functions
 fileprivate extension SwiftStomp{
     func stompLog(type : StompLogType, message : String){
-        guard enableLogging else { return }
+        guard StompLog.enableRawLog else { return }
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
         let timestamp = formatter.string(from: Date())
-        os_log(type == .info ? .info : .error, "%s SwiftStomp [%s]: %s", timestamp, type.rawValue, message)
+        let log = "Stomp(\(timestamp))[\(type.rawValue)]: \(message)"
+        os_log(type == .info ? .info : .error, "%s", log)
+        StompLog.onReceivedRawLog?(log)
     }
 
     func prepareHeadersForSend(to : String, receiptId : String? = nil, headers : [String : String]? = nil) -> [String : String]{

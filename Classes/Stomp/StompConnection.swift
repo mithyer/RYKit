@@ -224,9 +224,7 @@ class StompConnection<CHANNEL: StompChannel> {
         stomp.callbacksThread = callbackQueue
         stomp.autoReconnect = false
         stomp.enableAutoPing(pingInterval: 12)
-#if DEBUG
-        // stomp.enableLogging = true
-#endif
+
         let connected: Bool = await withCheckedContinuation { con in
             eventListenCancellable = stomp.eventsUpstream
                 .receive(on: self.callbackQueue)

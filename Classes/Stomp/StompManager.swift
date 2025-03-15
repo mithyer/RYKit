@@ -65,6 +65,7 @@ open class StompManager<CHANNEL: StompChannel> {
     public var decodedPublishedSubject = DecodedPublishedSubject()
     public var unDecodedPublishedSubject = UnDecodedPublishedSubject()
     public var enableLog: Bool = false
+    public var connectedSubject = CurrentValueSubject<Bool, Never>(false)
 
     public var connected: Bool {
         if case .connected = connection.status {
@@ -81,6 +82,7 @@ open class StompManager<CHANNEL: StompChannel> {
     public init(userToken: String) {
         connection = .init(userToken: userToken, callbackQueue: stomp_queue)
         connection.onDisconnected = { [weak self] in
+            self?.connectedSubject.send(false)
             guard let self = self else {
                 return
             }
@@ -105,6 +107,7 @@ open class StompManager<CHANNEL: StompChannel> {
             stomp_log("StompManager(\(userToken)) RECEIVED ERROR: \(error)", .error)
         }
         connection.onConnected =  { [weak self] stomp in
+            self?.connectedSubject.send(true)
             guard let self = self else {
                 return
             }
@@ -316,8 +319,3 @@ extension StompManager {
 }
 
 extension StompManager: Associatable {}
-
-public struct StompManagerLogConfig {
-    
-    public static var logReceivedMessage: Bool = false
-}
