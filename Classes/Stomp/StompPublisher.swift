@@ -217,15 +217,25 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
                                                    subscribeQueue: subscribeQueue,
                                                    callbackQueue: callbackQueue,
                                                    callback: callback)
+        stomp_log("local call back added: \(identifier)(\(destination)")
         return preHave
     }
     
     func removeMessageCallback(for identifier: String) {
         dispatchers.removeValue(forKey: identifier)
+        stomp_log("local call back removed: \(identifier)(\(destination)")
     }
     
     func removeAllCallbacks() {
+#if DEBUG
+        let identifiers = dispatchers.values.map {
+            $0.identifier
+        }
         dispatchers.removeAll()
+        stomp_log("local call back removed: \(identifiers.joined(separator: ", "))(\(destination)")
+#else
+        dispatchers.removeAll()
+#endif
     }
         
     func subscribe(completed: @escaping (SubscriptionError?) -> Void) {
