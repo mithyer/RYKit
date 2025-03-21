@@ -37,7 +37,20 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
     let channel: CHANNEL
     let taskQueue: DispatchQueue
     private var expireDate: Date?
-    private(set) var status: FetchStatus<CHANNEL.HandshakeDataType> = .unstarted
+    private let statusLock = NSLock()
+    private var _status: FetchStatus<CHANNEL.HandshakeDataType> = .unstarted
+    private(set) var status: FetchStatus<CHANNEL.HandshakeDataType> {
+        get {
+            statusLock.lock()
+            defer { statusLock.unlock() }
+            return _status
+        }
+        set {
+            statusLock.lock()
+            _status = newValue
+            statusLock.unlock()
+        }
+    }
     private var curTask: URLSessionTask?
 
     var maxRetryTimeWhenNetworkError = 3
@@ -73,13 +86,20 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
         request.timeoutInterval = 30
         self.status = .fetching(retryTime: 0)
         
-        func completeWithFailure() {
+        var completeWithFailure = { [weak self] in
+            guard let self else {
+                return
+            }
             self.completedCall?(.failure(self.status.fetchError ?? .undefined))
             stomp_log("\(self.status.fetchError ?? .undefined)", .error)
             self.completedCall = nil
         }
         stomp_log("fetch new handshakeID", .notice)
         func startTask() {
+            if let task = curTask {
+                curTask = nil
+                task.cancel()
+            }
             curTask = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
                 self?.taskQueue.async {
                     guard let self = self, self.curTask?.response == response else {
