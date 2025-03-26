@@ -277,7 +277,16 @@ public struct DictionaryCoadableWrapper: Codable {
         try container.encode(dic)
     }
     
-    subscript(key: String) -> Any? {
-        dic[key]
+    public subscript(_ key: String) -> Any? {
+        let keyPaths = key.split(separator: ".")
+        var next: Any? = self.dic
+        for key in keyPaths {
+            if let dic = next as? [String: Any] {
+                next = dic[String(key)]
+            } else {
+                return nil
+            }
+        }
+        return next
     }
 }
