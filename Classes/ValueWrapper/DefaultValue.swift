@@ -137,7 +137,7 @@ extension Dictionary: Initializable {}
 extension Array: Initializable {}
 extension Set: Initializable {}
 
-public struct Provider {
+public struct DefaultValueProviders {
     
     public enum BoolFalse: DefaultValueProvider {
         public static let `default` = false
@@ -182,14 +182,14 @@ public struct Provider {
 
 public struct Default {
     
-    public typealias BoolFalse = DefaultValue<Provider.BoolFalse>
-    public typealias BoolTrue = DefaultValue<Provider.BoolTrue>
-    public typealias IntZero = DefaultValue<Provider.IntZero>
-    public typealias DoubleZero = DefaultValue<Provider.DoubleZero>
-    public typealias DecimalZero = DefaultValue<Provider.DecimalZero>
-    public typealias StringEmpty = DefaultValue<Provider.StringEmpty>
-    public typealias ArrayEmpty<A: Codable & RangeReplaceableCollection> = DefaultValue<Provider.ArrayEmpty<A>>
-    public typealias DicEmpty<K: Hashable & Codable, V: Codable> = DefaultValue<Provider.DicEmpty<K, V>>
-    public typealias CaseFirst<A: Codable & CaseIterable> = DefaultValue<Provider.CaseFirst<A>>
+    public typealias BoolFalse = DefaultValue<DefaultValueProviders.BoolFalse>
+    public typealias BoolTrue = DefaultValue<DefaultValueProviders.BoolTrue>
+    public typealias IntZero = DefaultValue<DefaultValueProviders.IntZero>
+    public typealias DoubleZero = DefaultValue<DefaultValueProviders.DoubleZero>
+    public typealias DecimalZero = DefaultValue<DefaultValueProviders.DecimalZero>
+    public typealias StringEmpty = DefaultValue<DefaultValueProviders.StringEmpty>
+    public typealias ArrayEmpty<A: Codable & RangeReplaceableCollection> = DefaultValue<DefaultValueProviders.ArrayEmpty<A>>
+    public typealias DicEmpty<K: Hashable & Codable, V: Codable> = DefaultValue<DefaultValueProviders.DicEmpty<K, V>>
+    public typealias CaseFirst<A: Codable & CaseIterable> = DefaultValue<DefaultValueProviders.CaseFirst<A>>
 }
 
