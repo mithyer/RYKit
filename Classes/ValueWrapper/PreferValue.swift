@@ -10,7 +10,7 @@
 import Foundation
 
 @propertyWrapper
-public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible {
+public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible, CustomStringConvertible {
     
     public var wrappedValue: T?
     public var rawValue: Any?
@@ -19,8 +19,18 @@ public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible {
         case wrappedValue
     }
     
+    public var description: String {
+        if let wrappedValue {
+            return "\(wrappedValue)"
+        }
+        return "nil"
+    }
+    
     public var debugDescription: String {
-        return "\(nil != wrappedValue ? "\(wrappedValue!)" : "null")| \(rawValue ?? "")"
+        if let rawValue = rawValue {
+            return "\(T.self): \(nil != wrappedValue ? "\(wrappedValue!) " : "nil") | \(type(of: rawValue)): \(rawValue)"
+        }
+        return "\(T.self): \(nil != wrappedValue ? "\(wrappedValue!) " : "nil") | Any?: nil"
     }
     
     public init() {}
@@ -31,11 +41,9 @@ public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible {
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-
         if container.decodeNil() {
             return
         }
-        
         self.wrappedValue = tryMakeWrapperValue(container: container, rawValue: &rawValue)
     }
 }
@@ -44,9 +52,6 @@ public extension KeyedDecodingContainer {
     func decode<T>(_: PreferValue<T>.Type, forKey key: Key) throws -> PreferValue<T> where T: Decodable {
         if let value = try? decodeIfPresent(PreferValue<T>.self, forKey: key) {
             return value
-        }
-        if let value = try? decodeIfPresent(T.self, forKey: key) {
-            return PreferValue(wrappedValue: value)
         }
         return PreferValue()
     }

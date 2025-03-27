@@ -10,7 +10,7 @@
 import Foundation
 
 @propertyWrapper
-public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomStringConvertible {
+public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebugStringConvertible, CustomStringConvertible {
     
     public var wrappedValue: Provider.Value
     private var useDefaultValue = true
@@ -19,12 +19,16 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomStrin
     enum CodingKeys: CodingKey {
         case wrappedValue
     }
+    
+    public var debugDescription: String {
+        if let rawValue = rawValue {
+            return "\(Provider.Value.self): \(wrappedValue) | \(type(of: rawValue)): \(rawValue)"
+        }
+        return "\(Provider.Value.self): \(wrappedValue) | Any?: nil"
+    }
 
     public var description: String {
-        if let rawValue = rawValue {
-            return "\(Provider.Value.self): \(wrappedValue), \(type(of: rawValue)): \(rawValue)"
-        }
-        return "\(Provider.Value.self): \(wrappedValue)"
+        return "\(wrappedValue)"
     }
     
     public init() {
@@ -38,27 +42,24 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomStrin
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-
-        if container.decodeNil() {
-            wrappedValue = Provider.default
+        let value: Provider.Value? = tryMakeWrapperValue(container: container, rawValue: &rawValue)
+        if let value = value {
+            wrappedValue = value
+            useDefaultValue = false
         } else {
-            let value: Provider.Value? = tryMakeWrapperValue(container: container, rawValue: &rawValue)
-            if let value = value {
-                wrappedValue = value
-                useDefaultValue = false
-            } else {
-                wrappedValue = Provider.default
-            }
+            wrappedValue = Provider.default
         }
     }
 }
 
 func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContainer, rawValue: inout Any?) -> T? {
+    if container.decodeNil() {
+        return nil
+    }
     var value = try? container.decode(T.self)
     if nil != value {
         return value
     }
-    
     if T.self == Int.self {
         if let decimal = try? container.decode(Decimal.self) {
             value = (decimal as NSDecimalNumber).intValue as? T
@@ -73,7 +74,10 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
             rawValue = string
         }
     } else if T.self == String.self {
-        if let decimal = try? container.decode(Decimal.self) {
+        if let int = try? container.decode(Int.self) {
+            value = "\(int)" as? T
+            rawValue = int
+        } else if let decimal = try? container.decode(Decimal.self) {
             value = "\(decimal)" as? T
             rawValue = decimal
         } else if let bool = try? container.decode(Bool.self) {
@@ -92,12 +96,6 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
                 value = false as? T
                 rawValue = int
             }
-        }
-    } else {
-        if let string = try? container.decode(String.self),
-           let data = string.data(using: .utf8) {
-            value = try? JSONDecoder().decode(T.self, from: data)
-            rawValue = string
         }
     }
     return value
@@ -123,12 +121,10 @@ public extension KeyedEncodingContainer {
 
 public protocol DefaultValueProvider {
     associatedtype Value: Codable
-
     static var `default`: Value { get }
 }
 
 public protocol Initializable {
-    
     init()
 }
 

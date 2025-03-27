@@ -1,0 +1,47 @@
+//
+//  ExistValue.swift
+//  Pods
+//
+//  Created by ray on 2025/3/27.
+//
+
+@propertyWrapper
+public struct ExistValue<T: Codable>: Codable, CustomDebugStringConvertible, CustomStringConvertible {
+    
+    public var wrappedValue: T
+    public var rawValue: Any?
+    
+    enum CodingKeys: CodingKey {
+        case wrappedValue
+    }
+    
+    public var debugDescription: String {
+        if let rawValue = rawValue {
+            return "\(T.self): \(wrappedValue) | \(type(of: rawValue)): \(rawValue)"
+        }
+        return "\(T.self): \(wrappedValue) | Any?: nil"
+    }
+    
+    public var description: String {
+        return "\(wrappedValue)"
+    }
+    
+    public init(wrappedValue: T) {
+        self.wrappedValue = wrappedValue
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let value: T = tryMakeWrapperValue(container: container, rawValue: &rawValue) {
+            self.wrappedValue = value
+        } else {
+            throw DecodingError.valueNotFound(Self.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "ExistValue decoding failed"))
+        }
+    }
+}
+
+public extension KeyedEncodingContainer {
+    mutating func encode<T>(_ value: ExistValue<T>, forKey key: Key) throws {
+        try encode(value.wrappedValue, forKey: key)
+    }
+}
