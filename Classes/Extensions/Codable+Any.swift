@@ -5,14 +5,8 @@
 //  Created by ray on 2025/3/26.
 //
 
-// Make [String: Any] Codable !!
-
-// All credits to initial authors!
-// https://gist.github.com/loudmouth/332e8d89d8de2c1eaf81875cfcd22e24 and
-// https://gist.github.com/oteronavarretericardo/7da7bdeadf3829b1cadf5a2a10e83d85
-//
-// With some help from Quinn the Eskimo to solve problem with 0/1 and Booleans...
-// https://forums.swift.org/t/jsonserialization-turns-bool-value-to-nsnumber/31909/2
+// Make [String: Any], [Any] Codable !!
+// https://gist.github.com/loudmouth/332e8d89d8de2c1eaf81875cfcd22e24
 
 import Foundation
 
@@ -264,29 +258,61 @@ public extension UnkeyedEncodingContainer {
     }
 }
 
-public struct DictionaryCoadableWrapper: Codable {
-    public private(set) var dic: [String: Any]
+public struct CodableDictionary: Codable {
+    public private(set) var dictionary: [String: Any]
+    
+    public init(_ dictionary: [String: Any]) {
+        self.dictionary = dictionary
+    }
     
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: JSONCodingKeys.self)
-        dic = try container.decode([String: Any].self)
+        dictionary = try container.decode([String: Any].self)
     }
     
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: JSONCodingKeys.self)
-        try container.encode(dic)
+        try container.encode(dictionary)
     }
     
     public subscript(_ key: String) -> Any? {
         let keyPaths = key.split(separator: ".")
-        var next: Any? = self.dic
+        var next: Any? = dictionary
         for key in keyPaths {
             if let dic = next as? [String: Any] {
                 next = dic[String(key)]
+            } else if let arr = next as? [Any],
+                      let index = Int(String(key)), index >= 0, index < arr.count {
+                next = arr[index]
             } else {
                 return nil
             }
         }
         return next
+    }
+}
+
+public struct CodableArray: Codable {
+    public private(set) var array: [Any]
+    
+    public init(_ array: [Any]) {
+        self.array = array
+    }
+    
+    public init(from decoder: any Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        array = try container.decode([Any].self)
+    }
+    
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(array)
+    }
+    
+    public subscript(_ index: Int) -> Any? {
+        guard index >= 0, index < array.count else {
+            return nil
+        }
+        return array[index]
     }
 }
