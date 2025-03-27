@@ -42,7 +42,7 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebug
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        let value: Provider.Value? = tryMakeWrapperValue(container: container, rawValue: &rawValue)
+        let value: Provider.Value? = try tryMakeWrapperValue(container: container, rawValue: &rawValue)
         if let value = value {
             wrappedValue = value
             useDefaultValue = false
@@ -50,9 +50,14 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebug
             wrappedValue = Provider.default
         }
     }
+    
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.wrappedValue)
+    }
 }
 
-func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContainer, rawValue: inout Any?) -> T? {
+func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContainer, rawValue: inout Any?) throws -> T? {
     if container.decodeNil() {
         return nil
     }
@@ -97,6 +102,9 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
                 rawValue = int
             }
         }
+    }
+    if nil == value {
+        throw DecodingError.typeMismatch(T.self, DecodingError.Context.init(codingPath: container.codingPath, debugDescription: "tryMakeWrapperValue failed"))
     }
     return value
 }

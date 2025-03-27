@@ -32,11 +32,16 @@ public struct ExistValue<T: Codable>: Codable, CustomDebugStringConvertible, Cus
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let value: T = tryMakeWrapperValue(container: container, rawValue: &rawValue) {
+        if let value: T = try tryMakeWrapperValue(container: container, rawValue: &rawValue) {
             self.wrappedValue = value
         } else {
-            throw DecodingError.valueNotFound(Self.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "ExistValue decoding failed"))
+            throw DecodingError.valueNotFound(Self.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "ExistValue: value not exist"))
         }
+    }
+    
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.wrappedValue)
     }
 }
 
