@@ -41,10 +41,7 @@ public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible, Cu
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if container.decodeNil() {
-            return
-        }
-        self.wrappedValue = try tryMakeWrapperValue(container: container, rawValue: &rawValue)
+        self.wrappedValue = try? tryMakeWrapperValue(container: container, rawValue: &rawValue)
     }
     
     public func encode(to encoder: any Encoder) throws {

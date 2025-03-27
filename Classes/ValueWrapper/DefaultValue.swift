@@ -42,8 +42,8 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebug
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        let value: Provider.Value? = try tryMakeWrapperValue(container: container, rawValue: &rawValue)
-        if let value = value {
+        let value: Provider.Value? = try? tryMakeWrapperValue(container: container, rawValue: &rawValue)
+        if let value {
             wrappedValue = value
             useDefaultValue = false
         } else {
