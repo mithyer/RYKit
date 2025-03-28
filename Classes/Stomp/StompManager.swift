@@ -202,7 +202,7 @@ open class StompManager<CHANNEL: StompChannel> {
         }
     }
     
-    private func publisher<T: Decodable>(by destination: String, stompID: String, dataType: T.Type) -> StompPublisher<T> {
+    private func publisher<T: Decodable>(by destination: String, stompID: String, headerIdPrefix: String?, dataType: T.Type) -> StompPublisher<T> {
         publisherLock.lock()
         defer {
             publisherLock.unlock()
@@ -211,6 +211,7 @@ open class StompManager<CHANNEL: StompChannel> {
         if nil == publisher || !(publisher is StompPublisher<T>) {
             publisher = StompPublisher(destination: destination,
                                         stompID: stompID,
+                                        headerIdPrefix: headerIdPrefix,
                                         decodedPublishedSubject: decodedPublishedSubject,
                                         unDecodedPublishedSubject: unDecodedPublishedSubject,
                                         type: T.self)
@@ -227,6 +228,10 @@ open class StompManager<CHANNEL: StompChannel> {
         return self.stompIDToPublisher[stompID]
     }
     
+    public enum SubscribeResult {
+        case success(headerId: String)
+        case failed(headerId: String, error: any Error)
+    }
 
     // dataType: model类型
     // subscription: 相同destination和identifier的订阅认为是同一个订阅
@@ -237,7 +242,8 @@ open class StompManager<CHANNEL: StompChannel> {
                                         subscription: StompSubInfo,
                                         receiveMessageStrategy: ReceiveMessageStrategy,
                                         callbackQueue: DispatchQueue = DispatchQueue.main,
-                                        subscribedCallback: ((Result<(), Error>) -> Void)? = nil,
+                                        subscribedCallback: ((SubscribeResult) -> Void)? = nil,
+                                        headerIdPrefix: String? = nil,
                                         dataCallback: @escaping (T?, [String: String]?, Any) -> Void) -> StompCallbackLifeHolder? {
         if subscription.destination.isEmpty || subscription.identifier.isEmpty {
             stomp_log("StompManager(\(userToken) Cannot subscribe, destination or identifier is empty", .error)
@@ -245,7 +251,7 @@ open class StompManager<CHANNEL: StompChannel> {
         }
         startConnection()
         let stompID = subscription.stompID(token: userToken)
-        let publisher = self.publisher(by: subscription.destination, stompID: stompID, dataType: dataType)
+        let publisher = self.publisher(by: subscription.destination, stompID: stompID, headerIdPrefix: headerIdPrefix, dataType: dataType)
         publisher.subscribeHeaders =  subscription.headers
         stomp_queue.async { [weak self] in
             guard let self = self else {
@@ -263,13 +269,13 @@ open class StompManager<CHANNEL: StompChannel> {
             if !publisher.subscribed {
                 if case .connected(let stomp) = self.connection.status {
                     publisher.stomp = stomp
-                    publisher.subscribe() { [weak self] error in
+                    publisher.subscribe() { [weak self, weak publisher] error in
                         if let error = error {
                             self?.waitToSubscribeStompIDs.insert(subscription.destination)
                             self?.startRepeatCheck()
-                            subscribedCallback?(.failure(error))
+                            subscribedCallback?(.failed(headerId: publisher?.hashedStompID ?? "", error: error))
                         } else {
-                            subscribedCallback?(.success(()))
+                            subscribedCallback?(.success(headerId: publisher?.hashedStompID ?? ""))
                         }
                     }
                 } else {
@@ -277,6 +283,7 @@ open class StompManager<CHANNEL: StompChannel> {
                     startRepeatCheck()
                 }
             } else {
+                subscribedCallback?(.success(headerId: publisher.hashedStompID))
                 stomp_log("StompManager(\(userToken) publiser already subscribed \(stompID)")
             }
         }
