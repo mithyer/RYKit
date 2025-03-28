@@ -6,7 +6,7 @@
 //
 
 // Make [String: Any], [Any] Codable !!
-// https://gist.github.com/loudmouth/332e8d89d8de2c1eaf81875cfcd22e24
+// inspired by https://gist.github.com/loudmouth/332e8d89d8de2c1eaf81875cfcd22e24
 
 import Foundation
 
@@ -152,38 +152,31 @@ public extension KeyedEncodingContainerProtocol where Key == JSONCodingKeys {
     mutating func encode(_ value: [String: Any]) throws {
         for (key, value) in value {
             let key = JSONCodingKeys(stringValue: key)
-            if value is Bool {
-                let bval = value as! NSNumber
-                if (bval === kCFBooleanTrue || bval === kCFBooleanFalse) {
-                    try encode(bval.boolValue, forKey: key)
+            switch value {
+            case let value as Bool:
+                try encode(value, forKey: key)
+            case let value as any Numeric:
+                if value is any BinaryInteger, let int = Int("\(value)") {
+                    try encode(int, forKey: key)
+                } else if value is Decimal {
+                    try encode(value as! Decimal, forKey: key)
+                } else if value is any FloatingPoint, let double = Double("\(value)") {
+                    try encode(double, forKey: key)
                 } else {
-                    try encode(bval.intValue, forKey: key)
+                    throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + [key], debugDescription: "Invalid JSON Number"))
                 }
-            } else {
-                switch value {
-                case let value as any Numeric:
-                    if value is any BinaryInteger, let int = Int("\(value)") {
-                        try encode(int, forKey: key)
-                    } else if value is Decimal {
-                        try encode(value as! Decimal, forKey: key)
-                    } else if value is any FloatingPoint, let double = Double("\(value)") {
-                        try encode(double, forKey: key)
-                    } else {
-                        throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + [key], debugDescription: "Invalid JSON Number"))
-                    }
-                case let value as String:
-                    try encode(value, forKey: key)
-                case let value as [String: Any]:
-                    try encode(value, forKey: key)
-                case let value as [Any]:
-                    try encode(value, forKey: key)
-                case is NSNull:
-                    try encodeNil(forKey: key)
-                case Optional<Any>.none:
-                    try encodeNil(forKey: key)
-                default:
-                    throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + [key], debugDescription: "Invalid JSON value"))
-                }
+            case let value as String:
+                try encode(value, forKey: key)
+            case let value as [String: Any]:
+                try encode(value, forKey: key)
+            case let value as [Any]:
+                try encode(value, forKey: key)
+            case is NSNull:
+                try encodeNil(forKey: key)
+            case Optional<Any>.none:
+                try encodeNil(forKey: key)
+            default:
+                throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + [key], debugDescription: "Invalid JSON value"))
             }
         }
     }
@@ -209,40 +202,33 @@ public extension UnkeyedEncodingContainer {
     
     mutating func encode(_ value: [Any]) throws {
         for (index, value) in value.enumerated() {
-            if value is Bool {
-                let bval = value as! NSNumber
-                if (bval === kCFBooleanTrue || bval === kCFBooleanFalse) {
-                    try encode(bval.boolValue)
+            switch value {
+            case let value as Bool:
+                try encode(value)
+            case let value as any Numeric:
+                if value is any BinaryInteger, let int = Int("\(value)") {
+                    try encode(int)
+                } else if value is Decimal {
+                    try encode(value as! Decimal)
+                } else if value is any FloatingPoint, let double = Double("\(value)") {
+                    try encode(double)
                 } else {
-                    try encode(bval.intValue)
-                }
-            } else {
-                switch value {
-                case let value as any Numeric:
-                    if value is any BinaryInteger, let int = Int("\(value)") {
-                        try encode(int)
-                    } else if value is Decimal {
-                        try encode(value as! Decimal)
-                    } else if value is any FloatingPoint, let double = Double("\(value)") {
-                        try encode(double)
-                    } else {
-                        let keys = JSONCodingKeys(intValue: index).map({ [ $0 ] }) ?? []
-                        throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + keys, debugDescription: "Invalid JSON Number"))
-                    }
-                case let value as String:
-                    try encode(value)
-                case let value as [String: Any]:
-                    try encode(value)
-                case let value as [Any]:
-                    try encodeNestedArray(value)
-                case is NSNull:
-                    try encodeNil()
-                case Optional<Any>.none:
-                    try encodeNil()
-                default:
                     let keys = JSONCodingKeys(intValue: index).map({ [ $0 ] }) ?? []
-                    throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + keys, debugDescription: "Invalid JSON value"))
+                    throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + keys, debugDescription: "Invalid JSON Number"))
                 }
+            case let value as String:
+                try encode(value)
+            case let value as [String: Any]:
+                try encode(value)
+            case let value as [Any]:
+                try encodeNestedArray(value)
+            case is NSNull:
+                try encodeNil()
+            case Optional<Any>.none:
+                try encodeNil()
+            default:
+                let keys = JSONCodingKeys(intValue: index).map({ [ $0 ] }) ?? []
+                throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + keys, debugDescription: "Invalid JSON value"))
             }
         }
     }

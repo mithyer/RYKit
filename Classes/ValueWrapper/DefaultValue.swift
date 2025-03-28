@@ -72,6 +72,9 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
         } else if let string = try? container.decode(String.self) {
             value = Int(string) as? T
             rawValue = string
+        } else if let bool = try? container.decode(Bool.self) {
+            value = (bool ? 1 : 0) as? T
+            rawValue = bool
         }
     } else if T.self == Double.self {
         if let string = try? container.decode(String.self) {
