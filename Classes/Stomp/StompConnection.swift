@@ -252,6 +252,7 @@ class StompConnection<CHANNEL: StompChannel> {
                 .receive(on: self.callbackQueue)
                 .sink {  [weak self, weak stomp] event in
                 guard let self = self, let stomp = stomp else {
+                    con.resume(returning: false)
                     return
                 }
                 switch event {
