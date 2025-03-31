@@ -150,6 +150,7 @@ public extension UnkeyedDecodingContainer {
 public extension KeyedEncodingContainerProtocol where Key == JSONCodingKeys {
     
     mutating func encode(_ value: [String: Any]) throws {
+
         for (key, value) in value {
             let key = JSONCodingKeys(stringValue: key)
             switch value {
@@ -164,6 +165,16 @@ public extension KeyedEncodingContainerProtocol where Key == JSONCodingKeys {
                     try encode(double, forKey: key)
                 } else {
                     throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + [key], debugDescription: "Invalid JSON Number"))
+                }
+            case let value as NSNumber:
+                if value is NSDecimalNumber {
+                    try encode(value.decimalValue, forKey: key)
+                } else if value == kCFBooleanTrue || value == kCFBooleanFalse {
+                    try encode(value.boolValue, forKey: key)
+                } else if value.decimalValue == Decimal(value.intValue) {
+                    try encode(value.intValue, forKey: key)
+                } else {
+                    try encode(value.doubleValue, forKey: key)
                 }
             case let value as String:
                 try encode(value, forKey: key)
@@ -215,6 +226,16 @@ public extension UnkeyedEncodingContainer {
                 } else {
                     let keys = JSONCodingKeys(intValue: index).map({ [ $0 ] }) ?? []
                     throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: codingPath + keys, debugDescription: "Invalid JSON Number"))
+                }
+            case let value as NSNumber:
+                if value is NSDecimalNumber {
+                    try encode(value.decimalValue)
+                } else if value == kCFBooleanTrue || value == kCFBooleanFalse {
+                    try encode(value.boolValue)
+                } else if value.decimalValue == Decimal(value.intValue) {
+                    try encode(value.intValue)
+                } else {
+                    try encode(value.doubleValue)
                 }
             case let value as String:
                 try encode(value)
