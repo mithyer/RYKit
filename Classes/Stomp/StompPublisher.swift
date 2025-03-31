@@ -170,7 +170,7 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
     weak var unDecodedPublishedSubject: UnDecodedPublishedSubject?
 
     private var dispatchers = [String: MessageDispatcher<T>]()
-    private let hashedStompID: String
+    let hashedStompID: String
 
     var hasCallbacks: Bool {
         return !dispatchers.isEmpty
@@ -178,12 +178,13 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
     
     init(destination: String,
          stompID: String,
+         headerIdPrefix: String?,
          decodedPublishedSubject: DecodedPublishedSubject?,
          unDecodedPublishedSubject: UnDecodedPublishedSubject?,
          type: T.Type) {
         self.destination = destination
         self.stompID = stompID
-        self.hashedStompID = "ios_\(stompID.sha1)"
+        self.hashedStompID = nil == headerIdPrefix ? "ios_\(stompID.sha1)" : "\(headerIdPrefix!)_ios_\(stompID.sha1)"
         self.decodedPublishedSubject = decodedPublishedSubject
         self.unDecodedPublishedSubject = unDecodedPublishedSubject
     }
