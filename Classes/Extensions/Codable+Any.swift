@@ -25,17 +25,6 @@ public struct JSONCodingKeys: CodingKey {
     }
 }
 
-extension Decimal: Associatable {
-     fileprivate var rawIsString: Bool {
-        get {
-            associated("ADKit.\(#function)", initializer: false)!
-        }
-        set {
-            setAssociated("ADKit.\(#function)", value: newValue)
-        }
-    }
-}
-
 public extension KeyedDecodingContainer {
     
     func decode(_ type: [String: Any].Type, forKey key: K) throws -> [String: Any] {
@@ -82,12 +71,7 @@ public extension KeyedDecodingContainer {
             } else if let intValue = try? decode(Int.self, forKey: key) {
                 dictionary[key.stringValue] = intValue
             } else if let stringValue = try? decode(String.self, forKey: key) {
-                if var decimalValue = Decimal(string: stringValue) {
-                    decimalValue.rawIsString = true
-                    dictionary[key.stringValue] = decimalValue
-                } else {
-                    dictionary[key.stringValue] = stringValue
-                }
+                dictionary[key.stringValue] = stringValue
             } else if let decimalValue = try? decode(Decimal.self, forKey: key) {
                 dictionary[key.stringValue] = decimalValue
             } else if let nestedDictionary = try? decode(Dictionary<String, Any>.self, forKey: key) {
@@ -132,12 +116,7 @@ public extension UnkeyedDecodingContainer {
             } else if let value = try? decode(Int.self) {
                 array.append(value)
             } else if let stringValue = try? decode(String.self) {
-                if var decimalValue = Decimal(string: stringValue) {
-                    decimalValue.rawIsString = true
-                    array.append(decimalValue)
-                } else {
-                    array.append(stringValue)
-                }
+                array.append(stringValue)
             } else if let decimalValue = try? decode(Decimal.self) {
                 array.append(decimalValue)
             } else if let nestedDictionary = try? decode(Dictionary<String, Any>.self) {
@@ -174,18 +153,11 @@ public extension KeyedEncodingContainerProtocol where Key == JSONCodingKeys {
         for (key, value) in value {
             let key = JSONCodingKeys(stringValue: key)
             switch value {
-            case let value as Bool:
-                try encode(value, forKey: key)
             case let value as any Numeric:
                 if value is any BinaryInteger, let int = Int("\(value)") {
                     try encode(int, forKey: key)
                 } else if value is Decimal {
-                    let value = value as! Decimal
-                    if value.rawIsString {
-                        try encode("\(value)", forKey: key)
-                    } else {
-                        try encode(value, forKey: key)
-                    }
+                    try encode(value as! Decimal, forKey: key)
                 } else if value is any FloatingPoint, let double = Double("\(value)") {
                     try encode(double, forKey: key)
                 } else {
@@ -201,6 +173,8 @@ public extension KeyedEncodingContainerProtocol where Key == JSONCodingKeys {
                 } else {
                     try encode(value.doubleValue, forKey: key)
                 }
+            case let value as Bool:
+                try encode(value, forKey: key)
             case let value as String:
                 try encode(value, forKey: key)
             case let value as [String: Any]:
@@ -239,18 +213,11 @@ public extension UnkeyedEncodingContainer {
     mutating func encode(_ value: [Any]) throws {
         for (index, value) in value.enumerated() {
             switch value {
-            case let value as Bool:
-                try encode(value)
             case let value as any Numeric:
                 if value is any BinaryInteger, let int = Int("\(value)") {
                     try encode(int)
                 } else if value is Decimal {
-                    let value = value as! Decimal
-                    if value.rawIsString {
-                        try encode("\(value)")
-                    } else {
-                        try encode(value)
-                    }
+                    try encode(value as! Decimal)
                 } else if value is any FloatingPoint, let double = Double("\(value)") {
                     try encode(double)
                 } else {
@@ -267,6 +234,8 @@ public extension UnkeyedEncodingContainer {
                 } else {
                     try encode(value.doubleValue)
                 }
+            case let value as Bool:
+                try encode(value)
             case let value as String:
                 try encode(value)
             case let value as [String: Any]:
