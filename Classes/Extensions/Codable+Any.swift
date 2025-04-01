@@ -166,7 +166,7 @@ public extension KeyedEncodingContainerProtocol where Key == JSONCodingKeys {
             case let value as NSNumber:
                 if value is NSDecimalNumber {
                     try encode(value.decimalValue, forKey: key)
-                } else if value == kCFBooleanTrue || value == kCFBooleanFalse {
+                } else if value === kCFBooleanTrue || value === kCFBooleanFalse {
                     try encode(value.boolValue, forKey: key)
                 } else if value.decimalValue == Decimal(value.intValue) {
                     try encode(value.intValue, forKey: key)
@@ -227,7 +227,7 @@ public extension UnkeyedEncodingContainer {
             case let value as NSNumber:
                 if value is NSDecimalNumber {
                     try encode(value.decimalValue)
-                } else if value == kCFBooleanTrue || value == kCFBooleanFalse {
+                } else if value === kCFBooleanTrue || value === kCFBooleanFalse {
                     try encode(value.boolValue)
                 } else if value.decimalValue == Decimal(value.intValue) {
                     try encode(value.intValue)
