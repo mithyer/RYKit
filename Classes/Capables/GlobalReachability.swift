@@ -39,16 +39,16 @@ public class GlobalReachability {
         
         init(connection: Reachability.Connection, callback: @escaping (Reachability.Connection) -> Void) {
             listeningCount += 1
-            let subeject = CurrentValueSubject<Reachability.Connection, Never>(connection)
+            let subject = PassthroughSubject<Reachability.Connection, Never>()
             observer = NotificationCenter.default.addObserver(forName: .reachabilityChanged, object: nil, queue: .main, using: { noti in
                 guard let reachability = noti.object as? Reachability else {
                     return
                 }
-                subeject.send(reachability.connection)
+                subject.send(reachability.connection)
             })
-            reachabilitySubjectCancelation = subeject
-                .removeDuplicates()
-                .subscribe(on: DispatchQueue.main)
+            reachabilitySubjectCancelation = subject
+                .dropFirst()
+                .receive(on: DispatchQueue.main)
                 .sink { connection in
                 callback(connection)
             }
