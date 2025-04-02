@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'ADKit'
-  s.version          = '1.1.13'
+  s.version          = '1.1.14'
   s.summary          = 'Kit for Aden'
   s.description      =' Kit for Aden.'
   s.homepage         = 'http://10.23.9.221/rui.mao/adkit'
@@ -28,6 +28,10 @@ Pod::Spec.new do |s|
 
   s.subspec 'Extensions' do |ss|
     ss.source_files = 'Classes/Extensions/**/*'
+  end
+
+  s.subspec 'Http' do |ss|
+    ss.source_files = 'Classes/Http/**/*'
   end
 
   s.subspec 'Stomp' do |ss|
