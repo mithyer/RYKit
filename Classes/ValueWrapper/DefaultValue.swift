@@ -57,6 +57,63 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebug
     }
 }
 
+private protocol ArrayType {}
+extension Array: ArrayType {}
+private protocol DicType {}
+extension Dictionary: DicType {}
+
+private func convert<T>(value: Any, toType: T.Type) -> T? {
+    if value is T {
+        return value as? T
+    }
+    if toType == Int.self {
+        if let value = value as? Decimal {
+            return (value as NSDecimalNumber).intValue as? T
+        }
+        if let value = value as? String {
+            return Int(value) as? T
+        }
+        if let value = value as? Bool {
+            return (value ? 1 : 0) as? T
+        }
+        if let value = value as? Double {
+            return (Decimal(value) as NSDecimalNumber).intValue as? T
+        }
+    }
+    if toType == Decimal.self {
+        if let value = value as? String {
+            return Decimal(string: value) as? T
+        }
+        if let value = value as? Int {
+            return Decimal(value) as? T
+        }
+        if let value = value as? Bool {
+            return Decimal(value ? 1 : 0) as? T
+        }
+        if let value = value as? Double {
+            return Decimal(value) as? T
+        }
+    }
+    if toType == Double.self {
+        if let value = value as? String {
+            return Double(value) as? T
+        }
+        if let value = value as? Int {
+            return Double(value) as? T
+        }
+        if let value = value as? Bool {
+            return Double(value ? 1 : 0) as? T
+        }
+        if let value = value as? Decimal {
+            return (value as NSDecimalNumber).doubleValue as? T
+        }
+    }
+    if toType == String.self {
+        return "\(value)" as? T
+    }
+    return nil
+}
+
 func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContainer, rawValue: inout Any?) throws -> T? {
     if container.decodeNil() {
         return nil
@@ -65,52 +122,97 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
     if nil != value {
         return value
     }
-    if T.self == Int.self {
-        if let decimal = try? container.decode(Decimal.self) {
-            value = (decimal as NSDecimalNumber).intValue as? T
-            rawValue = decimal
-        } else if let string = try? container.decode(String.self) {
-            value = Int(string) as? T
-            rawValue = string
-        } else if let bool = try? container.decode(Bool.self) {
-            value = (bool ? 1 : 0) as? T
-            rawValue = bool
+    if T.self is ArrayType.Type {
+        if let array = try? container.decode(CodableArray.self).array {
+            rawValue = array
+            if T.self == [Int].self {
+                value = array.compactMap {
+                    convert(value: $0, toType:Int.self)
+                } as? T
+            } else if T.self == [Decimal].self {
+                value = array.compactMap {
+                    convert(value: $0, toType:Decimal.self)
+                } as? T
+            } else if T.self == [Double].self {
+                value = array.compactMap {
+                    convert(value: $0, toType:Double.self)
+                } as? T
+            } else if T.self == [String].self {
+                value = array.compactMap {
+                    convert(value: $0, toType:String.self)
+                } as? T
+            }
         }
-    } else if T.self == Decimal.self {
-        if let string = try? container.decode(String.self) {
-            value = Decimal(string: string) as? T
-            rawValue = string
+    } else if T.self is DicType.Type {
+        if let dic = try? container.decode(CodableDictionary.self).dictionary {
+            rawValue = dic
+            if T.self == [String: Int].self {
+                value = dic.compactMapValues {
+                    convert(value: $0, toType:Int.self)
+                } as? T
+            } else if T.self == [String: Decimal].self {
+                value = dic.compactMapValues {
+                    convert(value: $0, toType:Decimal.self)
+                } as? T
+            } else if T.self == [String: Double].self {
+                value = dic.compactMapValues {
+                    convert(value: $0, toType:Double.self)
+                } as? T
+            } else if T.self == [String: String].self {
+                value = dic.compactMapValues {
+                    convert(value: $0, toType:String.self)
+                } as? T
+            }
         }
-    } else if T.self == Double.self {
-        if let string = try? container.decode(String.self) {
-            value = Double(string) as? T
-            rawValue = string
-        }
-    } else if T.self == String.self {
-        if let int = try? container.decode(Int.self) {
-            value = "\(int)" as? T
-            rawValue = int
-        } else if let decimal = try? container.decode(Decimal.self) {
-            value = "\(decimal)" as? T
-            rawValue = decimal
-        } else if let bool = try? container.decode(Bool.self) {
-            value = "\(bool)" as? T
-            rawValue = bool
-        }
-    } else if T.self == Bool.self {
-        if let string = try? container.decode(String.self) {
-            value = ["true", "y", "t", "yes", "1"].contains { string.caseInsensitiveCompare($0) == .orderedSame } as? T
-            rawValue = string
-        } else if let int = try? container.decode(Int.self) {
-            if int == 1 {
-                value = true as? T
+    } else {
+        if T.self == Int.self {
+            if let decimal = try? container.decode(Decimal.self) {
+                value = (decimal as NSDecimalNumber).intValue as? T
+                rawValue = decimal
+            } else if let string = try? container.decode(String.self) {
+                value = Int(string) as? T
+                rawValue = string
+            } else if let bool = try? container.decode(Bool.self) {
+                value = (bool ? 1 : 0) as? T
+                rawValue = bool
+            }
+        } else if T.self == Decimal.self {
+            if let string = try? container.decode(String.self) {
+                value = Decimal(string: string) as? T
+                rawValue = string
+            }
+        } else if T.self == Double.self {
+            if let string = try? container.decode(String.self) {
+                value = Double(string) as? T
+                rawValue = string
+            }
+        } else if T.self == String.self {
+            if let int = try? container.decode(Int.self) {
+                value = "\(int)" as? T
                 rawValue = int
-            } else if int == 0 {
-                value = false as? T
-                rawValue = int
+            } else if let decimal = try? container.decode(Decimal.self) {
+                value = "\(decimal)" as? T
+                rawValue = decimal
+            } else if let bool = try? container.decode(Bool.self) {
+                value = "\(bool)" as? T
+                rawValue = bool
+            }
+        } else if T.self == Bool.self {
+            if let string = try? container.decode(String.self) {
+                value = ["true", "y", "t", "yes", "1"].contains { string.caseInsensitiveCompare($0) == .orderedSame } as? T
+                rawValue = string
+            } else if let int = try? container.decode(Int.self) {
+                if int == 1 {
+                    value = true as? T
+                    rawValue = int
+                } else if int == 0 {
+                    value = false as? T
+                    rawValue = int
+                }
             }
         }
     }
+
     if nil == value {
         throw DecodingError.typeMismatch(T.self, DecodingError.Context.init(codingPath: container.codingPath, debugDescription: "tryMakeWrapperValue failed"))
     }
