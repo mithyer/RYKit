@@ -83,7 +83,8 @@ public final class HttpRequest {
          method: Method,
          path: String,
          params: ParamsType?,
-         contentType: ContentType? = nil,
+         contentType: ContentType?,
+         requestStrategy: RequestStrategy?,
          baseHeaders: [String: String],
          handlers: Handlers) {
         self.queue = queue
@@ -92,6 +93,7 @@ public final class HttpRequest {
         self.method = method
         self.path = path
         self.params = params
+        self.requestStrategy = requestStrategy
         var headers = baseHeaders
         if let contentType {
             self.contentType = contentType
@@ -391,12 +393,7 @@ extension HttpRequest {
         }
     }
     
-    public func withStrategy(_ strategy: RequestStrategy) -> Self {
-        self.requestStrategy = strategy
-        return self
-    }
-    
-    public func withParams(_ params: ParamsType) -> Self {
+    public func replaceParams(_ params: ParamsType) -> Self {
         self.params = params
         return self
     }
