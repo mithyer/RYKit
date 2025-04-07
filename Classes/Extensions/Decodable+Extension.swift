@@ -62,16 +62,16 @@ public extension Decodable {
     }
 }
 
-extension Encodable where Self: CustomStringConvertible {
+extension Encodable {
     
-    var description: String {
+    var jsonString: String {
 #if DEBUG
         if let jsonData = try? JSONEncoder().encode(self),
             let string = String(data: jsonData, encoding: .utf8) {
             return string
         }
 #endif
-        return "\(self)"
+        return ""
     }
 }
 

@@ -10,7 +10,7 @@
 import Foundation
 
 @propertyWrapper
-public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebugStringConvertible, CustomStringConvertible {
+public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomStringConvertible {
     
     public var wrappedValue: Provider.Value
     private var useDefaultValue = true
@@ -18,13 +18,6 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomDebug
     
     enum CodingKeys: CodingKey {
         case wrappedValue
-    }
-    
-    public var debugDescription: String {
-        if let rawValue = rawValue {
-            return "\(Provider.Value.self): \(wrappedValue) | \(type(of: rawValue)): \(rawValue)"
-        }
-        return "\(Provider.Value.self): \(wrappedValue) | Any?: nil"
     }
 
     public var description: String {

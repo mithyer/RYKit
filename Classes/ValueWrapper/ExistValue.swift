@@ -6,20 +6,13 @@
 //
 
 @propertyWrapper
-public struct ExistValue<T: Codable>: Codable, CustomDebugStringConvertible, CustomStringConvertible {
+public struct ExistValue<T: Codable>: Codable, CustomStringConvertible {
     
     public var wrappedValue: T
     public var rawValue: Any?
     
     enum CodingKeys: CodingKey {
         case wrappedValue
-    }
-    
-    public var debugDescription: String {
-        if let rawValue = rawValue {
-            return "\(T.self): \(wrappedValue) | \(type(of: rawValue)): \(rawValue)"
-        }
-        return "\(T.self): \(wrappedValue) | Any?: nil"
     }
     
     public var description: String {

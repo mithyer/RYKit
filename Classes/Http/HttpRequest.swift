@@ -375,12 +375,12 @@ private func finalCompleted<T>(_ inMainThread: Bool, _ completed: @escaping (Res
 // response funcs
 extension HttpRequest {
     
-    private func log_err(_ message: String) {
-        handlers.logSuccessHandler?(message)
+    private func log_err(_ message: @autoclosure () -> String) {
+        handlers.logSuccessHandler?(message())
     }
     
-    private func log_success(_ message: String) {
-        handlers.logFailureHandler?(message)
+    private func log_success(_ message: @autoclosure () -> String) {
+        handlers.logFailureHandler?(message())
     }
     
     static var httpResponseBusinessSuccessCode: Int = 200
@@ -495,7 +495,7 @@ extension HttpRequest {
                                     completed(.failure(.init(code: .local(.decodeFailed), msg: "Decode Failed").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 }
                             } else {
-                                log_success("=====>✅\nHTTP Successed\nURL: \(requestUrl)\nParameters: \(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
+                                log_success("=====>✅\nHTTP Successed\nURL: \(requestUrl)\nParameters: \(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\nDecoded Model:\(result)\n<=====")
                                 completed(.success(result))
                             }
                         }

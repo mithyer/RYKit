@@ -10,7 +10,7 @@
 import Foundation
 
 @propertyWrapper
-public struct IgnoreValue<T>: Codable, CustomDebugStringConvertible, CustomStringConvertible {
+public struct IgnoreValue<T>: Codable, CustomStringConvertible {
     
     public var wrappedValue: T?
     
@@ -21,10 +21,6 @@ public struct IgnoreValue<T>: Codable, CustomDebugStringConvertible, CustomStrin
             return "\(wrappedValue)"
         }
         return "nil"
-    }
-    
-    public var debugDescription: String {
-        return "\(T.self): \(nil != wrappedValue ? "\(wrappedValue!) " : "nil") | Any?: nil"
     }
     
     public init() {}

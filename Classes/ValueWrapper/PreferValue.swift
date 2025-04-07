@@ -10,7 +10,7 @@
 import Foundation
 
 @propertyWrapper
-public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible, CustomStringConvertible {
+public struct PreferValue<T: Codable>: Codable, CustomStringConvertible {
     
     public var wrappedValue: T?
     public var rawValue: Any?
@@ -24,13 +24,6 @@ public struct PreferValue<T: Codable>: Codable, CustomDebugStringConvertible, Cu
             return "\(wrappedValue)"
         }
         return "nil"
-    }
-    
-    public var debugDescription: String {
-        if let rawValue = rawValue {
-            return "\(T.self): \(nil != wrappedValue ? "\(wrappedValue!) " : "nil") | \(type(of: rawValue)): \(rawValue)"
-        }
-        return "\(T.self): \(nil != wrappedValue ? "\(wrappedValue!) " : "nil") | Any?: nil"
     }
     
     public init() {}
