@@ -5,6 +5,7 @@
 //  Created by ray on 2025/3/21.
 //
 
+import Combine
 
 // initialize
 public final class HttpRequest {
@@ -33,7 +34,7 @@ public final class HttpRequest {
     
     public enum RequestStrategy {
         case cancelIfRequesting
-        case amendIfRequesting
+        case amendIfRequesting(debounceInterval: TimeInterval? = nil)
     }
     
     public struct Handlers {
@@ -76,6 +77,8 @@ public final class HttpRequest {
     public let handlers: Handlers
     public var requestStrategy: RequestStrategy?
     private var processers = [Processer]()
+    private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
+    private var debounceTaskSubjectCancelation: AnyCancellable?
 
     public init(session: URLSession,
          queue: DispatchQueue,
@@ -414,15 +417,15 @@ extension HttpRequest {
             let log_err = self.log_err
             let log_success = self.log_success
             if let requestStrategy = self.requestStrategy {
-                if requestStrategy == .cancelIfRequesting {
+                if case .cancelIfRequesting = requestStrategy {
                     for processer in self.processers {
                         if processer.isRequesting {
-                            log_err("=====>🚫\nHTTP Cancelled because task is requesting\nURL:\(self.baseURL)\(self.path)\nMethod:\(self.method)\nParameters：\(params)\nRequest Headers：\(self.headers)\n<=====")
+                            log_err("=====>🚫\nHTTP Request Cancelled because task is requesting\nURL:\(self.baseURL)\(self.path)\nMethod:\(self.method)\nParameters：\(params)\nRequest Headers：\(self.headers)\n<=====")
                             completed(.failure(.init(code: .local(.cancelBecauseIsRequesting), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             return
                         }
                     }
-                } else if requestStrategy == .amendIfRequesting {
+                } else if case .amendIfRequesting = requestStrategy {
                     for processer in self.processers {
                         processer.beenAmended = true
                     }
@@ -441,7 +444,7 @@ extension HttpRequest {
                     }
                     curProcesser.isRequesting = false
                     if curProcesser.beenAmended {
-                        log_err("=====>🚫\nHTTP Cancelled because been amended by new task\nURL:\(self.baseURL)\(self.path)\nMethod:\(self.method)\nParameters：\(params)\nRequest Headers：\(self.headers)\n<=====")
+                        log_err("=====>🚯\nHTTP Response Abandoned because it had been amended by new task\nURL:\(self.baseURL)\(self.path)\nMethod:\(self.method)\nParameters：\(params)\nRequest Headers：\(self.headers)\n<=====")
                         completed(.failure(.init(code: .local(.cancelBecauseBeAmended), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                         return
                     }
@@ -512,7 +515,19 @@ extension HttpRequest {
             }
             task.resume()
         }
-        queue.async(execute: closure)
+        if case let .amendIfRequesting(debounceInterval) = requestStrategy, let debounceInterval {
+            queue.async { [self = self] in
+                if nil == debounceTaskSubject {
+                    debounceTaskSubject = .init()
+                    debounceTaskSubjectCancelation = debounceTaskSubject?.debounce(for: .seconds(debounceInterval), scheduler: queue).sink(receiveValue: { closure in
+                        closure()
+                    })
+                }
+                debounceTaskSubject!.send(closure)
+            }
+        } else {
+            queue.async(execute: closure)
+        }
     }
     
     public func response<T: Decodable>(_ objectType: T.Type, inMainThread: Bool = true, completed: @escaping (Result<T, ResponseError>) -> Void) {
