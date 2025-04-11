@@ -200,32 +200,50 @@ extension HttpRequest {
         
         var code: Int
         var msg: String?
-        var container: KeyedDecodingContainer<HttpRequest.PrepareWrapper.CodingKeys>?
+        var decoder: Decoder?//KeyedDecodingContainer<HttpRequest.PrepareWrapper.CodingKeys>?
         
         enum CodingKeys: String, CodingKey {
             case code, msg, data, message
         }
         
         public required init(from decoder: any Decoder) throws {
-            container = try decoder.container(keyedBy: CodingKeys.self)
-            if let intCode = try? container!.decode(Int.self, forKey: .code) {
+            self.decoder = decoder
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            if let intCode = try? container.decode(Int.self, forKey: .code) {
                 code = intCode
-            } else if let strCode = try? container!.decode(String.self, forKey: .code),
+            } else if let strCode = try? container.decode(String.self, forKey: .code),
                       let intCode = Int(strCode) {
                 code = intCode
             } else {
                 throw CodingError.decoding("No code can be extracted!!!!")
             }
-            msg = (try? container!.decode(String.self, forKey: .msg)) ?? (try? container!.decode(String.self, forKey: .message))
+            msg = (try? container.decode(String.self, forKey: .msg)) ?? (try? container.decode(String.self, forKey: .message))
         }
         
         func extractObject<T: Decodable>() throws -> T {
-            guard let container else {
-                throw CodingError.decoding("no container")
+            guard let decoder else {
+                throw CodingError.decoding("no decoder")
             }
-            let obj = try container.decode(T.self, forKey: .data)
-            self.container = nil
-            return obj
+            var decodingError: Error?
+            do {
+                let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
+                let obj = try keyedContainer.decode(T.self, forKey: .data)
+                return obj
+            } catch let err {
+                decodingError = err
+            }
+            do {
+                let singleContainer = try decoder.singleValueContainer()
+                let obj = try singleContainer.decode(T.self)
+                return obj
+            } catch let err {
+                decodingError = err
+            }
+            if let decodingError {
+                throw decodingError
+            } else {
+                throw CodingError.decoding("should never be here")
+            }
         }
         
         struct ListWrapper<T: Decodable>: Decodable {
@@ -233,20 +251,19 @@ extension HttpRequest {
         }
         
         func extractList<T: Decodable>() throws -> [T] {
-            guard let container else {
+            guard let decoder else {
                 throw CodingError.decoding("no container")
             }
-            var error: (any Error)?
+            var error: Error?
+            let container = try decoder.container(keyedBy: CodingKeys.self)
             do {
                 let list = try container.decode([T].self, forKey: .data)
-                self.container = nil
                 return list
             } catch let e {
                 error = e
             }
             do {
                 let data = try container.decode(ListWrapper<T>.self, forKey: .data)
-                self.container = nil
                 return data.list
             } catch let e {
                 error = e
@@ -259,11 +276,11 @@ extension HttpRequest {
         }
         
         func extractString() throws -> String {
-            guard let container else {
+            guard let decoder else {
                 throw CodingError.decoding("no container")
             }
+            let container = try decoder.container(keyedBy: CodingKeys.self)
             let str = try container.decode(String.self, forKey: .data)
-            self.container = nil
             return str
         }
     }
@@ -636,7 +653,7 @@ extension HttpRequest {
 
 extension Result where Failure == HttpRequest.ResponseError {
     
-    public func getExist() -> Success? {
+    public func getSuccess() -> Success? {
         switch self {
         case .success(let success):
             return success

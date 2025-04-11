@@ -55,54 +55,27 @@ extension Array: ArrayType {}
 private protocol DicType {}
 extension Dictionary: DicType {}
 
-private func convert<T>(value: Any, toType: T.Type) -> T? {
+private func convert<T: SingleValueConvertable>(value: Any, toType: T.Type) -> T? {
     if value is T {
         return value as? T
     }
+    guard let value = value as? any SingleValueConvertable else {
+        return nil
+    }
     if toType == Int.self {
-        if let value = value as? Decimal {
-            return (value as NSDecimalNumber).intValue as? T
-        }
-        if let value = value as? String {
-            return Int(value) as? T
-        }
-        if let value = value as? Bool {
-            return (value ? 1 : 0) as? T
-        }
-        if let value = value as? Double {
-            return (Decimal(value) as NSDecimalNumber).intValue as? T
-        }
+        return value.convertToInt() as? T
     }
     if toType == Decimal.self {
-        if let value = value as? String {
-            return Decimal(string: value) as? T
-        }
-        if let value = value as? Int {
-            return Decimal(value) as? T
-        }
-        if let value = value as? Bool {
-            return Decimal(value ? 1 : 0) as? T
-        }
-        if let value = value as? Double {
-            return Decimal(value) as? T
-        }
+        return value.convertToDecimal() as? T
     }
     if toType == Double.self {
-        if let value = value as? String {
-            return Double(value) as? T
-        }
-        if let value = value as? Int {
-            return Double(value) as? T
-        }
-        if let value = value as? Bool {
-            return Double(value ? 1 : 0) as? T
-        }
-        if let value = value as? Decimal {
-            return (value as NSDecimalNumber).doubleValue as? T
-        }
+        return value.convertToDouble() as? T
     }
     if toType == String.self {
-        return "\(value)" as? T
+        return value.convertToString() as? T
+    }
+    if toType == Bool.self {
+        return value.convertToBool() as? T
     }
     return nil
 }
@@ -160,48 +133,43 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
     } else {
         if T.self == Int.self {
             if let decimal = try? container.decode(Decimal.self) {
-                value = (decimal as NSDecimalNumber).intValue as? T
+                value = decimal.convertToInt() as? T
                 rawValue = decimal
             } else if let string = try? container.decode(String.self) {
-                value = Int(string) as? T
+                value = string.convertToInt() as? T
                 rawValue = string
             } else if let bool = try? container.decode(Bool.self) {
-                value = (bool ? 1 : 0) as? T
+                value = bool.convertToInt() as? T
                 rawValue = bool
             }
         } else if T.self == Decimal.self {
             if let string = try? container.decode(String.self) {
-                value = Decimal(string: string) as? T
+                value = string.convertToDecimal() as? T
                 rawValue = string
             }
         } else if T.self == Double.self {
             if let string = try? container.decode(String.self) {
-                value = Double(string) as? T
+                value = string.convertToDouble() as? T
                 rawValue = string
             }
         } else if T.self == String.self {
             if let int = try? container.decode(Int.self) {
-                value = "\(int)" as? T
+                value = int.convertToString() as? T
                 rawValue = int
             } else if let decimal = try? container.decode(Decimal.self) {
-                value = "\(decimal)" as? T
+                value = decimal.convertToString() as? T
                 rawValue = decimal
             } else if let bool = try? container.decode(Bool.self) {
-                value = "\(bool)" as? T
+                value = bool.convertToString() as? T
                 rawValue = bool
             }
         } else if T.self == Bool.self {
             if let string = try? container.decode(String.self) {
-                value = ["true", "y", "t", "yes", "1"].contains { string.caseInsensitiveCompare($0) == .orderedSame } as? T
+                value = string.convertToBool() as? T
                 rawValue = string
             } else if let int = try? container.decode(Int.self) {
-                if int == 1 {
-                    value = true as? T
-                    rawValue = int
-                } else if int == 0 {
-                    value = false as? T
-                    rawValue = int
-                }
+                value = int.convertToBool() as? T
+                rawValue = int
             }
         }
     }
@@ -304,3 +272,135 @@ public struct Default {
     public typealias CaseFirst<A: Codable & CaseIterable> = DefaultValue<DefaultValueProviders.CaseFirst<A>>
 }
 
+
+public protocol SingleValueConvertable {
+    func convertToInt() -> Int?
+    func convertToDecimal() -> Decimal?
+    func convertToString() -> String?
+    func convertToDouble() -> Double?
+    func convertToBool() -> Bool?
+}
+
+extension Dictionary where Key: StringProtocol {
+    
+    public func extractValue<T: SingleValueConvertable>(of key: Key, _ type: T.Type) -> T? {
+        guard let value = self[key] else {
+            return nil
+        }
+        return convert(value: value, toType: T.self)
+    }
+    
+}
+
+extension Int: SingleValueConvertable {
+    public func convertToInt() -> Int? {
+        self
+    }
+    
+    public func convertToDecimal() -> Decimal? {
+        Decimal(self)
+    }
+    
+    public func convertToString() -> String? {
+        "\(self)"
+    }
+    
+    public func convertToDouble() -> Double? {
+        Double(self)
+    }
+    
+    public func convertToBool() -> Bool? {
+        self == 0 ? false : (self == 1 ? true : nil)
+    }
+}
+
+extension Decimal: SingleValueConvertable {
+    public func convertToInt() -> Int? {
+        (self as NSDecimalNumber).intValue
+    }
+    
+    public func convertToDecimal() -> Decimal? {
+        self
+    }
+    
+    public func convertToString() -> String? {
+        "\(self)"
+    }
+    
+    public func convertToDouble() -> Double? {
+    (self as NSDecimalNumber).doubleValue
+    }
+    
+    public func convertToBool() -> Bool? {
+        self == 0 ? false : (self == 1 ? true : nil)
+    }
+}
+
+extension String: SingleValueConvertable {
+    
+    public func convertToInt() -> Int? {
+        Int(self)
+    }
+    
+    public func convertToDecimal() -> Decimal? {
+        Decimal(string: self)
+    }
+    
+    public func convertToString() -> String? {
+        self
+    }
+    
+    public func convertToDouble() -> Double? {
+        Double(self)
+    }
+    
+    public func convertToBool() -> Bool? {
+        ["true", "y", "t", "yes", "1"].contains { caseInsensitiveCompare($0) == .orderedSame }
+    }
+}
+
+extension Double: SingleValueConvertable {
+    
+    public func convertToInt() -> Int? {
+        Int(self)
+    }
+    
+    public func convertToDecimal() -> Decimal? {
+        Decimal(self)
+    }
+    
+    public func convertToString() -> String? {
+        "\(self)"
+    }
+    
+    public func convertToDouble() -> Double? {
+        self
+    }
+    
+    public func convertToBool() -> Bool? {
+        nil
+    }
+}
+
+extension Bool: SingleValueConvertable {
+    
+    public func convertToInt() -> Int? {
+        self ? 1 : 0
+    }
+    
+    public func convertToDecimal() -> Decimal? {
+        Decimal(self ? 1 : 0)
+    }
+    
+    public func convertToString() -> String? {
+        "\(self)"
+    }
+    
+    public func convertToDouble() -> Double? {
+        nil
+    }
+    
+    public func convertToBool() -> Bool? {
+        self
+    }
+}
