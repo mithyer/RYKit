@@ -46,3 +46,51 @@ extension Array where Element == String {
         sorted().joined(separator: separator)
     }
 }
+
+
+extension Dictionary {
+    
+    public subscript<T: SingleValueConvertable>(_ convertor: (key: Key, type: T.Type)) -> T? {
+        guard let value = self[convertor.key] else {
+            return nil
+        }
+        return convert(value: value, toType: T.self)
+    }
+    
+    public func mapValuesByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [Key: T?] {
+        mapValues {
+            convert(value: $0, toType: type)
+        }
+    }
+    
+    public func compactMapValuesByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [Key: T] {
+        compactMapValues {
+            convert(value: $0, toType: type)
+        }
+    }
+}
+
+
+extension Array {
+    
+    public subscript<T: SingleValueConvertable>(_ convertor: (index: Index, type: T.Type)) -> T? {
+        let index = convertor.index
+        if index < 0 || index >= count {
+            return nil
+        }
+        let value = self[index]
+        return convert(value: value, toType: T.self)
+    }
+    
+    public func mapValuesByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [T?] {
+        map {
+            convert(value: $0, toType: type)
+        }
+    }
+    
+    public func compactMapValuesByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [T] {
+        compactMap {
+            convert(value: $0, toType: type)
+        }
+    }
+}

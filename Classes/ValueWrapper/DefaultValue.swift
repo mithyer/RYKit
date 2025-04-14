@@ -55,7 +55,7 @@ extension Array: ArrayType {}
 private protocol DicType {}
 extension Dictionary: DicType {}
 
-private func convert<T: SingleValueConvertable>(value: Any, toType: T.Type) -> T? {
+func convert<T: SingleValueConvertable>(value: Any, toType: T.Type) -> T? {
     if value is T {
         return value as? T
     }
@@ -279,17 +279,6 @@ public protocol SingleValueConvertable {
     func convertToString() -> String?
     func convertToDouble() -> Double?
     func convertToBool() -> Bool?
-}
-
-extension Dictionary where Key: StringProtocol {
-    
-    public func extractValue<T: SingleValueConvertable>(of key: Key, _ type: T.Type) -> T? {
-        guard let value = self[key] else {
-            return nil
-        }
-        return convert(value: value, toType: T.self)
-    }
-    
 }
 
 extension Int: SingleValueConvertable {
