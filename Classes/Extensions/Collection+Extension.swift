@@ -82,13 +82,13 @@ extension Array {
         return convert(value: value, toType: T.self)
     }
     
-    public func mapValuesByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [T?] {
+    public func mapByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [T?] {
         map {
             convert(value: $0, toType: type)
         }
     }
     
-    public func compactMapValuesByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [T] {
+    public func compactMapByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [T] {
         compactMap {
             convert(value: $0, toType: type)
         }
