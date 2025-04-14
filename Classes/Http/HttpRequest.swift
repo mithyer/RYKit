@@ -79,6 +79,10 @@ public final class HttpRequest {
     private var processers = [Processer]()
     private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
     private var debounceTaskSubjectCancelation: AnyCancellable?
+    static let defaultHttpResponseBusinessSuccessCode: Int = 200
+    private lazy var businessCodeValidator: ((Int?) -> Bool) = {
+        $0 == Self.defaultHttpResponseBusinessSuccessCode
+    }
 
     public init(session: URLSession,
          queue: DispatchQueue,
@@ -292,12 +296,27 @@ extension HttpRequest {
         case empty
     }
     
-    public enum DataResult<T: Decodable> {
+    public enum DataResult<T> {
         case obj(T)
         case list([T])
         case string(String)
         case empty
         case decodeFailed(any Error)
+        
+        func asAny() -> DataResult<Any> {
+            switch self {
+            case .obj(let t):
+                return .obj(t)
+            case .list(let array):
+                return .list(array)
+            case .string(let string):
+                return .string(string)
+            case .empty:
+                return .empty
+            case .decodeFailed(let error):
+                return .decodeFailed(error)
+            }
+        }
     }
     
     public enum LocalErrorCode: Int {
@@ -312,6 +331,7 @@ extension HttpRequest {
     }
     
     public class ResponseError: Error {
+        
         public enum CodeType {
             case httpStatus(Int)
             case business(Int)
@@ -332,12 +352,14 @@ extension HttpRequest {
         public private(set) var msg: String?
         private let rawData: String?
         private let subError: Error?
+        private let result: DataResult<Any>?
         
-        public init(code: CodeType, msg: String? = nil, rawData: String? = nil, subError: Error? = nil) {
+        public init(code: CodeType, msg: String? = nil, rawData: String? = nil, subError: Error? = nil, result: DataResult<Any>? = nil) {
             self.code = code
             self.msg = msg
             self.rawData = rawData
             self.subError = subError
+            self.result = result
         }
         
         public func customizeMsg(_ handler: ((ResponseError) -> String)?) -> Self {
@@ -403,7 +425,6 @@ extension HttpRequest {
         handlers.logFailureHandler?(message())
     }
     
-    static var httpResponseBusinessSuccessCode: Int = 200
     private class Processer: Equatable {
         var isRequesting: Bool = false
         var beenAmended: Bool = false
@@ -416,6 +437,10 @@ extension HttpRequest {
     public func replaceParams(_ params: ParamsType) -> Self {
         self.params = params
         return self
+    }
+    
+    public func replaceBusinessCodeValidator(_ validator: @escaping (Int?) -> Bool) {
+        self.businessCodeValidator = validator
     }
     
     private func response<RESPONSE_MODEL: Decodable>(responseDataType: DataModelType<RESPONSE_MODEL>, allowEmptyData: Bool = false, completed: @escaping (Result<DataResult<RESPONSE_MODEL>, ResponseError>) -> Void) {
@@ -496,10 +521,10 @@ extension HttpRequest {
                         #else
                         let dataStr = ""
                         #endif
-                        if intCode != Self.httpResponseBusinessSuccessCode {
+                        if !self.businessCodeValidator(intCode) {
                             let code: ResponseError.CodeType = nil == intCode ? .local(.noBusinessCode) : .business(intCode!)
                             log_err("=====>❌\nHTTP Failed Bussiness Error: code(\(code))\nURL: \(requestUrl)\nMessage: \(msg ?? "null")\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
-                            completed(.failure(.init(code: code, msg: msg, rawData: dataStr).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                            completed(.failure(.init(code: code, msg: msg, rawData: dataStr, result: result.asAny()).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             if let intCode, let onResponseBusinessErrorCodeHandler = handlers.onResponseBusinessErrorCodeHandler {
                                 DispatchQueue.main.async {
                                     onResponseBusinessErrorCodeHandler(intCode)
