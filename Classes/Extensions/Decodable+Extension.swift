@@ -64,14 +64,19 @@ public extension Decodable {
 
 extension Encodable {
     
-    var jsonString: String {
-#if DEBUG
-        if let jsonData = try? JSONEncoder().encode(self),
+    public var jsonData: Data? {
+        if let jsonData = try? JSONEncoder().encode(self) {
+            return jsonData
+        }
+        return nil
+    }
+    
+    public var jsonString: String? {
+        if let jsonData = jsonData,
             let string = String(data: jsonData, encoding: .utf8) {
             return string
         }
-#endif
-        return ""
+        return nil
     }
 }
 

@@ -393,3 +393,38 @@ extension Bool: SingleValueConvertable {
         self
     }
 }
+
+/// Any Int, Decimal, String, Bool
+public struct SingleValue: Codable {
+    
+    let raw: Any?
+    
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if let raw = raw as? any Encodable {
+            try container.encode(raw)
+        }
+    }
+    
+    public func value<T: SingleValueConvertable>(_ type: T.Type) -> T? {
+        guard let raw else {
+            return nil
+        }
+        return convert(value: raw, toType: T.self)
+    }
+    
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let value = try? container.decode(Bool.self) {
+           raw = value
+        } else if let value = try? container.decode(Int.self) {
+            raw = value
+        } else if let value = try? container.decode(Decimal.self) {
+            raw = value
+        } else if let value = try? container.decode(String.self) {
+            raw = value
+        } else {
+            raw = nil
+        }
+    }
+}
