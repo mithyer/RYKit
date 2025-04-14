@@ -81,6 +81,7 @@ func convert<T: SingleValueConvertable>(value: Any, toType: T.Type) -> T? {
 }
 
 func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContainer, rawValue: inout Any?) throws -> T? {
+    rawValue = nil
     if container.decodeNil() {
         return nil
     }
@@ -131,45 +132,18 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
             }
         }
     } else {
-        if T.self == Int.self {
-            if let decimal = try? container.decode(Decimal.self) {
-                value = decimal.convertToInt() as? T
-                rawValue = decimal
-            } else if let string = try? container.decode(String.self) {
-                value = string.convertToInt() as? T
-                rawValue = string
-            } else if let bool = try? container.decode(Bool.self) {
-                value = bool.convertToInt() as? T
-                rawValue = bool
-            }
-        } else if T.self == Decimal.self {
-            if let string = try? container.decode(String.self) {
-                value = string.convertToDecimal() as? T
-                rawValue = string
-            }
-        } else if T.self == Double.self {
-            if let string = try? container.decode(String.self) {
-                value = string.convertToDouble() as? T
-                rawValue = string
-            }
-        } else if T.self == String.self {
-            if let int = try? container.decode(Int.self) {
-                value = int.convertToString() as? T
-                rawValue = int
-            } else if let decimal = try? container.decode(Decimal.self) {
-                value = decimal.convertToString() as? T
-                rawValue = decimal
-            } else if let bool = try? container.decode(Bool.self) {
-                value = bool.convertToString() as? T
-                rawValue = bool
-            }
-        } else if T.self == Bool.self {
-            if let string = try? container.decode(String.self) {
-                value = string.convertToBool() as? T
-                rawValue = string
-            } else if let int = try? container.decode(Int.self) {
-                value = int.convertToBool() as? T
-                rawValue = int
+        if let single = try? container.decode(SingleValue.self), let raw = single.raw {
+            rawValue = raw
+            if T.self == Int.self {
+                value = single.value(Int.self) as? T
+            } else if T.self == Decimal.self {
+                value = single.value(Decimal.self) as? T
+            } else if T.self == Double.self {
+                value = single.value(Double.self) as? T
+            } else if T.self == String.self {
+                value = single.value(String.self) as? T
+            } else if T.self == Bool.self {
+                value = single.value(Bool.self) as? T
             }
         }
     }
@@ -367,7 +341,7 @@ extension Double: SingleValueConvertable {
     }
     
     public func convertToBool() -> Bool? {
-        nil
+        self == 1 ? true : (self == 0 ? false : nil)
     }
 }
 
@@ -386,7 +360,7 @@ extension Bool: SingleValueConvertable {
     }
     
     public func convertToDouble() -> Double? {
-        nil
+        self ? 1.0 : 0.0
     }
     
     public func convertToBool() -> Bool? {
@@ -394,15 +368,17 @@ extension Bool: SingleValueConvertable {
     }
 }
 
-/// Any Int, Decimal, String, Bool
+
 public struct SingleValue: Codable {
-    
-    let raw: Any?
+    /// Int, Decimal, String, Bool, Double
+    let raw: (any SingleValueConvertable)?
     
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()
         if let raw = raw as? any Encodable {
             try container.encode(raw)
+        } else {
+            try container.encodeNil()
         }
     }
     
@@ -423,8 +399,44 @@ public struct SingleValue: Codable {
             raw = value
         } else if let value = try? container.decode(String.self) {
             raw = value
+        } else if let value = try? container.decode(Double.self) {
+            raw = value
         } else {
             raw = nil
         }
+    }
+    
+    public init(_ raw: Any?) {
+        guard let raw else {
+            self.raw = nil
+            return
+        }
+        var convertedRaw: (any SingleValueConvertable)?
+        let value = raw
+        switch value {
+        case let value as any StringProtocol:
+            convertedRaw = "\(value)"
+        case let value as any Numeric:
+            if value is any BinaryInteger, let int = Int("\(value)") {
+                convertedRaw = int
+            } else if value is Decimal {
+                convertedRaw = value as! Decimal
+            } else if value is any FloatingPoint, let double = Double("\(value)") {
+                convertedRaw = double
+            }
+        case let value as NSNumber:
+            if value is NSDecimalNumber {
+                convertedRaw = value.decimalValue
+            } else if value === kCFBooleanTrue || value === kCFBooleanFalse {
+                convertedRaw = value.boolValue
+            } else if value.decimalValue == Decimal(value.intValue) {
+                convertedRaw = value.intValue
+            }
+        case let value as Bool:
+            convertedRaw = value
+        default:
+            break
+        }
+        self.raw = convertedRaw
     }
 }
