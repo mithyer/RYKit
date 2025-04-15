@@ -371,11 +371,11 @@ extension Bool: SingleValueConvertable {
 
 public struct SingleValue: Codable {
     /// Int, Decimal, String, Bool, Double
-    let raw: (any SingleValueConvertable)?
+    public let raw: (any SingleValueConvertable)?
     
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()
-        if let raw = raw as? any Encodable {
+        if let raw = raw as? Encodable {
             try container.encode(raw)
         } else {
             try container.encodeNil()

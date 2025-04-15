@@ -57,6 +57,20 @@ extension Dictionary {
         return convert(value: value, toType: T.self)
     }
     
+    public subscript(_ convertor: (key: Key, type: [String: Any].Type)) -> [String: Any]? {
+        guard let value = self[convertor.key] else {
+            return nil
+        }
+        return value as? [String: Any]
+    }
+    
+    public subscript(_ convertor: (key: Key, type: [Any].Type)) -> [Any]? {
+        guard let value = self[convertor.key] else {
+            return nil
+        }
+        return value as? [Any]
+    }
+    
     public func mapValuesByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [Key: T?] {
         mapValues {
             convert(value: $0, toType: type)
@@ -80,6 +94,24 @@ extension Array {
         }
         let value = self[index]
         return convert(value: value, toType: T.self)
+    }
+    
+    public subscript(_ convertor: (index: Index, type: [String: Any].Type)) -> [String: Any]? {
+        let index = convertor.index
+        if index < 0 || index >= count {
+            return nil
+        }
+        let value = self[index]
+        return value as? [String: Any]
+    }
+    
+    public subscript(_ convertor: (index: Index, type: [Any].Type)) -> [Any]? {
+        let index = convertor.index
+        if index < 0 || index >= count {
+            return nil
+        }
+        let value = self[index]
+        return value as? [Any]
     }
     
     public func mapByConvertingTo<T: SingleValueConvertable>(_ type: T.Type) -> [T?] {

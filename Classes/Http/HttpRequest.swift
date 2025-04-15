@@ -79,7 +79,7 @@ public final class HttpRequest {
     private var processers = [Processer]()
     private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
     private var debounceTaskSubjectCancelation: AnyCancellable?
-    private let defaultHttpResponseBusinessSuccessCode: Int
+    public let defaultHttpResponseBusinessSuccessCode: Int
     private lazy var businessCodeValidator: ((Int?) -> Bool) = {
         $0 == self.defaultHttpResponseBusinessSuccessCode
     }
@@ -161,7 +161,7 @@ extension HttpRequest {
     }
     
     private func asURLRequest() throws -> URLRequest {
-        guard let fullUrl = URL(string: "\(baseURL)\(path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path)") else {
+        guard let fullUrl = URL(string: "\(baseURL)\(path)") else {
             throw CodingError.encoding("URL error")
         }
         var request = URLRequest(url: fullUrl)

@@ -322,3 +322,33 @@ public struct CodableArray: Codable {
         return array[index]
     }
 }
+
+public enum CodableAny: Codable {
+    
+    case single(SingleValue)
+    case dictionary([String: Any])
+    case array([Any])
+    
+    public init(from decoder: any Decoder) throws {
+        if let value = try? SingleValue(from: decoder) {
+            self = .single(value)
+        } else if let value = try? CodableDictionary(from: decoder) {
+            self = .dictionary(value.dictionary)
+        } else if let value = try? CodableArray(from: decoder) {
+            self = .array(value.array)
+        } else {
+            throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "CodableAny decode error"))
+        }
+    }
+    
+    public func encode(to encoder: any Encoder) throws {
+        switch self {
+        case .single(let singleValue):
+            try singleValue.encode(to: encoder)
+        case .dictionary(let dictionary):
+            try CodableDictionary(dictionary).encode(to: encoder)
+        case .array(let array):
+            try CodableArray(array).encode(to: encoder)
+        }
+    }
+}
