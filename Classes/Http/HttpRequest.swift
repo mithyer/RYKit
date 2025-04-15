@@ -79,9 +79,9 @@ public final class HttpRequest {
     private var processers = [Processer]()
     private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
     private var debounceTaskSubjectCancelation: AnyCancellable?
-    static let defaultHttpResponseBusinessSuccessCode: Int = 200
-    private lazy var businessCodeValidator: ((Int?) -> Bool) = {
-        $0 == Self.defaultHttpResponseBusinessSuccessCode
+    private let defaultHttpResponseBusinessSuccessCode: Int
+    private lazy var businessCodeValidator: ((Int) -> Bool) = {
+        $0 == self.defaultHttpResponseBusinessSuccessCode
     }
 
     public init(session: URLSession,
@@ -93,7 +93,8 @@ public final class HttpRequest {
          contentType: ContentType?,
          requestStrategy: RequestStrategy?,
          baseHeaders: [String: String],
-         handlers: Handlers) {
+         handlers: Handlers,
+         defaultHttpResponseBusinessSuccessCode: Int = 200) {
         self.queue = queue
         self.session = session
         self.baseURL = baseURL
@@ -110,6 +111,7 @@ public final class HttpRequest {
         }
         self.headers = headers
         self.handlers = handlers
+        self.defaultHttpResponseBusinessSuccessCode = defaultHttpResponseBusinessSuccessCode
     }
 }
 
@@ -204,7 +206,7 @@ extension HttpRequest {
         
         var code: Int
         var msg: String?
-        var decoder: Decoder?//KeyedDecodingContainer<HttpRequest.PrepareWrapper.CodingKeys>?
+        var decoder: Decoder? //KeyedDecodingContainer<HttpRequest.PrepareWrapper.CodingKeys>?
         
         enum CodingKeys: String, CodingKey {
             case code, msg, data, message
@@ -302,21 +304,6 @@ extension HttpRequest {
         case string(String)
         case empty
         case decodeFailed(any Error)
-        
-        func asAny() -> DataResult<Any> {
-            switch self {
-            case .obj(let t):
-                return .obj(t)
-            case .list(let array):
-                return .list(array)
-            case .string(let string):
-                return .string(string)
-            case .empty:
-                return .empty
-            case .decodeFailed(let error):
-                return .decodeFailed(error)
-            }
-        }
     }
     
     public enum LocalErrorCode: Int {
@@ -330,36 +317,35 @@ extension HttpRequest {
         case shouldNeverBe = -99
     }
     
-    public class ResponseError: Error {
+    public enum ResponseCode {
+        case httpStatus(Int)
+        case business(Int)
+        case local(LocalErrorCode)
         
-        public enum CodeType {
-            case httpStatus(Int)
-            case business(Int)
-            case local(LocalErrorCode)
-            
-            public var intValue: Int {
-                switch self {
-                case .httpStatus(let int):
-                    return int
-                case .business(let int):
-                    return int
-                case .local(let localErrorCode):
-                    return localErrorCode.rawValue
-                }
+        public var intValue: Int {
+            switch self {
+            case .httpStatus(let int):
+                return int
+            case .business(let int):
+                return int
+            case .local(let localErrorCode):
+                return localErrorCode.rawValue
             }
         }
-        public let code: CodeType
+    }
+    
+    public class ResponseError: Error {
+        
+        public let code: ResponseCode
         public private(set) var msg: String?
         private let rawData: String?
         private let subError: Error?
-        private let result: DataResult<Any>?
         
-        public init(code: CodeType, msg: String? = nil, rawData: String? = nil, subError: Error? = nil, result: DataResult<Any>? = nil) {
+        public init(code: ResponseCode, msg: String? = nil, rawData: String? = nil, subError: Error? = nil) {
             self.code = code
             self.msg = msg
             self.rawData = rawData
             self.subError = subError
-            self.result = result
         }
         
         public func customizeMsg(_ handler: ((ResponseError) -> String)?) -> Self {
@@ -439,7 +425,7 @@ extension HttpRequest {
         return self
     }
     
-    public func replaceBusinessCodeValidator(_ validator: @escaping (Int?) -> Bool) {
+    public func replaceBusinessCodeValidator(_ validator: @escaping (Int) -> Bool) {
         self.businessCodeValidator = validator
     }
     
@@ -521,27 +507,27 @@ extension HttpRequest {
                         #else
                         let dataStr = ""
                         #endif
-                        if !self.businessCodeValidator(intCode) {
-                            let code: ResponseError.CodeType = nil == intCode ? .local(.noBusinessCode) : .business(intCode!)
-                            log_err("=====>❌\nHTTP Failed Bussiness Error: code(\(code))\nURL: \(requestUrl)\nMessage: \(msg ?? "null")\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
-                            completed(.failure(.init(code: code, msg: msg, rawData: dataStr, result: result.asAny()).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
-                            if let intCode, let onResponseBusinessErrorCodeHandler = handlers.onResponseBusinessErrorCodeHandler {
-                                DispatchQueue.main.async {
-                                    onResponseBusinessErrorCodeHandler(intCode)
-                                }
-                            }
-                        } else {
+                        if let intCode, self.businessCodeValidator(intCode) {
                             if case .decodeFailed(let err) = result {
                                 if allowEmptyData {
                                     log_success("=====>✅\nHTTP Successed with Data Decode Empty(Option Model)(\(responseDataType), \(RESPONSE_MODEL.self))\nReason:\(err)\nURL: \(requestUrl)\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
-                                    completed(.success(.empty))
+                                    completed(.success(.empty).with(code: .business(intCode)))
                                 } else {
                                     log_err("=====>❌\nHTTP Failed Beacuse Data Decode Error(\(responseDataType), \(RESPONSE_MODEL.self))\nReason:\(err)\nURL: \(requestUrl)\nParameters: \(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
                                     completed(.failure(.init(code: .local(.decodeFailed), msg: "Decode Failed").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 }
                             } else {
                                 log_success("=====>✅\nHTTP Successed\nURL: \(requestUrl)\nParameters: \(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\nDecoded Model:\(result)\n<=====")
-                                completed(.success(result))
+                                completed(.success(result).with(code: .business(intCode)))
+                            }
+                        } else {
+                            let code: ResponseCode = nil == intCode ? .local(.noBusinessCode) : .business(intCode!)
+                            log_err("=====>❌\nHTTP Failed Bussiness Error: code(\(code))\nURL: \(requestUrl)\nMessage: \(msg ?? "null")\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
+                            completed(.failure(.init(code: code, msg: msg, rawData: dataStr).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                            if let intCode, let onResponseBusinessErrorCodeHandler = handlers.onResponseBusinessErrorCodeHandler {
+                                DispatchQueue.main.async {
+                                    onResponseBusinessErrorCodeHandler(intCode)
+                                }
                             }
                         }
                     } else {
@@ -676,7 +662,7 @@ extension HttpRequest {
     }
 }
 
-extension Result where Failure == HttpRequest.ResponseError {
+extension Result: Associatable where Failure == HttpRequest.ResponseError {
     
     public func getSuccess() -> Success? {
         switch self {
@@ -692,5 +678,20 @@ extension Result where Failure == HttpRequest.ResponseError {
             return error.isCancelled
         }
         return false
+    }
+    
+    fileprivate func with(code: HttpRequest.ResponseCode) -> Self {
+        var result = self
+        result.setAssociated("code", value: code)
+        return result
+    }
+    
+    public var code: HttpRequest.ResponseCode {
+        switch self {
+        case .success(let success):
+            return associated("code", initializer: HttpRequest.ResponseCode.local(.shouldNeverBe))!
+        case .failure(let failure):
+            return failure.code
+        }
     }
 }
