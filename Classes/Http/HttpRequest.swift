@@ -80,7 +80,7 @@ public final class HttpRequest {
     private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
     private var debounceTaskSubjectCancelation: AnyCancellable?
     private let defaultHttpResponseBusinessSuccessCode: Int
-    private lazy var businessCodeValidator: ((Int) -> Bool) = {
+    private lazy var businessCodeValidator: ((Int?) -> Bool) = {
         $0 == self.defaultHttpResponseBusinessSuccessCode
     }
 
@@ -319,10 +319,10 @@ extension HttpRequest {
     
     public enum ResponseCode {
         case httpStatus(Int)
-        case business(Int)
+        case business(Int?)
         case local(LocalErrorCode)
         
-        public var intValue: Int {
+        public var intValue: Int? {
             switch self {
             case .httpStatus(let int):
                 return int
@@ -425,8 +425,9 @@ extension HttpRequest {
         return self
     }
     
-    public func replaceBusinessCodeValidator(_ validator: @escaping (Int) -> Bool) {
+    public func replaceBusinessCodeValidator(_ validator: @escaping (Int?) -> Bool) -> Self {
         self.businessCodeValidator = validator
+        return self
     }
     
     private func response<RESPONSE_MODEL: Decodable>(responseDataType: DataModelType<RESPONSE_MODEL>, allowEmptyData: Bool = false, completed: @escaping (Result<DataResult<RESPONSE_MODEL>, ResponseError>) -> Void) {
@@ -507,7 +508,7 @@ extension HttpRequest {
                         #else
                         let dataStr = ""
                         #endif
-                        if let intCode, self.businessCodeValidator(intCode) {
+                        if self.businessCodeValidator(intCode) {
                             if case .decodeFailed(let err) = result {
                                 if allowEmptyData {
                                     log_success("=====>✅\nHTTP Successed with Data Decode Empty(Option Model)(\(responseDataType), \(RESPONSE_MODEL.self))\nReason:\(err)\nURL: \(requestUrl)\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
@@ -681,14 +682,13 @@ extension Result: Associatable where Failure == HttpRequest.ResponseError {
     }
     
     fileprivate func with(code: HttpRequest.ResponseCode) -> Self {
-        var result = self
-        result.setAssociated("code", value: code)
-        return result
+        setAssociated("code", value: code)
+        return self
     }
     
     public var code: HttpRequest.ResponseCode {
         switch self {
-        case .success(let success):
+        case .success:
             return associated("code", initializer: HttpRequest.ResponseCode.local(.shouldNeverBe))!
         case .failure(let failure):
             return failure.code

@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'ADKit'
-  s.version          = '1.1.25'
+  s.version          = '1.1.26'
   s.summary          = 'Kit for Aden'
   s.description      =' Kit for Aden.'
   s.homepage         = 'http://10.23.9.221/rui.mao/adkit'
