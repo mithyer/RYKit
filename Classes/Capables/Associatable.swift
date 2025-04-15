@@ -9,7 +9,7 @@ import Foundation
 
 fileprivate var associatedDictionaryKey: Int = 0
 
-public protocol Associatable {
+public protocol Associatable: AnyObject {
     
     func associated<T>(_ key: String, initializer: @autoclosure () -> T?) -> T?
     func setAssociated<T>(_ key: String, value: T?)

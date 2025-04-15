@@ -11,7 +11,7 @@ import Combine
 public final class HttpRequest {
             
     public enum ContentType: String {
-        case applicationFormEncoded = "application/x-www-form-urlencoded; charset=utf-8"
+        case applicationFormEncoded = "application/x-www-form-urlencoded"
         case applicationJson = "application/json"
     }
     
@@ -83,6 +83,7 @@ public final class HttpRequest {
     private lazy var businessCodeValidator: ((Int?) -> Bool) = {
         $0 == self.defaultHttpResponseBusinessSuccessCode
     }
+    public private(set) var lastResponseCode: ResponseCode?
 
     public init(session: URLSession,
          queue: DispatchQueue,
@@ -295,7 +296,6 @@ extension HttpRequest {
         case obj
         case list
         case string
-        case empty
     }
     
     public enum DataResult<T> {
@@ -319,10 +319,10 @@ extension HttpRequest {
     
     public enum ResponseCode {
         case httpStatus(Int)
-        case business(Int?)
+        case business(Int)
         case local(LocalErrorCode)
         
-        public var intValue: Int? {
+        public var intValue: Int {
             switch self {
             case .httpStatus(let int):
                 return int
@@ -380,8 +380,6 @@ extension HttpRequest {
             case .string:
                 let string: String = try wrapper.extractString()
                 return (wrapper.code, wrapper.msg, .string(string))
-            case .empty:
-                return (wrapper.code, wrapper.msg, .empty)
             }
         } catch let err {
             return (wrapper?.code, wrapper?.msg, .decodeFailed(err))
@@ -435,7 +433,7 @@ extension HttpRequest {
         do {
             request = try self.asURLRequest()
         } catch let error {
-            completed(.failure(.init(code: .local(.asURLRequestFailed), msg: "\(error)").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+            completed(.failure(.init(code: .local(.asURLRequestFailed).set(to: self), msg: "\(error)").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
             return
         }
 
@@ -450,7 +448,7 @@ extension HttpRequest {
                     for processer in self.processers {
                         if processer.isRequesting {
                             log_err("=====>🚫\nHTTP Request Cancelled because task is requesting\nURL:\(self.baseURL)\(self.path)\nMethod:\(self.method)\nParameters：\(params)\nRequest Headers：\(self.headers)\n<=====")
-                            completed(.failure(.init(code: .local(.cancelBecauseIsRequesting), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                            completed(.failure(.init(code: .local(.cancelBecauseIsRequesting).set(to: self), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             return
                         }
                     }
@@ -474,32 +472,28 @@ extension HttpRequest {
                     curProcesser.isRequesting = false
                     if curProcesser.beenAmended {
                         log_err("=====>🚯\nHTTP Response Abandoned because it had been amended by new task\nURL:\(self.baseURL)\(self.path)\nMethod:\(self.method)\nParameters：\(params)\nRequest Headers：\(self.headers)\n<=====")
-                        completed(.failure(.init(code: .local(.cancelBecauseBeAmended), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                        completed(.failure(.init(code: .local(.cancelBecauseBeAmended).set(to: self), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                         return
                     }
                     guard let response = response as? HTTPURLResponse else {
-                        completed(.failure(.init(code: .local(.shouldNeverBe), msg: "fatal error!!!!").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                        completed(.failure(.init(code: .local(.shouldNeverBe).set(to: self), msg: "fatal error!!!!").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                         return
                     }
                     let statusCode = response.statusCode
                     let requestUrl = response.url?.absoluteString ?? "unknown url"
                     let headers = request.allHTTPHeaderFields ?? [:]
                     if statusCode/100 == 2 {
-                        if responseDataType == .empty {
-                            completed(.success(.empty))
-                            return
-                        }
                         let dataDescrypt: Data
                         do {
                             guard let data = data else {
                                 log_err(" =====>❌\nHTTP Failed Data nil Error\nURL:\(requestUrl)\nParameters：\(params)\nRequest Headers：\(headers)\n<=====")
-                                completed(.failure(.init(code: .local(.responseDataNil)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                                completed(.failure(.init(code: .local(.responseDataNil).set(to: self)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 return
                             }
                             dataDescrypt = try handlers.decryptDataHandler(data)
                         } catch let err {
                             log_err(" =====>❌\nHTTP Failed Parse Error(\(err))\nURL:\(requestUrl)\nParameters：\(params)\nRequest Headers：\(headers)\n<=====")
-                            completed(.failure(.init(code: .local(.dataDescryptFailed)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                            completed(.failure(.init(code: .local(.dataDescryptFailed).set(to: self)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             return
                         }
                         let (intCode, msg, result) = Self.extractRealData(modelType: RESPONSE_MODEL.self, preferType: responseDataType, dataDescrypt)
@@ -512,19 +506,21 @@ extension HttpRequest {
                             if case .decodeFailed(let err) = result {
                                 if allowEmptyData {
                                     log_success("=====>✅\nHTTP Successed with Data Decode Empty(Option Model)(\(responseDataType), \(RESPONSE_MODEL.self))\nReason:\(err)\nURL: \(requestUrl)\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
-                                    completed(.success(.empty).with(code: .business(intCode)))
+                                    _ = ResponseCode.business(intCode ?? 0).set(to: self)
+                                    completed(.success(.empty))
                                 } else {
                                     log_err("=====>❌\nHTTP Failed Beacuse Data Decode Error(\(responseDataType), \(RESPONSE_MODEL.self))\nReason:\(err)\nURL: \(requestUrl)\nParameters: \(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
-                                    completed(.failure(.init(code: .local(.decodeFailed), msg: "Decode Failed").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                                    completed(.failure(.init(code: .local(.decodeFailed).set(to: self), msg: "Decode Failed").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 }
                             } else {
                                 log_success("=====>✅\nHTTP Successed\nURL: \(requestUrl)\nParameters: \(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\nDecoded Model:\(result)\n<=====")
-                                completed(.success(result).with(code: .business(intCode)))
+                                _ = ResponseCode.business(intCode ?? 0).set(to: self)
+                                completed(.success(result))
                             }
                         } else {
                             let code: ResponseCode = nil == intCode ? .local(.noBusinessCode) : .business(intCode!)
                             log_err("=====>❌\nHTTP Failed Bussiness Error: code(\(code))\nURL: \(requestUrl)\nMessage: \(msg ?? "null")\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
-                            completed(.failure(.init(code: code, msg: msg, rawData: dataStr).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                            completed(.failure(.init(code: code.set(to: self), msg: msg, rawData: dataStr).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             if let intCode, let onResponseBusinessErrorCodeHandler = handlers.onResponseBusinessErrorCodeHandler {
                                 DispatchQueue.main.async {
                                     onResponseBusinessErrorCodeHandler(intCode)
@@ -533,7 +529,7 @@ extension HttpRequest {
                         }
                     } else {
                         log_err("=====>❌\nHTTP Failed Status Error(code: \(statusCode))\nURL: \(requestUrl)\nError: \(error?.localizedDescription ?? "")\nParameters：\(params)\nRequest Headers：\(headers)\n<=====")
-                        completed(.failure(.init(code: .httpStatus(statusCode), subError: error).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                        completed(.failure(.init(code: .httpStatus(statusCode).set(to: self), subError: error).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                         if let onResponseHttpErrorStatusCodeHandler = handlers.onResponseHttpErrorStatusCodeHandler {
                             DispatchQueue.main.async {
                                 onResponseHttpErrorStatusCodeHandler(statusCode)
@@ -648,13 +644,9 @@ extension HttpRequest {
     }
     
     public func responseEmpty(inMainThread: Bool = true, completed: @escaping (Result<(), ResponseError>) -> Void) {
-        response(responseDataType: DataModelType<PlaceHolderModel>.empty) { res in
+        response(responseDataType: DataModelType<PlaceHolderModel>.obj, allowEmptyData: true) { res in
             switch res {
-            case .success(let success):
-                guard case .empty = success else {
-                    finalCompleted(inMainThread, completed, .failure(.init(code: .local(.shouldNeverBe), msg: "fatal error!!!!").customizeMsg(self.handlers.customizeResponseErrorMessageHandler)))
-                    return
-                }
+            case .success:
                 finalCompleted(inMainThread, completed, .success(()))
             case .failure(let error):
                 finalCompleted(inMainThread, completed, .failure(error))
@@ -663,7 +655,7 @@ extension HttpRequest {
     }
 }
 
-extension Result: Associatable where Failure == HttpRequest.ResponseError {
+extension Result where Failure == HttpRequest.ResponseError {
     
     public func getSuccess() -> Success? {
         switch self {
@@ -680,18 +672,12 @@ extension Result: Associatable where Failure == HttpRequest.ResponseError {
         }
         return false
     }
+}
+
+extension HttpRequest.ResponseCode {
     
-    fileprivate func with(code: HttpRequest.ResponseCode) -> Self {
-        setAssociated("code", value: code)
+    fileprivate func set(to request: HttpRequest) -> Self {
+        request.lastResponseCode = self
         return self
-    }
-    
-    public var code: HttpRequest.ResponseCode {
-        switch self {
-        case .success:
-            return associated("code", initializer: HttpRequest.ResponseCode.local(.shouldNeverBe))!
-        case .failure(let failure):
-            return failure.code
-        }
     }
 }
