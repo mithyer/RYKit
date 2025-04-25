@@ -51,105 +51,106 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
             statusLock.unlock()
         }
     }
-    private var curTask: URLSessionTask?
 
     var maxRetryTimeWhenNetworkError = 3
-    var completedCall: ((Result<(new: Bool, data: CHANNEL.HandshakeDataType), FetchError>) -> Void)?
     
     init(channel: CHANNEL, taskQueue: DispatchQueue) {
         self.channel = channel
         self.taskQueue = taskQueue
     }
     
-    func fetch(_ completed: @escaping (Result<(new: Bool, data: CHANNEL.HandshakeDataType), FetchError>) -> Void) {
-        if case .fetching(let retryTime) = status, retryTime > 0 {
-            completedCall = completed
+    func startTask() {
+        
+        guard case .unstarted = status else {
             return
         }
-        if case let .successed(data) = status {
-            if let expireDate = expireDate, expireDate > Date() {
-                stomp_log("use old handshakeID")
-                completedCall = nil
-                completed(.success((false, data)))
-                return
-            }
-        }
-        completedCall = completed
-        if case .fetching = status {
-            return
-        }
+        
+        self.status = .fetching(retryTime: 0)
+        
         let url = URL(string: channel.handshakeURL)!
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpMethod = "POST"
         request.httpBody = try! JSONSerialization.data(withJSONObject: channel.handshakeParams, options: [])
         request.timeoutInterval = 30
-        self.status = .fetching(retryTime: 0)
         
-        var completeWithFailure = { [weak self] in
+        let logError = { [weak self] in
             guard let self else {
                 return
             }
-            self.completedCall?(.failure(self.status.fetchError ?? .undefined))
             stomp_log("\(self.status.fetchError ?? .undefined)", .error)
-            self.completedCall = nil
         }
+        
         stomp_log("fetch new handshakeID", .notice)
-        func startTask() {
-            if let task = curTask {
-                curTask = nil
-                task.cancel()
-            }
-            curTask = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-                self?.taskQueue.async {
-                    guard let self = self, self.curTask?.response == response else {
-                        return
-                    }
-                    if let error = error {
-                        if case .fetching(let retryTime) = self.status {
-                            if retryTime >= self.maxRetryTimeWhenNetworkError {
-                                self.status = .error(err: .network(error))
-                                completeWithFailure()
-                                return
-                            }
+        let task = URLSession.shared.dataTask(with: request) { [taskQueue] data, response, error in
+            taskQueue.async {
+                if let error = error {
+                    if case .fetching(let retryTime) = self.status {
+                        if retryTime >= self.maxRetryTimeWhenNetworkError {
+                            self.status = .error(err: .network(error))
+                            logError()
+                        } else {
                             self.status = .fetching(retryTime: retryTime + 1)
-                            startTask()
+                            self.startTask()
                         }
-                        return
+                    } else {
+                        self.status = .error(err: .network(error))
                     }
-                    guard let data = data else {
-                        self.status = .error(err: .responseNoData)
-                        completeWithFailure()
-                        return
-                    }
-                    let result: CHANNEL.HandshakeDataType
-                    do {
-                        let decoder = JSONDecoder()
-                        result = try decoder.decode(CHANNEL.HandshakeDataType.self, from: data)
-                    } catch let err {
-                        self.status = .error(err: .dataDecoding(err))
-                        completeWithFailure()
-                        return
-                    }
-                    if result.code != 200 {
-                        self.status = .error(err: .responseNot200(result.msg ?? ""))
-                        completeWithFailure()
-                        return
-                    }
-                    guard let handshakeId = result.handshakeId, !handshakeId.isEmpty else {
-                        self.status = .error(err: .handshakeIdInValid)
-                        completeWithFailure()
-                        return
-                    }
-                    self.expireDate = Date() + Double(((result.expiresIn ?? 20) - 20))
-                    self.status = .successed(data: result)
-                    self.completedCall?(.success((true, result)))
-                    self.completedCall = nil
+                    return
                 }
+                guard let data = data else {
+                    self.status = .error(err: .responseNoData)
+                    logError()
+                    return
+                }
+                let result: CHANNEL.HandshakeDataType
+                do {
+                    let decoder = JSONDecoder()
+                    result = try decoder.decode(CHANNEL.HandshakeDataType.self, from: data)
+                } catch let err {
+                    self.status = .error(err: .dataDecoding(err))
+                    logError()
+                    return
+                }
+                if result.code != 200 {
+                    self.status = .error(err: .responseNot200(result.msg ?? ""))
+                    logError()
+                    return
+                }
+                guard let handshakeId = result.handshakeId, !handshakeId.isEmpty else {
+                    self.status = .error(err: .handshakeIdInValid)
+                    logError()
+                    return
+                }
+                if let expiresIn = result.expiresIn {
+                    self.expireDate = Date().addingTimeInterval(Double(expiresIn > 20 ? expiresIn : 20))
+                } else {
+                    self.expireDate = Date().addingTimeInterval(20)
+                }
+                self.status = .successed(data: result)
             }
-            curTask?.resume()
         }
-        startTask()
+        task.resume()
+    }
+    
+    func getResultOrFetch() -> Result<CHANNEL.HandshakeDataType, FetchError>? {
+        switch status {
+        case .unstarted:
+            startTask()
+            return nil
+        case .fetching:
+            return nil
+        case .error(let err):
+            return .failure(err)
+        case .successed(let data):
+            if let expireDate = expireDate, expireDate > Date() {
+                return .success(data)
+            } else {
+                self.status = .unstarted
+                startTask()
+                return nil
+            }
+        }
     }
     
 }
@@ -204,11 +205,18 @@ class StompConnection<CHANNEL: StompChannel> {
         self.callbackQueue = callbackQueue
     }
     
-    private func fetchHandshakeId() async -> Result<(new: Bool, data: CHANNEL.HandshakeDataType), FetchError> {
+    private func fetchHandshakeId() async -> Result<CHANNEL.HandshakeDataType, FetchError> {
         return await withCheckedContinuation { continuation in
-            self.handshakeIdFetcher.fetch { result in
-                continuation.resume(returning: result)
+            Task {
+                while true {
+                    if let res = self.handshakeIdFetcher.getResultOrFetch() {
+                        continuation.resume(with: .success(res))
+                        return
+                    }
+                    try await Task.sleep(nanoseconds: 1_000_000_000)
+                }
             }
+
         }
     }
     
@@ -223,7 +231,7 @@ class StompConnection<CHANNEL: StompChannel> {
         let fetchRes = await fetchHandshakeId()
         let handshakeData: CHANNEL.HandshakeDataType
         switch fetchRes {
-        case let .success((_, data)):
+        case let .success(data):
             handshakeData = data
             stomp_log("handshakeId fetched: \(data.handshakeId ?? "")")
         case .failure(let failure):
