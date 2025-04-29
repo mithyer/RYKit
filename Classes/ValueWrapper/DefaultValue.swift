@@ -279,7 +279,10 @@ extension Int: SingleValueConvertable {
 
 extension Decimal: SingleValueConvertable {
     public func convertToInt() -> Int? {
-        Int((self as NSDecimalNumber).doubleValue)
+        guard isNormal else {
+            return nil
+        }
+        return Int((self as NSDecimalNumber).doubleValue)
     }
     
     public func convertToDecimal() -> Decimal? {
@@ -291,7 +294,7 @@ extension Decimal: SingleValueConvertable {
     }
     
     public func convertToDouble() -> Double? {
-    (self as NSDecimalNumber).doubleValue
+        (self as NSDecimalNumber).doubleValue
     }
     
     public func convertToBool() -> Bool? {
