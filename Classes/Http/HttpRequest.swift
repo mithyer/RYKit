@@ -448,7 +448,7 @@ extension HttpRequest {
                 if case .cancelIfRequesting = requestStrategy {
                     for processer in self.processers {
                         if processer.isRequesting {
-                            log_err("=====>🚫\nHTTP(\(method)) Request Cancelled because task is requesting\nURL:\(self.baseURL)\(self.path)\nMethod:\(self.method)\nParameters：\(params)\nRequest Headers：\(self.headers)\n<=====")
+                            log_err("=====>🚫\nHttpRequest(\(method)) Request Cancelled because task is requesting\n###URL###:\(self.baseURL)\(self.path)\n###Method###:\(self.method)\n###Parameters###：\(params)\n###Request Headers###：\(self.headers)\n<=====")
                             completed(.failure(.init(code: .local(.cancelBecauseIsRequesting).set(to: self), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             return
                         }
@@ -472,7 +472,7 @@ extension HttpRequest {
                     }
                     curProcesser.isRequesting = false
                     if curProcesser.beenAmended {
-                        log_err("=====>🚯\nHTTP(\(method)) Response Abandoned because it had been amended by new task\nURL:\(self.baseURL)\(self.path)\nMethod:\(self.method)\nParameters：\(params)\nRequest Headers：\(self.headers)\n<=====")
+                        log_err("=====>🚯\nHttpRequest(\(method)) Response Abandoned because it had been amended by new task\n###URL###:\(self.baseURL)\(self.path)\n###Method###:\(self.method)\n###Parameters###：\(params)\n###Request Headers###：\(self.headers)\n<=====")
                         completed(.failure(.init(code: .local(.cancelBecauseBeAmended).set(to: self), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                         return
                     }
@@ -487,13 +487,13 @@ extension HttpRequest {
                         let dataDescrypt: Data
                         do {
                             guard let data = data else {
-                                log_err(" =====>❌\nHTTP(\(method)) Failed Data nil Error\nURL:\(requestUrl)\nParameters：\(params)\nRequest Headers：\(headers)\n<=====")
+                                log_err("=====>❌\nHttpRequest(\(method)) Failed Data nil Error\n###URL###:\(requestUrl)\n###Parameters###：\(params)\n###Request Headers###：\(headers)\n<=====")
                                 completed(.failure(.init(code: .local(.responseDataNil).set(to: self)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 return
                             }
                             dataDescrypt = try handlers.decryptDataHandler(data)
                         } catch let err {
-                            log_err(" =====>❌\nHTTP(\(method)) Failed Parse Error(\(err))\nURL:\(requestUrl)\nParameters：\(params)\nRequest Headers：\(headers)\n<=====")
+                            log_err("=====>❌\nHttpRequest(\(method)) Failed Parse Error(\(err))\n###URL###:\(requestUrl)\n###Parameters###：\(params)\n###Request Headers###：\(headers)\n<=====")
                             completed(.failure(.init(code: .local(.dataDescryptFailed).set(to: self)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             return
                         }
@@ -506,21 +506,21 @@ extension HttpRequest {
                         if self.businessCodeValidator(intCode) {
                             if case .decodeFailed(let err) = result {
                                 if allowEmptyData {
-                                    log_success("=====>✅\nHTTP(\(method)) Successed with Data Decode Empty(Option Model)(\(responseDataType), \(RESPONSE_MODEL.self))\nReason:\(err)\nURL: \(requestUrl)\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
+                                    log_success("=====>✅\nHttpRequest(\(method)) Successed with Data Decode Empty(allowEmptyData == true)(\(responseDataType), \(RESPONSE_MODEL.self))\n###Empty Reason###:\(err)\n###URL###: \(requestUrl)\n###Parameters###：\(params)\n###Request Headers###：\(headers)\n###Raw Response Data###:\n\(dataStr)\n<=====")
                                     _ = ResponseCode.business(intCode ?? 0).set(to: self)
                                     completed(.success(.empty))
                                 } else {
-                                    log_err("=====>❌\nHTTP(\(method)) Failed Beacuse Data Decode Error(\(responseDataType), \(RESPONSE_MODEL.self))\nReason:\(err)\nURL: \(requestUrl)\nParameters: \(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
+                                    log_err("=====>❌\nHttpRequest(\(method)) Failed Beacuse Data Decode Error(\(responseDataType), \(RESPONSE_MODEL.self))\n###Reason###:\(err)\n###URL###: \(requestUrl)\n###Parameters###: \(params)\n###Request### ###Headers###：\(headers)\n###Raw Response Data###:\n\(dataStr)\n<=====")
                                     completed(.failure(.init(code: .local(.decodeFailed).set(to: self), msg: "Decode Failed").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 }
                             } else {
-                                log_success("=====>✅\nHTTP(\(method)) Successed\nURL: \(requestUrl)\nParameters: \(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\nDecoded Model:\(result)\n<=====")
+                                log_success("=====>✅\nHttpRequest(\(method)) Successed\n###URL###: \(requestUrl)\n###Parameters###: \(params)\n###Request Headers###：\(headers)\n###Raw Response Data###:\n\(dataStr)\n###Decoded Model###:\n\(result)\n<=====")
                                 _ = ResponseCode.business(intCode ?? 0).set(to: self)
                                 completed(.success(result))
                             }
                         } else {
                             let code: ResponseCode = nil == intCode ? .local(.noBusinessCode) : .business(intCode!)
-                            log_err("=====>❌\nHTTP(\(method)) Failed Bussiness Error: code(\(code))\nURL: \(requestUrl)\nMessage: \(msg ?? "null")\nParameters：\(params)\nRequest Headers：\(headers)\nRaw Response Data: \(dataStr)\n<=====")
+                            log_err("=====>❌\nHttpRequest(\(method)) Failed Bussiness Error: code(\(code))\n###URL###: \(requestUrl)\n###Message###: \(msg ?? "null")\n###Parameters###：\(params)\n###Request Headers###：\(headers)\n###Raw Response Data###:\n\(dataStr)\n<=====")
                             completed(.failure(.init(code: code.set(to: self), msg: msg, rawData: dataStr).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             if let intCode, let onResponseBusinessErrorCodeHandler = handlers.onResponseBusinessErrorCodeHandler {
                                 DispatchQueue.main.async {
@@ -529,7 +529,7 @@ extension HttpRequest {
                             }
                         }
                     } else {
-                        log_err("=====>❌\nHTTP(\(method)) Failed Status Error(code: \(statusCode))\nURL: \(requestUrl)\nError: \(error?.localizedDescription ?? "")\nParameters：\(params)\nRequest Headers：\(headers)\n<=====")
+                        log_err("=====>❌\nHttpRequest(\(method)) Failed Status Error(code: \(statusCode))\n###URL###: \(requestUrl)\n###Error###: \(error?.localizedDescription ?? "")\n###Parameters###：\(params)\n###Request Headers###：\(headers)\n<=====")
                         completed(.failure(.init(code: .httpStatus(statusCode).set(to: self), subError: error).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                         if let onResponseHttpErrorStatusCodeHandler = handlers.onResponseHttpErrorStatusCodeHandler {
                             DispatchQueue.main.async {
