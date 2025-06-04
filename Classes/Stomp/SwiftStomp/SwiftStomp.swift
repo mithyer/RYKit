@@ -92,6 +92,7 @@ class SwiftStomp: NSObject {
 
     deinit {
         disconnect(force: true)
+        pingTimer?.invalidate()
     }
 
     private func initReachability(){
@@ -276,7 +277,9 @@ extension SwiftStomp{
         // self.stompLog(type: .info, message: "Stomp: Ping sent!")
 
         //** Reset ping timer
-        self.resetPingTimer()
+        //self.resetPingTimer()
+        
+        return
     }
 
 
@@ -309,7 +312,7 @@ fileprivate extension SwiftStomp{
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
         let timestamp = formatter.string(from: Date())
-        let log = "Stomp(\(timestamp))[\(type.rawValue)]: \(message)"
+        let log = "Stomp(\(timestamp))[\(type.rawValue)]: \(message)\n"
         os_log(type == .info ? .info : .error, "%s", log)
         StompLog.onReceivedRawLog?(log)
     }
@@ -554,42 +557,33 @@ fileprivate extension SwiftStomp{
 
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-
-            //** Invalidate if timer is valid
-            if let t = self.pingTimer, t.isValid{
-                t.invalidate()
-            }
             
             var confirmPingFailure = { [weak self] in
-                guard let self = self else {
+                guard let self else {
                     return
                 }
                 self.pingErrorOccurCount += 1
                 guard self.pingErrorOccurCount >= self.maxPingErrorTolerance else {
                     return
                 }
+                self.pingErrorOccurCount = 0
                 let message = URLSessionWebSocketTask.Message.string("")
                 webSocketTask?.send(message) { [weak self] error in
-                    guard let self = self else {
+                    guard let self else {
                         return
                     }
                     if error != nil {
                         self.disconnect(force: true)
-                        self.pingErrorOccurCount = 0
-                    } else {
-                        self.maxPingErrorTolerance = 0
                     }
                 }
             }
             
             //** Schedule the ping timer
+            self.pingTimer?.invalidate()
             self.pingTimer = Timer.scheduledTimer(withTimeInterval: self.pingInterval, repeats: true) { [weak self] _ in
                 self?.ping() { error in
-                    guard let self = self else {
-                        return
-                    }
-                    guard let error = error as? NSError else {
-                        self.pingErrorOccurCount = 0
+                    guard let self, let error = error as? NSError else {
+                        self?.pingErrorOccurCount = 0
                         return
                     }
                     switch error.code {
