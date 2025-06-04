@@ -79,13 +79,18 @@ public final class HttpRequest {
     private var processers = [Processer]()
     private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
     private var debounceTaskSubjectCancelation: AnyCancellable?
-    public let defaultHttpResponseBusinessSuccessCodes: [Int]
+    public private(set) var defaultHttpResponseBusinessSuccessCodes: [Int]
     private lazy var businessCodeValidator: ((Int?) -> Bool) = { value in
         self.defaultHttpResponseBusinessSuccessCodes.contains(where: {
             $0 == value
         })
     }
     public private(set) var lastResponseCode: ResponseCode?
+    
+    public func setHttpResponseBusinessSuccessCodes(_ codes: [Int]) -> Self {
+        self.defaultHttpResponseBusinessSuccessCodes = codes
+        return self
+    }
 
     public init(session: URLSession,
          queue: DispatchQueue,
