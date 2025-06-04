@@ -79,9 +79,11 @@ public final class HttpRequest {
     private var processers = [Processer]()
     private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
     private var debounceTaskSubjectCancelation: AnyCancellable?
-    public let defaultHttpResponseBusinessSuccessCode: Int
-    private lazy var businessCodeValidator: ((Int?) -> Bool) = {
-        $0 == self.defaultHttpResponseBusinessSuccessCode
+    public let defaultHttpResponseBusinessSuccessCodes: [Int]
+    private lazy var businessCodeValidator: ((Int?) -> Bool) = { value in
+        self.defaultHttpResponseBusinessSuccessCodes.contains(where: {
+            $0 == value
+        })
     }
     public private(set) var lastResponseCode: ResponseCode?
 
@@ -95,7 +97,7 @@ public final class HttpRequest {
          requestStrategy: RequestStrategy?,
          baseHeaders: [String: String],
          handlers: Handlers,
-         defaultHttpResponseBusinessSuccessCode: Int = 200) {
+         defaultHttpResponseBusinessSuccessCodes: [Int] = [200]) {
         self.queue = queue
         self.session = session
         self.baseURL = baseURL
@@ -112,7 +114,7 @@ public final class HttpRequest {
         }
         self.headers = headers
         self.handlers = handlers
-        self.defaultHttpResponseBusinessSuccessCode = defaultHttpResponseBusinessSuccessCode
+        self.defaultHttpResponseBusinessSuccessCodes = defaultHttpResponseBusinessSuccessCodes
     }
 }
 
@@ -210,7 +212,7 @@ extension HttpRequest {
         var decoder: Decoder? //KeyedDecodingContainer<HttpRequest.PrepareWrapper.CodingKeys>?
         
         enum CodingKeys: String, CodingKey {
-            case code, msg, data, message
+            case code, msg, data, message, result
         }
         
         public required init(from decoder: any Decoder) throws {
@@ -224,33 +226,28 @@ extension HttpRequest {
             } else {
                 throw CodingError.decoding("No code can be extracted!!!!")
             }
-            msg = (try? container.decode(String.self, forKey: .msg)) ?? (try? container.decode(String.self, forKey: .message))
+            if container.contains(.msg) {
+                msg = try? container.decode(String.self, forKey: .msg)
+            } else if container.contains(.message) {
+                msg = try? container.decode(String.self, forKey: .message)
+            }
         }
         
         func extractObject<T: Decodable>() throws -> T {
             guard let decoder else {
                 throw CodingError.decoding("no decoder")
             }
-            var decodingError: Error?
-            do {
-                let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
-                let obj = try keyedContainer.decode(T.self, forKey: .data)
-                return obj
-            } catch let err {
-                decodingError = err
-            }
-            do {
-                let singleContainer = try decoder.singleValueContainer()
-                let obj = try singleContainer.decode(T.self)
-                return obj
-            } catch let err {
-                decodingError = err
-            }
-            if let decodingError {
-                throw decodingError
+            let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
+            let obj: T
+            if keyedContainer.contains(.data) {
+                obj = try keyedContainer.decode(T.self, forKey: .data)
+            } else if keyedContainer.contains(.result) {
+                obj = try keyedContainer.decode(T.self, forKey: .result)
             } else {
-                throw CodingError.decoding("should never be here")
+                let singleContainer = try decoder.singleValueContainer()
+                obj = try singleContainer.decode(T.self)
             }
+            return obj
         }
         
         struct ListWrapper<T: Decodable>: Decodable {
