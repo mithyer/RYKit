@@ -170,6 +170,14 @@ class StompConnection<CHANNEL: StompChannel> {
         case connected(SwiftStomp)
         case disconnected
         case failed(ConnectionError)
+        case deinited
+        
+        var isDeinited: Bool {
+            if case .deinited = self {
+                return true
+            }
+            return false
+        }
     }
     
     private let callbackQueue: DispatchQueue
@@ -207,16 +215,20 @@ class StompConnection<CHANNEL: StompChannel> {
     
     private func fetchHandshakeId() async -> Result<CHANNEL.HandshakeDataType, FetchError> {
         return await withCheckedContinuation { continuation in
-            Task {
-                while true {
+            Task { [weak self] in
+                guard !(self?.status.isDeinited ?? true) else {
+                    continuation.resume(with: .success(.failure(.undefined)))
+                    return
+                }
+                while let self, !status.isDeinited {
                     if let res = self.handshakeIdFetcher.getResultOrFetch() {
                         continuation.resume(with: .success(res))
                         return
                     }
                     try await Task.sleep(nanoseconds: 1_000_000_000)
                 }
+                continuation.resume(with: .success(.failure(.undefined)))
             }
-
         }
     }
     
@@ -259,8 +271,8 @@ class StompConnection<CHANNEL: StompChannel> {
             eventListenCancellable = stomp.eventsUpstream
                 .receive(on: self.callbackQueue)
                 .sink {  [weak self, weak stomp] event in
-                guard let self = self, let stomp = stomp else {
-                    con.resume(returning: false)
+                    guard let self, !status.isDeinited, let stomp else {
+                        con.resume(returning: false)
                     return
                 }
                 switch event {
@@ -268,6 +280,7 @@ class StompConnection<CHANNEL: StompChannel> {
                     if type == .toStomp {
                         stomp_log("Stomp Connected")
                         self.status = .connected(stomp)
+                        self.eventListenCancellable?.cancel()
                         self.eventListenCancellable = nil
                         con.resume(returning: true)
                         self.onConnected?(stomp)
@@ -276,6 +289,7 @@ class StompConnection<CHANNEL: StompChannel> {
                     }
                 case .disconnected(_):
                     self.status = .disconnected
+                    self.eventListenCancellable?.cancel()
                     self.eventListenCancellable = nil
                     con.resume(returning: false)
                 case let .error(error):
@@ -286,6 +300,7 @@ class StompConnection<CHANNEL: StompChannel> {
                     }
                     stomp_log("\(error)", .error)
                     self.status = .failed(.connection(error))
+                    self.eventListenCancellable?.cancel()
                     self.eventListenCancellable = nil
                     con.resume(returning: false)
                 }
@@ -297,7 +312,7 @@ class StompConnection<CHANNEL: StompChannel> {
                 .eventsUpstream
                 .receive(on: self.callbackQueue)
                 .sink(receiveValue: { [weak self, weak stomp] event in
-                    guard let self = self, let stomp = stomp else {
+                    guard let self, !status.isDeinited, let stomp else {
                         return
                     }
                     switch event {
@@ -326,6 +341,7 @@ class StompConnection<CHANNEL: StompChannel> {
     }
     
     deinit {
+        status = .deinited
         eventListenCancellable?.cancel()
         messageListenCancellable?.cancel()
         self.stomp?.disconnect(force: true)
