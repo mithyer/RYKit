@@ -257,6 +257,10 @@ extension HttpRequest {
         
         struct ListWrapper<T: Decodable>: Decodable {
             var list: [T]
+            
+            enum CodingKeys: CodingKey {
+                case list
+            }
         }
         
         func extractList<T: Decodable>() throws -> [T] {
@@ -279,8 +283,10 @@ extension HttpRequest {
                     error = e
                 }
                 do {
-                    let data = try container.decode(ListWrapper<T>.self, forKey: codingKey)
-                    return data.list
+                    if let subContainer = try? container.nestedContainer(keyedBy: ListWrapper<T>.CodingKeys.self, forKey: .data) {
+                        let list = try subContainer.decode([T].self, forKey: .list)
+                        return list
+                    }
                 } catch let e {
                     error = e
                 }
