@@ -265,22 +265,32 @@ extension HttpRequest {
             }
             var error: Error?
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            do {
-                let list = try container.decode([T].self, forKey: .data)
-                return list
-            } catch let e {
-                error = e
+            var codingKey: CodingKeys?
+            if container.contains(.data) {
+                codingKey = .data
+            } else if container.contains(.result) {
+                codingKey = .result
             }
-            do {
-                let data = try container.decode(ListWrapper<T>.self, forKey: .data)
-                return data.list
-            } catch let e {
-                error = e
-            }
-            if let error {
-                throw error
+            if let codingKey {
+                do {
+                    let list = try container.decode([T].self, forKey: codingKey)
+                    return list
+                } catch let e {
+                    error = e
+                }
+                do {
+                    let data = try container.decode(ListWrapper<T>.self, forKey: codingKey)
+                    return data.list
+                } catch let e {
+                    error = e
+                }
+                if let error {
+                    throw error
+                } else {
+                    throw CodingError.decoding("should never be here")
+                }
             } else {
-                throw CodingError.decoding("should never be here")
+                throw CodingError.decoding("no key: \"data\" or \"result\" ")
             }
         }
         
@@ -289,8 +299,13 @@ extension HttpRequest {
                 throw CodingError.decoding("no container")
             }
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            let str = try container.decode(String.self, forKey: .data)
-            return str
+            if container.contains(.data) {
+                return try container.decode(String.self, forKey: .data)
+            } else if container.contains(.result) {
+                return try container.decode(String.self, forKey: .result)
+            } else {
+                throw CodingError.decoding("no key: \"data\" or \"result\" ")
+            }
         }
     }
     
