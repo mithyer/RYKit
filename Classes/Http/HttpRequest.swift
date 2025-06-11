@@ -385,6 +385,10 @@ extension HttpRequest {
             }
             return false
         }
+        
+        public var localizedDescription: String {
+            return self.msg ?? "Error(\(code.intValue))"
+        }
     }
     
     private static func extractRealData<T: Decodable>(modelType: T.Type, preferType: DataModelType<T>, _ data: Data) -> (Int?, String?, DataResult<T>) {
