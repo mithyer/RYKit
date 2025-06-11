@@ -179,11 +179,13 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
     init(destination: String,
          stompID: String,
          headerIdPrefix: String?,
+         subscribeHeaders: [String: String]?,
          decodedPublishedSubject: DecodedPublishedSubject?,
          unDecodedPublishedSubject: UnDecodedPublishedSubject?,
          type: T.Type) {
         self.destination = destination
         self.stompID = stompID
+        self.subscribeHeaders = subscribeHeaders
         self.hashedStompID = nil == headerIdPrefix ? "ios_\(stompID.sha1)" : "\(headerIdPrefix!)_ios_\(stompID.sha1)"
         self.decodedPublishedSubject = decodedPublishedSubject
         self.unDecodedPublishedSubject = unDecodedPublishedSubject

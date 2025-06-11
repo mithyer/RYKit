@@ -202,7 +202,7 @@ open class StompManager<CHANNEL: StompChannel> {
         }
     }
     
-    private func publisher<T: Decodable>(by destination: String, stompID: String, headerIdPrefix: String?, dataType: T.Type) -> StompPublisher<T> {
+    private func publisher<T: Decodable>(by destination: String, stompID: String, headerIdPrefix: String?, subscribeHeaders: [String: String]?, dataType: T.Type) -> StompPublisher<T> {
         publisherLock.lock()
         defer {
             publisherLock.unlock()
@@ -212,6 +212,7 @@ open class StompManager<CHANNEL: StompChannel> {
             publisher = StompPublisher(destination: destination,
                                         stompID: stompID,
                                         headerIdPrefix: headerIdPrefix,
+                                        subscribeHeaders: subscribeHeaders,
                                         decodedPublishedSubject: decodedPublishedSubject,
                                         unDecodedPublishedSubject: unDecodedPublishedSubject,
                                         type: T.self)
@@ -251,8 +252,12 @@ open class StompManager<CHANNEL: StompChannel> {
         }
         startConnection()
         let stompID = subscription.stompID(token: userToken)
-        let publisher = self.publisher(by: subscription.destination, stompID: stompID, headerIdPrefix: headerIdPrefix, dataType: dataType)
-        publisher.subscribeHeaders =  subscription.headers
+        let publisher = self.publisher(by: subscription.destination,
+                                       stompID: stompID,
+                                       headerIdPrefix: headerIdPrefix,
+                                       subscribeHeaders: subscription.headers,
+                                       dataType: dataType)
+        
         stomp_queue.async { [weak self] in
             guard let self = self else {
                 return
@@ -291,9 +296,11 @@ open class StompManager<CHANNEL: StompChannel> {
             guard let self else {
                 return
             }
-            publisherLock.lock()
-            stompIDToPublisher.removeValue(forKey: stompID)
-            publisherLock.unlock()
+            if let publisher = self.publisher(by: stompID), !publisher.hasCallbacks {
+                publisherLock.lock()
+                self.stompIDToPublisher.removeValue(forKey: stompID)
+                publisherLock.unlock()
+            }
         }
     }
     // 取消destination对应的某单个订阅
