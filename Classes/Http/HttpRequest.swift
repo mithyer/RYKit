@@ -212,7 +212,7 @@ extension HttpRequest {
     
     private class PrepareWrapper: Decodable {
         
-        var code: Int
+        var code: Int?
         var msg: String?
         var decoder: Decoder? //KeyedDecodingContainer<HttpRequest.PrepareWrapper.CodingKeys>?
         
@@ -228,8 +228,6 @@ extension HttpRequest {
             } else if let strCode = try? container.decode(String.self, forKey: .code),
                       let intCode = Int(strCode) {
                 code = intCode
-            } else {
-                throw CodingError.decoding("No code can be extracted!!!!")
             }
             if container.contains(.msg) {
                 msg = try? container.decode(String.self, forKey: .msg)
