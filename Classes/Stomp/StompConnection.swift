@@ -211,6 +211,24 @@ class StompConnection<CHANNEL: StompChannel> {
         self.channel = CHANNEL(userToken: userToken)
         handshakeIdFetcher = .init(channel: self.channel, taskQueue: callbackQueue)
         self.callbackQueue = callbackQueue
+        NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+    }
+    
+    @objc func willEnterForeground(_ noti: NSNotification) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            self?.stomp?.webSocketTask?.send(.string("")) { error in
+                if let error {
+                    self?.callbackQueue.async {
+                        self?.stomp?.stompLog(type: .socketError, message: "willEnterForeground check failed:" + error.localizedDescription)
+                        stomp_log(error.localizedDescription)
+                        self?.stomp?.disconnect(force: true)
+                    }
+                } else {
+                    stomp_log("willEnterForeground check successed", .notice)
+                    self?.stomp?.stompLog(type: .info, message: "willEnterForeground check successed")
+                }
+            }
+        }
     }
     
     private func fetchHandshakeId() async -> Result<CHANNEL.HandshakeDataType, FetchError> {

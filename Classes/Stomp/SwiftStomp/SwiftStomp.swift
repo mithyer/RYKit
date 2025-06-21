@@ -22,7 +22,7 @@ class SwiftStomp: NSObject {
     fileprivate var stompConnectionHeaders : [String : String]?
 
     fileprivate var urlSession: URLSession?
-    fileprivate var webSocketTask: URLSessionWebSocketTask?
+    var webSocketTask: URLSessionWebSocketTask?
 
     fileprivate var acceptVersion = "1.1,1.2"
     fileprivate var status : StompConnectionStatus = .socketDisconnected
@@ -304,7 +304,7 @@ extension SwiftStomp{
 }
 
 /// Helper functions
-fileprivate extension SwiftStomp{
+extension SwiftStomp{
     func stompLog(type : StompLogType, message : String){
         guard StompLog.enableRawLog else { return }
 
