@@ -67,7 +67,8 @@ public final class HttpRequest {
     }
     
     public let queue: DispatchQueue
-    public let baseURL: String
+    public private(set) var baseURL: String
+    public private(set) var isEncryptAndDecryptEnabled: Bool = true
     public let method: Method
     public let path: String
     public var params: ParamsType?
@@ -89,6 +90,16 @@ public final class HttpRequest {
     
     public func setHttpResponseBusinessSuccessCodes(_ codes: [Int]) -> Self {
         self.defaultHttpResponseBusinessSuccessCodes = codes
+        return self
+    }
+    
+    public func setEncryptAndDecryptEnabled(_ enable: Bool) -> Self {
+        self.isEncryptAndDecryptEnabled = enable
+        return self
+    }
+    
+    public func replaceBaseURL(_ url: String) -> Self {
+        self.baseURL = url
         return self
     }
 
@@ -126,13 +137,9 @@ public final class HttpRequest {
 // Request encoding
 extension HttpRequest {
     
-    private static func encodeJsonBody(_ parameters: Any, into urlRequest: inout URLRequest) throws {
-
-        guard JSONSerialization.isValidJSONObject(parameters) else {
-            throw CodingError.encoding("parameters isn't valid json")
-        }
+    private static func encodeJsonBody(_ parameters: any Encodable, into urlRequest: inout URLRequest) throws {
         do {
-            let data = try JSONSerialization.data(withJSONObject: parameters, options: [])
+            let data = try JSONEncoder().encode(parameters)
             urlRequest.httpBody = data
         } catch {
             throw CodingError.encoding("json encoding failed")
@@ -182,13 +189,13 @@ extension HttpRequest {
             if dic.isEmpty {
                 break
             }
-            if putParamsToURL {
+            if putParamsToURL || !isEncryptAndDecryptEnabled {
                 encryptedParams = CodableDictionary(dic)
             } else {
                 encryptedParams = try handlers.encryptParamsHandler(dic)
             }
         case .model(let model):
-            if putParamsToURL {
+            if putParamsToURL || !isEncryptAndDecryptEnabled {
                 encryptedParams = model
             } else {
                 encryptedParams = try handlers.encryptModelHandler(model)
@@ -236,21 +243,27 @@ extension HttpRequest {
             }
         }
         
-        func extractObject<T: Decodable>() throws -> T {
+        func extractObject<T: Decodable>(directly: Bool) throws -> T {
             guard let decoder else {
                 throw CodingError.decoding("no decoder")
             }
-            let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
-            let obj: T
-            if keyedContainer.contains(.data) {
-                obj = try keyedContainer.decode(T.self, forKey: .data)
-            } else if keyedContainer.contains(.result) {
-                obj = try keyedContainer.decode(T.self, forKey: .result)
-            } else {
+            if directly {
                 let singleContainer = try decoder.singleValueContainer()
-                obj = try singleContainer.decode(T.self)
+                let obj = try singleContainer.decode(T.self)
+                return obj
+            } else {
+                let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
+                let obj: T
+                if keyedContainer.contains(.data) {
+                    obj = try keyedContainer.decode(T.self, forKey: .data)
+                } else if keyedContainer.contains(.result) {
+                    obj = try keyedContainer.decode(T.self, forKey: .result)
+                } else {
+                    let singleContainer = try decoder.singleValueContainer()
+                    obj = try singleContainer.decode(T.self)
+                }
+                return obj
             }
-            return obj
         }
         
         struct ListWrapper<T: Decodable>: Decodable {
@@ -314,7 +327,7 @@ extension HttpRequest {
     }
     
     public enum DataModelType<T: Decodable> {
-        case obj
+        case obj(directly: Bool)
         case list
         case string
     }
@@ -396,8 +409,8 @@ extension HttpRequest {
             wrapper = try jsonDecoder.decode(PrepareWrapper.self, from: data)
             let wrapper = wrapper!
             switch preferType {
-            case .obj:
-                let obj: T = try wrapper.extractObject()
+            case .obj(let directly):
+                let obj: T = try wrapper.extractObject(directly: directly)
                 return (wrapper.code, wrapper.msg, .obj(obj))
             case .list:
                 let list: [T] = try wrapper.extractList()
@@ -516,7 +529,7 @@ extension HttpRequest {
                                 completed(.failure(.init(code: .local(.responseDataNil).set(to: self)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 return
                             }
-                            dataDescrypt = try handlers.decryptDataHandler(data)
+                            dataDescrypt = self.isEncryptAndDecryptEnabled ? try handlers.decryptDataHandler(data) : data
                         } catch let err {
                             log_err("=====>❌\nHttpRequest(\(method)) Failed Parse Error(\(err))\n###URL###:\(requestUrl)\n###Parameters###：\(params)\n###Request Headers###：\(headers)\n<=====")
                             completed(.failure(.init(code: .local(.dataDescryptFailed).set(to: self)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
@@ -581,8 +594,8 @@ extension HttpRequest {
         }
     }
     
-    public func response<T: Decodable>(_ objectType: T.Type, inMainThread: Bool = true, completed: @escaping (Result<T, ResponseError>) -> Void) {
-        response(responseDataType: DataModelType<T>.obj) { res in
+    public func response<T: Decodable>(_ objectType: T.Type, inMainThread: Bool = true, directly: Bool = false, completed: @escaping (Result<T, ResponseError>) -> Void) {
+        response(responseDataType: DataModelType<T>.obj(directly: directly)) { res in
             switch res {
             case .success(let success):
                 guard case let .obj(object) = success else {
@@ -596,8 +609,8 @@ extension HttpRequest {
         }
     }
     
-    public func response<T: Decodable>(_ optionObjectType: (T?).Type, inMainThread: Bool = true, completed: @escaping (Result<T?, ResponseError>) -> Void) {
-        response(responseDataType: DataModelType<T>.obj, allowEmptyData: true) { res in
+    public func response<T: Decodable>(_ optionObjectType: (T?).Type, inMainThread: Bool = true, directly: Bool = false, completed: @escaping (Result<T?, ResponseError>) -> Void) {
+        response(responseDataType: DataModelType<T>.obj(directly: directly), allowEmptyData: true) { res in
             switch res {
             case .success(let success):
                 if case let .obj(object) = success {
@@ -630,11 +643,22 @@ extension HttpRequest {
         }
     }
     
-    public func response(_ dictionaryType: [String: Any].Type, inMainThread: Bool = true, completed: @escaping (Result<[String: Any], ResponseError>) -> Void) {
-        response(CodableDictionary.self, inMainThread: inMainThread) { res in
+    public func response(_ dictionaryType: [String: Any].Type, inMainThread: Bool = true, directly: Bool = false, completed: @escaping (Result<[String: Any], ResponseError>) -> Void) {
+        response(CodableDictionary.self, inMainThread: inMainThread, directly: directly) { res in
             switch res {
             case .success(let model):
                 completed(.success(model.dictionary))
+            case .failure(let error):
+                completed(.failure(error))
+            }
+        }
+    }
+    
+    public func response(_ dictionaryType: ([String: Any]?).Type, inMainThread: Bool = true, directly: Bool = false, completed: @escaping (Result<[String: Any]?, ResponseError>) -> Void) {
+        response((CodableDictionary?).self, inMainThread: inMainThread, directly: directly) { res in
+            switch res {
+            case .success(let model):
+                completed(.success(model?.dictionary))
             case .failure(let error):
                 completed(.failure(error))
             }
@@ -669,8 +693,8 @@ extension HttpRequest {
         }
     }
     
-    public func responseEmpty(inMainThread: Bool = true, completed: @escaping (Result<(), ResponseError>) -> Void) {
-        response(responseDataType: DataModelType<PlaceHolderModel>.obj, allowEmptyData: true) { res in
+    public func responseEmpty(inMainThread: Bool = true, directly: Bool = false, completed: @escaping (Result<(), ResponseError>) -> Void) {
+        response(responseDataType: DataModelType<PlaceHolderModel>.obj(directly: directly), allowEmptyData: true) { res in
             switch res {
             case .success:
                 finalCompleted(inMainThread, completed, .success(()))
