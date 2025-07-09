@@ -80,23 +80,3 @@ extension Encodable {
     }
 }
 
-class CodableFromStringWrapper<T: Codable>: Codable {
-    
-    var obj: T?
-    
-    func encode(to encoder: any Encoder) throws {
-        var container = encoder.singleValueContainer()
-        if let data = try? JSONEncoder().encode(obj) {
-            try container.encode(String(data: data, encoding: .utf8))
-        }
-    }
-
-    required init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let str = try container.decode(String.self)
-        guard let data = str.data(using: .utf8) else {
-            return
-        }
-        obj = try JSONDecoder().decode(T.self, from: data)
-    }
-}

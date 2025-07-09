@@ -11,7 +11,7 @@ public extension String {
     }
 }
 
-extension Swift.Optional where Wrapped == String {
+public extension Swift.Optional where Wrapped == String {
     mutating func callIfNil(_ call: (inout Self) -> Void) {
         if nil == self {
             call(&self)

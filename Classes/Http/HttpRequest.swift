@@ -15,9 +15,21 @@ public final class HttpRequest {
         case applicationJson = "application/json"
     }
     
-    public enum Method: String {
+    public enum Method {
         case GET
         case POST
+        case OTHER(method: String)
+        
+        var rawValue: String {
+            switch self {
+            case .GET:
+                "GET"
+            case .POST:
+                "POST"
+            case .OTHER(let method):
+                method
+            }
+        }
     }
     
     public enum ParamsType {
