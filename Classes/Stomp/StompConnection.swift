@@ -20,7 +20,7 @@ fileprivate enum FetchError: Error {
 
 fileprivate enum FetchStatus<HanshakeData: HandshakeDataProtocol> {
     case unstarted
-    case fetching(retryTime: Int)
+    case fetching
     case error(err: FetchError)
     case successed(data: HanshakeData)
     
@@ -51,8 +51,6 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
             statusLock.unlock()
         }
     }
-
-    var maxRetryTimeWhenNetworkError = 3
     
     init(channel: CHANNEL, taskQueue: DispatchQueue) {
         self.channel = channel
@@ -65,7 +63,7 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
             return
         }
         
-        self.status = .fetching(retryTime: 0)
+        self.status = .fetching
         
         let url = URL(string: channel.handshakeURL)!
         var request = URLRequest(url: url)
@@ -85,17 +83,7 @@ fileprivate class HandShakeDataFetcher<CHANNEL: StompChannel> {
         let task = URLSession.shared.dataTask(with: request) { [taskQueue] data, response, error in
             taskQueue.async {
                 if let error = error {
-                    if case .fetching(let retryTime) = self.status {
-                        if retryTime >= self.maxRetryTimeWhenNetworkError {
-                            self.status = .error(err: .network(error))
-                            logError()
-                        } else {
-                            self.status = .fetching(retryTime: retryTime + 1)
-                            self.startTask()
-                        }
-                    } else {
-                        self.status = .error(err: .network(error))
-                    }
+                    self.status = .error(err: .network(error))
                     return
                 }
                 guard let data = data else {
@@ -162,30 +150,22 @@ class StompConnection<CHANNEL: StompChannel> {
         case urlInit
         case stompInit
         case connection(StompError)
+        case unknown(Float)
     }
     
     enum Status {
         case unstarted
-        case connecting
+        case connecting(Float)
         case connected(SwiftStomp)
         case disconnected
         case failed(ConnectionError)
-        case deinited
-        
-        var isDeinited: Bool {
-            if case .deinited = self {
-                return true
-            }
-            return false
-        }
     }
     
     private let callbackQueue: DispatchQueue
     var stomp: SwiftStomp?
     private var _status: Status = .unstarted
-    private var eventListenCancellable: AnyCancellable?
     private var messageListenCancellable: AnyCancellable?
-    private let handshakeIdFetcher: HandShakeDataFetcher<CHANNEL>
+    private var handshakeIdFetcher: HandShakeDataFetcher<CHANNEL>?
     private let statusLock = NSLock()
     private(set) var status: Status {
         get {
@@ -199,6 +179,7 @@ class StompConnection<CHANNEL: StompChannel> {
             statusLock.lock()
             _status = newValue
             statusLock.unlock()
+            stomp_log("connection status changed: \(status)")
         }
     }
     let channel: CHANNEL
@@ -209,43 +190,26 @@ class StompConnection<CHANNEL: StompChannel> {
 
     init(userToken: String, callbackQueue: DispatchQueue) {
         self.channel = CHANNEL(userToken: userToken)
-        handshakeIdFetcher = .init(channel: self.channel, taskQueue: callbackQueue)
         self.callbackQueue = callbackQueue
-        NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
-    }
-    
-    @objc func willEnterForeground(_ noti: NSNotification) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.stomp?.webSocketTask?.send(.string("")) { error in
-                if let error {
-                    self?.callbackQueue.async {
-                        self?.stomp?.stompLog(type: .socketError, message: "willEnterForeground check failed:" + error.localizedDescription)
-                        stomp_log(error.localizedDescription)
-                        self?.stomp?.disconnect(force: true)
-                    }
-                } else {
-                    stomp_log("willEnterForeground check successed", .notice)
-                    self?.stomp?.stompLog(type: .info, message: "willEnterForeground check successed")
-                }
-            }
-        }
     }
     
     private func fetchHandshakeId() async -> Result<CHANNEL.HandshakeDataType, FetchError> {
-        return await withCheckedContinuation { continuation in
-            Task { [weak self] in
-                guard !(self?.status.isDeinited ?? true) else {
-                    continuation.resume(with: .success(.failure(.undefined)))
+        return await withCheckedTimeoutContinuation(20, timeoutReturn: {
+            .failure(.undefined)
+        }) { [weak self] completed in
+            Task {
+                if nil == self {
+                    completed(.failure(.undefined))
                     return
                 }
-                while let self, !status.isDeinited {
-                    if let res = self.handshakeIdFetcher.getResultOrFetch() {
-                        continuation.resume(with: .success(res))
+                while nil != self {
+                    if let res = self?.handshakeIdFetcher?.getResultOrFetch() {
+                        completed(res)
                         return
                     }
                     try await Task.sleep(nanoseconds: 1_000_000_000)
                 }
-                continuation.resume(with: .success(.failure(.undefined)))
+                completed(.failure(.undefined))
             }
         }
     }
@@ -257,13 +221,16 @@ class StompConnection<CHANNEL: StompChannel> {
         if case .connected = status {
             return true
         }
-        status = .connecting
+        status = .connecting(0)
+        handshakeIdFetcher = .init(channel: self.channel, taskQueue: callbackQueue)
         let fetchRes = await fetchHandshakeId()
+        status = .connecting(1)
         let handshakeData: CHANNEL.HandshakeDataType
         switch fetchRes {
         case let .success(data):
             handshakeData = data
             stomp_log("handshakeId fetched: \(data.handshakeId ?? "")")
+            status = .connecting(2)
         case .failure(let failure):
             status = .failed(.handshakeInit)
             stomp_log("\(failure)", .error)
@@ -275,8 +242,9 @@ class StompConnection<CHANNEL: StompChannel> {
             status = .failed(.urlInit)
             return false
         }
+        status = .connecting(3)
         if let stomp = self.stomp {
-            eventListenCancellable = nil
+            stomp.removeListening()
             stomp.disconnect(force: true)
         }
         self.stomp = SwiftStomp(host: url, headers: channel.stompHeaders)
@@ -285,12 +253,19 @@ class StompConnection<CHANNEL: StompChannel> {
         stomp.autoReconnect = false
         stomp.enableAutoPing()
 
-        let connected: Bool = await withCheckedContinuation { con in
-            eventListenCancellable = stomp.eventsUpstream
-                .receive(on: self.callbackQueue)
-                .sink {  [weak self, weak stomp] event in
-                    guard let self, !status.isDeinited, let stomp else {
-                        con.resume(returning: false)
+        let queue = self.callbackQueue
+        let connected: Bool = await withCheckedTimeoutContinuation(30, timeoutReturn: { [weak self] in
+            self?.stomp?.removeListening()
+            self?.stomp = nil
+            return false
+        }) { [weak self, weak stomp] completed in
+            stomp?.connectingCancellable = stomp?.eventsUpstream
+                .receive(on: queue)
+                .sink {  event in
+                    guard let self, let stomp, self.stomp == stomp else {
+                        self?.status = .failed(.unknown(1.1))
+                        stomp?.removeListening()
+                        completed(false)
                     return
                 }
                 switch event {
@@ -298,18 +273,16 @@ class StompConnection<CHANNEL: StompChannel> {
                     if type == .toStomp {
                         stomp_log("Stomp Connected")
                         self.status = .connected(stomp)
-                        self.eventListenCancellable?.cancel()
-                        self.eventListenCancellable = nil
-                        con.resume(returning: true)
+                        stomp.removeListening()
+                        completed(true)
                         self.onConnected?(stomp)
                     } else {
                         stomp_log("WebSocket Connected")
                     }
                 case .disconnected(_):
                     self.status = .disconnected
-                    self.eventListenCancellable?.cancel()
-                    self.eventListenCancellable = nil
-                    con.resume(returning: false)
+                    stomp.removeListening()
+                    completed(false)
                 case let .error(error):
                     if case let .fromSocket(error) = error, let nsError = error as NSError?  {
                         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorTimedOut {
@@ -318,19 +291,19 @@ class StompConnection<CHANNEL: StompChannel> {
                     }
                     stomp_log("\(error)", .error)
                     self.status = .failed(.connection(error))
-                    self.eventListenCancellable?.cancel()
-                    self.eventListenCancellable = nil
-                    con.resume(returning: false)
+                    stomp.removeListening()
+                    completed(false)
                 }
             }
-            stomp.connect(timeout: 30)
+            stomp?.connect(timeout: 30)
         }
         if connected {
-            eventListenCancellable = stomp
+            stomp.listeningCancellable = stomp
                 .eventsUpstream
                 .receive(on: self.callbackQueue)
                 .sink(receiveValue: { [weak self, weak stomp] event in
-                    guard let self, !status.isDeinited, let stomp else {
+                    guard let self, let stomp, self.stomp == stomp else {
+                        self?.status = .failed(.unknown(1.2))
                         return
                     }
                     switch event {
@@ -359,9 +332,74 @@ class StompConnection<CHANNEL: StompChannel> {
     }
     
     deinit {
-        status = .deinited
-        eventListenCancellable?.cancel()
         messageListenCancellable?.cancel()
         self.stomp?.disconnect(force: true)
+    }
+}
+
+extension SwiftStomp: Associatable {
+    
+    fileprivate var connectingCancellable: AnyCancellable? {
+        get {
+            associated(#function, initializer: nil)
+        }
+        set {
+            setAssociated(#function, value: newValue)
+        }
+    }
+    
+    fileprivate var listeningCancellable: AnyCancellable? {
+        get {
+            associated(#function, initializer: nil)
+        }
+        set {
+            setAssociated(#function, value: newValue)
+        }
+    }
+    
+    fileprivate func removeListening() {
+        connectingCancellable?.cancel()
+        connectingCancellable = nil
+        listeningCancellable?.cancel()
+        listeningCancellable = nil
+    }
+    
+}
+
+fileprivate func withCheckedTimeoutContinuation<T>(
+    _ duration: TimeInterval,
+    timeoutReturn: @escaping (() -> T),
+    operation: @escaping (@escaping (T) -> Void) -> Void
+) async -> T {
+    return await withCheckedContinuation { continuation in
+        let lock = NSLock()
+        var isCompleted = false
+        
+        // timeout dealing
+        let timeoutTask = DispatchWorkItem {
+            lock.lock()
+            if !isCompleted {
+                isCompleted = true
+                lock.unlock()
+                continuation.resume(returning: timeoutReturn())
+            } else {
+                lock.unlock()
+            }
+        }
+        
+        DispatchQueue.global().asyncAfter(deadline: .now() + duration, execute: timeoutTask)
+        
+        // excution
+        operation { result in
+            lock.lock()
+            if !isCompleted {
+                isCompleted = true
+                timeoutTask.cancel()
+                lock.unlock()
+                continuation.resume(returning: result)
+            } else {
+                lock.unlock()
+            }
+        }
     }
 }

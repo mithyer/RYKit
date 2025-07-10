@@ -168,7 +168,8 @@ open class StompManager<CHANNEL: StompChannel> {
         timer.resume()
         checkTimer = timer
     }
-
+    
+    private var connectionThread: Thread?
     
     // 可提前调用，也可订阅时自动懒加载
     public func startConnection(delay: UInt64 = 0) {
@@ -178,15 +179,25 @@ open class StompManager<CHANNEL: StompChannel> {
         default:
             return
         }
-        StompManager.workQueue.async {
-            Task { [weak self] in
-                try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
-                while let self = self, !(await self.tryConnection()) {
-                    stomp_log("StompManager(\(userToken) WILL RETRY CONNECTION AFTER \(secondsToWaitReConnection) seconds")
-                    try? await Task.sleep(nanoseconds: secondsToWaitReConnection * 1_000_000_000)
-                    secondsToWaitReConnection = min(secondsToWaitReConnection + 1, 30)
+        var waitSeconds = secondsToWaitReConnection
+        if nil == connectionThread || connectionThread!.isCancelled || connectionThread!.isFinished {
+            connectionThread = Thread.init(block: { [weak self] in
+                Thread.sleep(forTimeInterval: TimeInterval(delay))
+                while let self = self {
+                    if case .connected = connection.status {
+                        Thread.exit()
+                        connectionThread = nil
+                        return
+                    }
+                    Task {
+                        await self.tryConnection()
+                    }
+                    stomp_log("StompManager(\(userToken)) WILL RETRY IF LOST CONNECTION AFTER \(waitSeconds) seconds")
+                    Thread.sleep(forTimeInterval: TimeInterval(waitSeconds))
+                    waitSeconds = min(waitSeconds + 1, 15)
                 }
-            }
+            })
+            connectionThread?.start()
         }
     }
     
