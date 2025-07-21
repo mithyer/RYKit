@@ -269,10 +269,12 @@ extension SwiftStomp{
             self.stompLog(type: .info, message: "Stomp: Unable to send `ping`. Socket is not connected!")
             return
         }
-
-        webSocketTask.sendPing() { error in
+        webSocketTask.send(.string("\n")) { error in
             completion?(error)
         }
+//        webSocketTask.sendPing() { error in
+//            completion?(error)
+//        }
 
         // self.stompLog(type: .info, message: "Stomp: Ping sent!")
 
