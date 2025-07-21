@@ -583,6 +583,10 @@ fileprivate extension SwiftStomp{
             self.pingTimer = Timer.scheduledTimer(withTimeInterval: self.pingInterval, repeats: true) { [weak self] _ in
                 self?.ping() { error in
                     guard let self, let error = error as? NSError else {
+                        self?.stompLog(type: .info, message: "ping successed")
+                        #if DEBUG
+                        print("ping successed")
+                        #endif
                         self?.pingErrorOccurCount = 0
                         return
                     }

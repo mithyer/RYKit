@@ -111,9 +111,11 @@ open class StompManager<CHANNEL: StompChannel> {
             guard let self = self else {
                 return
             }
+            publisherLock.lock()
             stompIDToPublisher.values.forEach { publisher in
                 publisher.stomp = stomp
             }
+            publisherLock.unlock()
             secondsToWaitReConnection = 5
             _ = checkWaitToSubscribeDestinations()
         }
@@ -181,14 +183,23 @@ open class StompManager<CHANNEL: StompChannel> {
         }
         var waitSeconds = secondsToWaitReConnection
         if nil == connectionThread || connectionThread!.isCancelled || connectionThread!.isFinished {
-            connectionThread = Thread.init(block: { [weak self] in
+            if !Thread.isMainThread {
                 Thread.sleep(forTimeInterval: TimeInterval(delay))
+            }
+            connectionThread = Thread.init(block: { [weak self] in
                 while let self = self {
                     if case .connected = connection.status {
                         Thread.exit()
                         connectionThread = nil
                         return
                     }
+                    publisherLock.lock()
+                    if stompIDToPublisher.isEmpty {
+                        publisherLock.unlock()
+                        Thread.sleep(forTimeInterval: TimeInterval(secondsToWaitReConnection))
+                        continue
+                    }
+                    publisherLock.unlock()
                     Task {
                         await self.tryConnection()
                     }
@@ -261,14 +272,13 @@ open class StompManager<CHANNEL: StompChannel> {
             stomp_log("StompManager(\(userToken) Cannot subscribe, destination or identifier is empty", .error)
             return nil
         }
-        startConnection()
         let stompID = subscription.stompID(token: userToken)
         let publisher = self.publisher(by: subscription.destination,
                                        stompID: stompID,
                                        headerIdPrefix: headerIdPrefix,
                                        subscribeHeaders: subscription.headers,
                                        dataType: dataType)
-        
+        startConnection()
         stomp_queue.async { [weak self] in
             guard let self = self else {
                 return
