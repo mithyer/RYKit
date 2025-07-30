@@ -586,9 +586,6 @@ fileprivate extension SwiftStomp{
                 self?.ping() { error in
                     guard let self, let error = error as? NSError else {
                         self?.stompLog(type: .info, message: "ping successed")
-                        #if DEBUG
-                        print("ping successed")
-                        #endif
                         self?.pingErrorOccurCount = 0
                         return
                     }

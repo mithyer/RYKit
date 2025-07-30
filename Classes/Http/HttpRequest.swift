@@ -393,6 +393,18 @@ extension HttpRequest {
         public private(set) var msg: String?
         private let rawData: String?
         private let subError: Error?
+        public var isBusinessError: Bool {
+            if case .business = code {
+                return true
+            }
+            return false
+        }
+        public var isLocalError: Bool {
+            if case .local = code {
+                return true
+            }
+            return false
+        }
         
         public init(code: ResponseCode, msg: String? = nil, rawData: String? = nil, subError: Error? = nil) {
             self.code = code
@@ -651,6 +663,25 @@ extension HttpRequest {
         response(responseDataType: DataModelType<T>.list) { res in
             switch res {
             case .success(let success):
+                guard case let .list(list) = success else {
+                    finalCompleted(inMainThread, completed, .failure(.init(code: .local(.shouldNeverBe), msg: "should never be here!!!!").customizeMsg(self.handlers.customizeResponseErrorMessageHandler)))
+                    return
+                }
+                finalCompleted(inMainThread, completed, .success(list))
+            case .failure(let error):
+                finalCompleted(inMainThread, completed, (.failure(error)))
+            }
+        }
+    }
+    
+    public func response<T: Decodable>(_ objectListType: ([T]?).Type, inMainThread: Bool = true, completed: @escaping (Result<[T]?, ResponseError>) -> Void) {
+        response(responseDataType: DataModelType<T>.list, allowEmptyData: true) { res in
+            switch res {
+            case .success(let success):
+                if case .empty = success {
+                    finalCompleted(inMainThread, completed, .success(nil))
+                    return
+                }
                 guard case let .list(list) = success else {
                     finalCompleted(inMainThread, completed, .failure(.init(code: .local(.shouldNeverBe), msg: "should never be here!!!!").customizeMsg(self.handlers.customizeResponseErrorMessageHandler)))
                     return
