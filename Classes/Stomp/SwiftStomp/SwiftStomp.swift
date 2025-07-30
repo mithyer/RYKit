@@ -8,7 +8,6 @@
 
 import Foundation
 import OSLog
-import Reachability
 import Combine
 
 let NULL_CHAR = "\u{00}"
@@ -28,7 +27,7 @@ class SwiftStomp: NSObject {
     fileprivate var status : StompConnectionStatus = .socketDisconnected
     fileprivate var reconnectScheduler : Timer?
     fileprivate var reconnectTryCount = 0
-    fileprivate var reachability : Reachability?
+    fileprivate var reachability : SwiftReachability?
     fileprivate var hostIsReachabile = true
 
     /// Auto ping peroperties
@@ -96,7 +95,7 @@ class SwiftStomp: NSObject {
     }
 
     private func initReachability(){
-        if let reachability = try? Reachability(queueQoS: .utility, targetQueue: DispatchQueue(label: "swiftStomp.reachability"), notificationQueue: .global()) {
+        if let reachability = try? SwiftReachability(queueQoS: .utility, targetQueue: DispatchQueue(label: "swiftStomp.reachability"), notificationQueue: .global()) {
             reachability.whenReachable = { [weak self] _ in
                 self?.stompLog(type: .info, message: "Network IS reachable")
                 self?.hostIsReachabile = true

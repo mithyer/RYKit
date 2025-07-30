@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'ADKit'
-  s.version          = '1.2.3'
+  s.version          = '1.2.4'
   s.summary          = 'Kit for Aden'
   s.description      =' Kit for Aden.'
   s.homepage         = 'http://10.23.9.221/rui.mao/adkit'
@@ -44,6 +44,4 @@ Pod::Spec.new do |s|
   s.subspec 'ValueWrapper' do |ss|
     ss.source_files = 'Classes/ValueWrapper/*'
   end
-
-  s.dependency 'ReachabilitySwift', '~> 5.2.4'
 end

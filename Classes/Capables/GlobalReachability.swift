@@ -5,7 +5,6 @@
 //  Created by ray on 2025/2/17.
 //
 
-import Reachability
 import Combine
 
 fileprivate var lock = NSLock()
@@ -25,7 +24,7 @@ fileprivate var listeningCount: Int {
     }
 }
 
-private var reachability: Reachability?
+private var reachability: SwiftReachability?
 
 public class GlobalReachability {
     
@@ -37,11 +36,11 @@ public class GlobalReachability {
         
         var reachabilitySubjectCancelation: AnyCancellable?
         
-        init(connection: Reachability.Connection, callback: @escaping (Reachability.Connection) -> Void) {
+        init(connection: SwiftReachability.Connection, callback: @escaping (SwiftReachability.Connection) -> Void) {
             listeningCount += 1
-            let subject = PassthroughSubject<Reachability.Connection, Never>()
+            let subject = PassthroughSubject<SwiftReachability.Connection, Never>()
             observer = NotificationCenter.default.addObserver(forName: .reachabilityChanged, object: nil, queue: .main, using: { noti in
-                guard let reachability = noti.object as? Reachability else {
+                guard let reachability = noti.object as? SwiftReachability else {
                     return
                 }
                 subject.send(reachability.connection)
@@ -74,9 +73,9 @@ public class GlobalReachability {
         }
     }
     
-    public func listen(_ onChanged: @escaping (Reachability.Connection) -> Void) -> AnyObject? {
+    public func listen(_ onChanged: @escaping (SwiftReachability.Connection) -> Void) -> AnyObject? {
         if nil == reachability {
-            reachability = try? Reachability()
+            reachability = try? SwiftReachability()
         }
         guard let reachability = reachability else {
             return nil
