@@ -32,10 +32,10 @@ public extension Decodable {
         return nil
     }
     
-    init?(fromJsonString jsonString: String, decoder: JSONDecoder = JSONDecoder()) {
+    init?(fromJsonString jsonString: String, decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
         if let data = jsonString.data(using: .utf8) {
             do {
-                self = try decoder.decode(Self.self, from: data)
+                self = try decoder().decode(Self.self, from: data)
                 return
             } catch let e {
                 debugPrint("Decodable.fromJsonString Error: \(e)")
@@ -44,14 +44,16 @@ public extension Decodable {
         return nil
     }
     
-    init?(fromJsonDic dic: [String: Any], decoder: JSONDecoder = JSONDecoder()) {
+    init?(fromJsonDic dic: [String: Any], decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
         do {
             let data = try JSONSerialization.data(withJSONObject: dic)
+            let decoder = decoder()
             self = try decoder.decode(Self.self, from: data)
+            self.init(fromJsonData: Data(), decoder: decoder)
         } catch let e {
             debugPrint("Decodable.fromDictionary Error: \(e)")
         }
-        self.init(fromJsonData: Data(), decoder: decoder)
+        return nil
     }
     
     func checkValidation(_ check: (Self) -> Bool) -> Self? {
