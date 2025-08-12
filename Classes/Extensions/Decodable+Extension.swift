@@ -11,56 +11,33 @@ public extension Decodable {
     
     init?(fromJsonData data: Data, decoder: JSONDecoder = JSONDecoder()) {
         do {
-            let res = try decoder.decode(Self.self, from: data)
-            self = res
-            return
+            self = try decoder.decode(Self.self, from: data)
         } catch let e {
             debugPrint("Decodable.fromJsonData Error: \(e)")
+            return nil
         }
-        debugPrint("Decodable.fromJsonData: try parse from empty {}")
-        var data = "{}".data(using: .utf8)!
-        if let res = try? decoder.decode(Self.self, from: data) {
-            self = res
-            return
-        }
-        debugPrint("Decodable.fromJsonData: try parse from empty []")
-        data = "[]".data(using: .utf8)!
-        if let res = try? decoder.decode(Self.self, from: data) {
-            self = res
-            return
-        }
-        return nil
     }
     
     init?(fromJsonString jsonString: String, decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
-        if let data = jsonString.data(using: .utf8) {
-            do {
-                self = try decoder().decode(Self.self, from: data)
-                return
-            } catch let e {
-                debugPrint("Decodable.fromJsonString Error: \(e)")
-            }
+        guard let data = jsonString.data(using: .utf8) else {
+            return nil
         }
-        return nil
+        do {
+            self = try decoder().decode(Self.self, from: data)
+        } catch let e {
+            debugPrint("Decodable.fromJsonString Error: \(e)")
+            return nil
+        }
     }
     
     init?(fromJsonDic dic: [String: Any], decoder: @autoclosure () -> JSONDecoder = JSONDecoder()) {
         do {
             let data = try JSONSerialization.data(withJSONObject: dic)
-            let decoder = decoder()
-            self = try decoder.decode(Self.self, from: data)
-            self.init(fromJsonData: Data(), decoder: decoder)
+            self.init(fromJsonData: data, decoder: decoder())
         } catch let e {
             debugPrint("Decodable.fromDictionary Error: \(e)")
+            return nil
         }
-        return nil
-    }
-    
-    func checkValidation(_ check: (Self) -> Bool) -> Self? {
-        if check(self) {
-            return self
-        }
-        return nil
     }
 }
 

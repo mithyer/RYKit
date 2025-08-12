@@ -33,13 +33,17 @@ public struct StringModel<T: Codable>: Codable, CustomStringConvertible {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         do {
+            if let model = try? container.decode(T.self) {
+                self.wrappedValue = model
+                return
+            }
             guard let string = try? container.decode(String.self) else {
                 throw DecodingError.valueNotFound(String.self, DecodingError.Context.init(codingPath: container.codingPath, debugDescription: "It's not a string value"))
             }
-            rawValue = string
             guard let t = T.init(fromJsonString: string) else {
                 throw DecodingError.valueNotFound(T.self, DecodingError.Context.init(codingPath: container.codingPath, debugDescription: "Convert from string failed: \(string)"))
             }
+            rawValue = string
             self.wrappedValue = t
         } catch let e {
             debugPrint(e)
@@ -48,9 +52,10 @@ public struct StringModel<T: Codable>: Codable, CustomStringConvertible {
     
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()
-        guard let string = self.wrappedValue?.jsonString else {
-            return
+        if let string = rawValue as? String {
+            try container.encode(string)
+        } else if let wrappedValue {
+            try container.encode(wrappedValue)
         }
-        try container.encode(string)
     }
 }

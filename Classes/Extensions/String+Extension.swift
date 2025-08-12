@@ -12,9 +12,10 @@ public extension String {
 }
 
 public extension Swift.Optional where Wrapped == String {
-    mutating func callIfNil(_ call: (inout Self) -> Void) {
-        if nil == self {
-            call(&self)
+    func transferIfNil(_ call: () -> String) -> String {
+        if let self {
+            return self
         }
+        return call()
     }
 }
