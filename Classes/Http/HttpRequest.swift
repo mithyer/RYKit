@@ -73,8 +73,8 @@ public final class HttpRequest {
         let logSuccessHandler: ((String) -> Void)?
         let logFailureHandler: ((String) -> Void)?
         let customizeResponseErrorMessageHandler: ((ResponseError) -> String)?
-        let onResponseHttpErrorStatusCodeHandler: ((Int) -> Void)?
-        let onResponseBusinessErrorCodeHandler: ((Int) -> Void)?
+        let onResponseHttpErrorStatusCodeHandler: ((Int, ResponseErrorContext) -> Void)?
+        let onResponseBusinessErrorCodeHandler: ((Int, ResponseErrorContext) -> Void)?
         
         public init(encryptModelHandler: @escaping (_: any Encodable) throws -> any Encodable,
                     encryptParamsHandler: @escaping (_: [String : Any]) throws -> any Encodable,
@@ -82,8 +82,8 @@ public final class HttpRequest {
                     logSuccessHandler: ((String) -> Void)?,
                     logFailureHandler: ((String) -> Void)?,
                     customizeResponseErrorMessageHandler: ((ResponseError) -> String)?,
-                    onResponseHttpErrorStatusCodeHandler: ((Int) -> Void)?,
-                    onResponseBusinessErrorCodeHandler: ((Int) -> Void)?) {
+                    onResponseHttpErrorStatusCodeHandler: ((Int, ResponseErrorContext) -> Void)?,
+                    onResponseBusinessErrorCodeHandler: ((Int, ResponseErrorContext) -> Void)?) {
             self.encryptModelHandler = encryptModelHandler
             self.encryptParamsHandler = encryptParamsHandler
             self.decryptDataHandler = decryptDataHandler
@@ -487,6 +487,11 @@ private func finalCompleted<T>(_ inMainThread: Bool, _ completed: @escaping (Res
 // response funcs
 extension HttpRequest {
     
+    public struct ResponseErrorContext {
+        public var request: URLRequest
+        public var error: ResponseError
+    }
+    
     private func log_err(_ message: @autoclosure () -> String) {
         handlers.logSuccessHandler?(message())
     }
@@ -607,19 +612,21 @@ extension HttpRequest {
                         } else {
                             let code: ResponseCode = nil == intCode ? .local(.noBusinessCode) : .business(intCode!)
                             log_err("=====>❌\nHttpRequest(\(method)) Failed Bussiness Error: code(\(code))\n【URL】:\n \(requestUrl)\n【Message】: \n \(msg ?? "null")\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n<=====")
-                            completed(.failure(.init(code: code.set(to: self), msg: msg, rawData: dataStr).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                            let error = ResponseError(code: code.set(to: self), msg: msg, rawData: dataStr).customizeMsg(handlers.customizeResponseErrorMessageHandler)
+                            completed(.failure(error))
                             if let intCode, let onResponseBusinessErrorCodeHandler = handlers.onResponseBusinessErrorCodeHandler {
                                 DispatchQueue.main.async {
-                                    onResponseBusinessErrorCodeHandler(intCode)
+                                    onResponseBusinessErrorCodeHandler(intCode, .init(request: request, error: error))
                                 }
                             }
                         }
                     } else {
                         log_err("=====>❌\nHttpRequest(\(method)) Failed Status Error(code: \(statusCode))\n【URL】:\n \(requestUrl)\n【Error】: \(error?.localizedDescription ?? "")\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n<=====")
-                        completed(.failure(.init(code: .httpStatus(statusCode).set(to: self), subError: error).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
+                        let error = ResponseError(code: .httpStatus(statusCode).set(to: self), subError: error).customizeMsg(handlers.customizeResponseErrorMessageHandler)
+                        completed(.failure(error))
                         if let onResponseHttpErrorStatusCodeHandler = handlers.onResponseHttpErrorStatusCodeHandler {
                             DispatchQueue.main.async {
-                                onResponseHttpErrorStatusCodeHandler(statusCode)
+                                onResponseHttpErrorStatusCodeHandler(statusCode, .init(request: request, error: error))
                             }
                         }
                     }
