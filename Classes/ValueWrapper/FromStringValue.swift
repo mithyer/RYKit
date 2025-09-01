@@ -1,5 +1,5 @@
 //
-//  StringModel.swift
+//  FromStringValue.swift
 //  Pods
 //
 //  Created by ray on 2025/6/4.
@@ -7,8 +7,9 @@
 
 import Foundation
 
+// 将string类型的值转换为相应的model
 @propertyWrapper
-public struct StringModel<T: Codable>: Codable, CustomStringConvertible {
+public struct FromStringValue<T: Codable>: Codable, CustomStringConvertible {
     
     public var wrappedValue: T?
     public var rawValue: Any?
@@ -57,5 +58,20 @@ public struct StringModel<T: Codable>: Codable, CustomStringConvertible {
         } else if let wrappedValue {
             try container.encode(wrappedValue)
         }
+    }
+}
+
+public extension KeyedDecodingContainer {
+    func decode<P>(_: FromStringValue<P>.Type, forKey key: Key) throws -> FromStringValue<P> {
+        if let value = try decodeIfPresent(FromStringValue<P>.self, forKey: key) {
+            return value
+        }
+        return FromStringValue()
+    }
+}
+
+public extension KeyedEncodingContainer {
+    mutating func encode<P>(_ value: FromStringValue<P>, forKey key: Key) throws {
+        try encode(value.wrappedValue, forKey: key)
     }
 }
