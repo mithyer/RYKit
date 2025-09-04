@@ -306,7 +306,7 @@ extension SwiftStomp{
 
 /// Helper functions
 extension SwiftStomp{
-    func stompLog(type : StompLogType, message : String){
+    func stompLog(type : StompRawLogType, message : String){
         guard StompLog.enableRawLog else { return }
 
         let formatter = DateFormatter()

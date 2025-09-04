@@ -7,38 +7,36 @@
 
 import Foundation
 
-func stomp_log(_ str: @autoclosure () -> String, _ logCase: StompLog.LogCase = .notice, _ level: StompLog.Level = .basic) {
+func stomp_log(_ str: @autoclosure () -> String, _ logCase: StompLog.ProcessedLogCase = .notice) {
 #if DEBUG
-    StompLog.log(str(), level: level, logCase: logCase)
+    StompLog.log(str(), logCase: logCase)
 #endif
 }
 
 public struct StompLog {
     
-    public enum Level: Int {
-        case none
-        case basic
-        case all
-    }
-    
-    enum LogCase {
+    public enum ProcessedLogCase {
         case notice
         case warning
         case message
         case error
     }
-    
-    public static var level: Level = .basic
-    
-    public static var logReceivedStompMessage: Bool = false
-    
-    public static var enableRawLog: Bool = false
 
     public static var onReceivedRawLog: ((String) -> Void)?
+    
+    // 原始的SwiftStomp的代码的log
+    public static var enableRawLog: Bool = false
+    public static var rawLogFilter: ((_ type : StompRawLogType, _ message : String) -> Bool)?
 
-    static func log(_ str: String, level: Level, logCase: LogCase) {
-        let limitLevel = self.level
-        if level.rawValue > limitLevel.rawValue {
+    // 封装后的代码的log
+    public static var enableProcessedLog: Bool = false
+    public static var processedLogFilter: ((_ case: ProcessedLogCase, _ message: String) -> Bool)?
+
+    static func log(_ str: String, logCase: ProcessedLogCase) {
+        if !enableProcessedLog {
+            return
+        }
+        if let processedLogFilter, !processedLogFilter(logCase, str) {
             return
         }
         switch logCase {
