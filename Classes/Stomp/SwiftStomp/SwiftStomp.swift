@@ -27,7 +27,7 @@ class SwiftStomp: NSObject {
     fileprivate var status : StompConnectionStatus = .socketDisconnected
     fileprivate var reconnectScheduler : Timer?
     fileprivate var reconnectTryCount = 0
-    fileprivate var reachability : SwiftReachability?
+    fileprivate var reachabilityListener : AnyObject?
     fileprivate var hostIsReachabile = true
 
     /// Auto ping peroperties
@@ -95,18 +95,17 @@ class SwiftStomp: NSObject {
     }
 
     private func initReachability(){
-        if let reachability = try? SwiftReachability(queueQoS: .utility, targetQueue: DispatchQueue(label: "swiftStomp.reachability"), notificationQueue: .global()) {
-            reachability.whenReachable = { [weak self] _ in
+        reachabilityListener = GlobalReachability.shared.listen { [weak self] connection in
+            if connection == .unavailable {
                 self?.stompLog(type: .info, message: "Network IS reachable")
                 self?.hostIsReachabile = true
-            }
-            reachability.whenUnreachable = { [weak self] _ in
+                if self?.status == .fullyConnected {
+                    self?.disconnect(force: true)
+                }
+            } else {
                 self?.stompLog(type: .info, message: "Network IS NOT reachable")
                 self?.hostIsReachabile = false
             }
-            self.reachability = reachability
-        } else {
-            self.stompLog(type: .info, message: "Unable to create Reachability")
         }
     }
 }
@@ -347,7 +346,7 @@ extension SwiftStomp{
             reconnectScheduler = nil
         }
 
-        try? self.reachability?.startNotifier()
+        //try? self.reachability?.startNotifier()
 
         DispatchQueue.main.async { [weak self] in
             self?.reconnectScheduler = Timer.scheduledTimer(withTimeInterval: 3, repeats: true){ [weak self] timer in
@@ -374,7 +373,7 @@ extension SwiftStomp{
             connector.invalidate()
         }
 
-        self.reachability?.stopNotifier()
+        //self.reachability?.stopNotifier()
     }
 
 }

@@ -46,7 +46,6 @@ public class GlobalReachability {
                 subject.send(reachability.connection)
             })
             reachabilitySubjectCancelation = subject
-                .dropFirst()
                 .receive(on: DispatchQueue.main)
                 .sink { connection in
                 callback(connection)
