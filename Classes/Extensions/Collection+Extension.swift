@@ -7,6 +7,12 @@
 
 import CommonCrypto
 
+extension Collection {
+    public var nilIfEmpty: Self? {
+        isEmpty ? nil : self
+    }
+}
+
 extension String {
     
     public var sha1: String {
@@ -42,7 +48,7 @@ extension Array where Element == String {
         sortedJoined(separator: ",").sha1
     }
     
-    public func sortedJoined(separator: String) -> String {
+    private func sortedJoined(separator: String) -> String {
         sorted().joined(separator: separator)
     }
 }
