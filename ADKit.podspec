@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'ADKit'
-  s.version          = '1.2.11'
+  s.version          = '1.2.12'
   s.summary          = 'Kit for Aden'
   s.description      =' Kit for Aden.'
   s.homepage         = 'http://10.23.9.221/rui.mao/adkit'
@@ -21,6 +21,10 @@ Pod::Spec.new do |s|
   s.tvos.deployment_target  = "13.0"
   s.swift_version    = '5.0'
   s.source_files = 'Classes/ADKit.swift'
+
+  s.subspec 'Log' do |ss|
+    ss.source_files = 'Classes/Log/**/*'
+  end
 
   s.subspec 'Capables' do |ss|
     ss.source_files = 'Classes/Capables/**/*'

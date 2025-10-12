@@ -376,7 +376,7 @@ extension HttpRequest {
         case decodeFailed(any Error)
     }
     
-    public enum LocalErrorCode: Int {
+    public enum LocalErrorCode: Int, Codable {
         case decodeFailed = -1
         case asURLRequestFailed = -2
         case cancelBecauseIsRequesting = -3
@@ -387,7 +387,7 @@ extension HttpRequest {
         case shouldNeverBe = -99
     }
     
-    public enum ResponseCode {
+    public enum ResponseCode: Codable {
         case httpStatus(Int)
         case business(Int)
         case local(LocalErrorCode)
@@ -404,12 +404,12 @@ extension HttpRequest {
         }
     }
     
-    public class ResponseError: Error {
+    public class ResponseError: Error, Codable {
         
         public let code: ResponseCode
         public private(set) var msg: String?
         private let rawData: String?
-        private let subError: Error?
+        @IgnoreValue private var subError: Error?
         public var isBusinessError: Bool {
             if case .business = code {
                 return true
@@ -796,6 +796,42 @@ extension Result where Failure == HttpRequest.ResponseError {
         }
         return false
     }
+}
+
+extension Result: Codable where Failure == HttpRequest.ResponseError, Success: Codable {
+    
+    enum CodingKeys: String, CodingKey {
+            case success
+            case failure
+        }
+        
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            
+            if let successValue = try? container.decode(Success.self, forKey: .success) {
+                self = .success(successValue)
+            } else if let failureValue = try? container.decode(Failure.self, forKey: .failure) {
+                self = .failure(failureValue)
+            } else {
+                throw DecodingError.dataCorrupted(
+                    DecodingError.Context(
+                        codingPath: decoder.codingPath,
+                        debugDescription: "无法解码 Result：既不是 success 也不是 failure"
+                    )
+                )
+            }
+        }
+        
+        public func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            
+            switch self {
+            case .success(let value):
+                try container.encode(value, forKey: .success)
+            case .failure(let error):
+                try container.encode(error, forKey: .failure)
+            }
+        }
 }
 
 extension HttpRequest.ResponseCode {
