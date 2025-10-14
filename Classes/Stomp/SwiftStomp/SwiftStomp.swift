@@ -413,7 +413,7 @@ fileprivate extension SwiftStomp{
         do{
             frame = try StompFrame(withSerializedString: text)
         }catch {
-            stompLog(type: .stompError, message: "Process frame error: \(error.localizedDescription)")
+            stompLog(type: .stompError, message: "Process frame(text:\(text.debugDescription) error: \(error.localizedDescription)")
             return
         }
 
@@ -558,7 +558,7 @@ fileprivate extension SwiftStomp{
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             
-            var confirmPingFailure = { [weak self] in
+            let confirmPingFailure = { [weak self] in
                 guard let self else {
                     return
                 }
