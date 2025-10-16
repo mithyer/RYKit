@@ -34,10 +34,10 @@ import Foundation
 public class LogRecorder {
     
     // MARK: - 单例
-    public static let shared = LogRecorder(logName: "global_shared")
+    public static let shared = LogRecorder(logNamePrefix: "global_shared")
     
     // MARK: - 私有属性
-    private let logName: String
+    private let logNamePrefix: String
     private let fileManager = FileManager.default
     private var logFileURL: URL?
     private let dateFormatter: DateFormatter
@@ -46,8 +46,8 @@ public class LogRecorder {
     private var logCount = 0
     
     // MARK: - 初始化
-    init(logName: String) {
-        self.logName = logName
+    public init(logNamePrefix: String) {
+        self.logNamePrefix = logNamePrefix
         dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZ"
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -122,7 +122,7 @@ public class LogRecorder {
         fileNameFormatter.locale = Locale(identifier: "en_US_POSIX")
         fileNameFormatter.timeZone = TimeZone.current
         
-        let fileName = "log_\(logName)_\(fileNameFormatter.string(from: Date())).json"
+        let fileName = "log_\(logNamePrefix)_\(fileNameFormatter.string(from: Date())).json"
         let fileURL = documentsDirectory.appendingPathComponent(fileName)
         
         // 如果文件不存在，创建文件并写入初始内容
