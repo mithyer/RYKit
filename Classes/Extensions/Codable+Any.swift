@@ -264,14 +264,14 @@ public extension UnkeyedEncodingContainer {
     }
 }
 
-public struct CodableDictionary: Codable {
+public class CodableDictionary: Codable {
     public private(set) var dictionary: [String: Any]
     
     public init(_ dictionary: [String: Any]) {
         self.dictionary = dictionary
     }
     
-    public init(from decoder: any Decoder) throws {
+    public required init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: JSONCodingKeys.self)
         dictionary = try container.decode([String: Any].self)
     }
@@ -298,14 +298,14 @@ public struct CodableDictionary: Codable {
     }
 }
 
-public struct CodableArray: Codable {
+public class CodableArray: Codable {
     public private(set) var array: [Any]
     
     public init(_ array: [Any]) {
         self.array = array
     }
     
-    public init(from decoder: any Decoder) throws {
+    public required init(from decoder: any Decoder) throws {
         var container = try decoder.unkeyedContainer()
         array = try container.decode([Any].self)
     }
