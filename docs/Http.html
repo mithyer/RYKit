@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTP 请求模块 - ADKit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            position: relative;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .back-btn:hover {
+            background: white;
+            color: #667eea;
+            transform: translateX(-5px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 50px;
+        }
+
+        .section-title {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .subsection {
+            margin-bottom: 30px;
+        }
+
+        .subsection-title {
+            font-size: 1.5em;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .description {
+            line-height: 1.8;
+            color: #555;
+            margin-bottom: 20px;
+            font-size: 1.05em;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin: 20px 0;
+        }
+
+        .feature-list li {
+            padding: 12px 0 12px 35px;
+            position: relative;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 10px;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .code-block {
+            margin: 20px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .code-header {
+            background: #21252b;
+            color: #abb2bf;
+            padding: 12px 20px;
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .code-lang {
+            font-weight: bold;
+            color: #61afef;
+        }
+
+        pre {
+            margin: 0 !important;
+            border-radius: 0 !important;
+        }
+
+        pre code {
+            display: block;
+            padding: 20px !important;
+            font-size: 14px;
+            line-height: 1.6;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        }
+
+        .api-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .api-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .api-table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .api-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .api-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .highlight-box {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .highlight-box-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .back-btn {
+                position: static;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-btn">
+                <span>←</span>
+                <span>返回索引</span>
+            </a>
+            <h1>
+                <span>📡</span>
+                <span>HTTP 请求模块</span>
+            </h1>
+            <p>功能强大的 HTTP 网络请求封装，提供完善的加密、解密和错误处理</p>
+        </div>
+
+        <div class="content">
+            <!-- 概述 -->
+            <div class="section">
+                <h2 class="section-title">模块概述</h2>
+                <div class="description">
+                    HTTP 请求模块是 ADKit 的核心网络组件，提供了一套完整的 HTTP 请求解决方案。它不仅支持常见的网络请求功能，还内置了数据加密/解密、请求策略控制、自动解析响应等高级特性。
+                </div>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">🎯 核心优势</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>类型安全的响应解析，支持 Model、List、Dictionary 等多种类型</li>
+                        <li>可配置的数据加密/解密，保护敏感信息</li>
+                        <li>智能请求策略，支持取消重复请求和防抖</li>
+                        <li>完善的错误处理，区分 HTTP 错误、业务错误和本地错误</li>
+                        <li>详细的日志记录，便于调试和问题追踪</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <span class="tag">iOS 13.0+</span>
+                    <span class="tag">macOS 10.15+</span>
+                    <span class="tag">tvOS 13.0+</span>
+                    <span class="tag">Swift 5.0+</span>
+                </div>
+            </div>
+
+            <!-- 安装 -->
+            <div class="section">
+                <h2 class="section-title">安装方式</h2>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-lang">Ruby (Podfile)</span>
+                    </div>
+                    <pre><code class="language-ruby">pod 'ADKit/Http'</code></pre>
+                </div>
+            </div>
+
+            <!-- 核心功能 -->
+            <div class="section">
+                <h2 class="section-title">核心功能</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 请求方法支持</h3>
+                    <div class="description">
+                        支持 GET、POST 以及其他自定义 HTTP 方法，灵活满足各种 API 需求。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>请求方法定义</span>
+                        </div>
+                        <pre><code class="language-swift">public enum Method {
+    case GET
+    case POST
+    case OTHER(method: String)  // 支持自定义方法如 PUT, DELETE, PATCH 等
+    
+    var rawValue: String {
+        switch self {
+        case .GET: return "GET"
+        case .POST: return "POST"
+        case .OTHER(let method): return method
+        }
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 参数类型</h3>
+                    <div class="description">
+                        支持字典和模型两种参数类型，自动处理编码。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>参数类型</span>
+                        </div>
+                        <pre><code class="language-swift">public enum ParamsType {
+    case dic([String: Any])      // 字典参数
+    case model(any Encodable)    // 模型参数
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 Content-Type 支持</h3>
+                    <div class="description">
+                        支持 JSON 和 Form-Encoded 两种常用的内容类型。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>Content-Type 枚举</span>
+                        </div>
+                        <pre><code class="language-swift">public enum ContentType: String {
+    case applicationFormEncoded = "application/x-www-form-urlencoded"
+    case applicationJson = "application/json"
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 请求策略</h3>
+                    <div class="description">
+                        提供两种请求策略，优化用户体验和性能。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>请求策略</span>
+                        </div>
+                        <pre><code class="language-swift">public enum RequestStrategy {
+    case cancelIfRequesting                                    // 如果正在请求则取消新请求
+    case amendIfRequesting(debounceInterval: TimeInterval?)   // 用新请求替换旧请求，可选防抖
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 使用示例 -->
+            <div class="section">
+                <h2 class="section-title">使用示例</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础请求</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>创建并发送 GET 请求</span>
+                        </div>
+                        <pre><code class="language-swift">// 1. 创建请求
+let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .GET,
+    path: "/users/123",
+    params: nil,
+    contentType: nil,
+    requestStrategy: nil,
+    baseHeaders: ["Authorization": "Bearer your_token"],
+    handlers: handlers
+)
+
+// 2. 发送请求并解析响应
+request.response(User.self) { result in
+    switch result {
+    case .success(let user):
+        print("用户信息：\(user.name), \(user.email)")
+    case .failure(let error):
+        print("请求失败：\(error.localizedDescription)")
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 POST 请求（JSON）</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>发送 JSON 格式的 POST 请求</span>
+                        </div>
+                        <pre><code class="language-swift">// 定义请求模型
+struct CreateUserRequest: Codable {
+    let name: String
+    let email: String
+    let age: Int
+}
+
+// 创建请求
+let createUser = CreateUserRequest(
+    name: "张三",
+    email: "zhangsan@example.com",
+    age: 25
+)
+
+let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .POST,
+    path: "/users",
+    params: .model(createUser),
+    contentType: .applicationJson,      // 使用 JSON 格式
+    requestStrategy: .cancelIfRequesting,
+    baseHeaders: ["Authorization": "Bearer your_token"],
+    handlers: handlers
+)
+
+// 发送请求
+request.response(User.self) { result in
+    switch result {
+    case .success(let user):
+        print("创建成功：用户ID \(user.id)")
+    case .failure(let error):
+        print("创建失败：\(error.localizedDescription)")
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 POST 请求（Form-Encoded）</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>发送表单格式的 POST 请求</span>
+                        </div>
+                        <pre><code class="language-swift">let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .POST,
+    path: "/login",
+    params: .dic([
+        "username": "zhangsan",
+        "password": "password123"
+    ]),
+    contentType: .applicationFormEncoded,  // 使用表单格式
+    requestStrategy: nil,
+    baseHeaders: [:],
+    handlers: handlers
+)
+
+request.response(LoginResponse.self) { result in
+    // 处理登录响应
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 请求列表数据</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>获取用户列表</span>
+                        </div>
+                        <pre><code class="language-swift">let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .GET,
+    path: "/users",
+    params: .dic([
+        "page": 1,
+        "pageSize": 20
+    ]),
+    contentType: nil,
+    requestStrategy: nil,
+    baseHeaders: ["Authorization": "Bearer your_token"],
+    handlers: handlers
+)
+
+// 解析为数组
+request.response([User].self) { result in
+    switch result {
+    case .success(let users):
+        print("获取到 \(users.count) 个用户")
+        users.forEach { user in
+            print("- \(user.name)")
+        }
+    case .failure(let error):
+        print("请求失败：\(error.localizedDescription)")
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 处理可选响应</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>允许响应数据为空</span>
+                        </div>
+                        <pre><code class="language-swift">// 使用可选类型，允许响应为空
+request.response(User?.self) { result in
+    switch result {
+    case .success(let user):
+        if let user = user {
+            print("用户信息：\(user.name)")
+        } else {
+            print("用户不存在")
+        }
+    case .failure(let error):
+        print("请求失败：\(error.localizedDescription)")
+    }
+}
+
+// 可选数组
+request.response([User]?.self) { result in
+    switch result {
+    case .success(let users):
+        if let users = users {
+            print("获取到 \(users.count) 个用户")
+        } else {
+            print("列表为空")
+        }
+    case .failure(let error):
+        print("请求失败")
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 字典响应</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>获取字典格式的响应</span>
+                        </div>
+                        <pre><code class="language-swift">request.response([String: Any].self) { result in
+    switch result {
+    case .success(let dict):
+        print("响应数据：\(dict)")
+        if let name = dict["name"] as? String {
+            print("名称：\(name)")
+        }
+    case .failure(let error):
+        print("请求失败")
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 空响应处理</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>只关心请求是否成功</span>
+                        </div>
+                        <pre><code class="language-swift">// DELETE 请求通常只需要知道是否成功
+let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .OTHER(method: "DELETE"),
+    path: "/users/123",
+    params: nil,
+    contentType: nil,
+    requestStrategy: nil,
+    baseHeaders: ["Authorization": "Bearer your_token"],
+    handlers: handlers
+)
+
+request.responseEmpty { result in
+    switch result {
+    case .success:
+        print("删除成功")
+    case .failure(let error):
+        print("删除失败：\(error.localizedDescription)")
+    }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 高级功能 -->
+            <div class="section">
+                <h2 class="section-title">高级功能</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🔒 加密与解密</h3>
+                    <div class="description">
+                        通过 Handlers 配置加密和解密逻辑，保护敏感数据。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>配置加密解密处理器</span>
+                        </div>
+                        <pre><code class="language-swift">let handlers = HttpRequest.Handlers(
+    // 加密模型参数
+    encryptModelHandler: { model in
+        // 实现你的加密逻辑
+        let data = try JSONEncoder().encode(model)
+        let encryptedData = yourEncryptFunction(data)
+        return EncryptedModel(data: encryptedData)
+    },
+    // 加密字典参数
+    encryptParamsHandler: { params in
+        // 实现你的加密逻辑
+        return EncryptedParams(params: params)
+    },
+    // 解密响应数据
+    decryptDataHandler: { data in
+        // 实现你的解密逻辑
+        return yourDecryptFunction(data)
+    },
+    // 成功日志
+    logSuccessHandler: { message in
+        print("✅ \(message)")
+    },
+    // 失败日志
+    logFailureHandler: { message in
+        print("❌ \(message)")
+    },
+    // 自定义错误消息
+    customizeResponseErrorMessageHandler: { error in
+        return "错误代码：\(error.code.intValue)"
+    },
+    // HTTP 状态码错误回调
+    onResponseHttpErrorStatusCodeHandler: { statusCode, context in
+        if statusCode == 401 {
+            // 处理未授权，如跳转到登录页
+        }
+    },
+    // 业务错误码回调
+    onResponseBusinessErrorCodeHandler: { businessCode, context in
+        // 处理特定的业务错误
+    }
+)
+
+// 使用配置的 handlers
+let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .POST,
+    path: "/secure-data",
+    params: .model(sensitiveData),
+    contentType: .applicationJson,
+    requestStrategy: nil,
+    baseHeaders: [:],
+    handlers: handlers
+)
+
+// 可以临时禁用加密
+request.setEncryptAndDecryptEnabled(false)
+    .response(Response.self) { result in
+        // 处理响应
+    }</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">⚙️ 请求策略控制</h3>
+                    <div class="description">
+                        使用请求策略防止重复请求或实现防抖功能。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>防止重复请求</span>
+                        </div>
+                        <pre><code class="language-swift">// 场景：按钮快速点击，只处理第一次点击
+let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .POST,
+    path: "/submit",
+    params: .model(data),
+    contentType: .applicationJson,
+    requestStrategy: .cancelIfRequesting,  // 如果正在请求，取消新请求
+    baseHeaders: [:],
+    handlers: handlers
+)
+
+// 多次快速调用，只有第一次会执行
+request.response(Response.self) { result in
+    // 处理响应
+}</code></pre>
+                    </div>
+                    
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>请求防抖</span>
+                        </div>
+                        <pre><code class="language-swift">// 场景：搜索框输入，只处理最后一次输入
+let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .GET,
+    path: "/search",
+    params: nil,
+    contentType: nil,
+    requestStrategy: .amendIfRequesting(debounceInterval: 0.5),  // 500ms 防抖
+    baseHeaders: [:],
+    handlers: handlers
+)
+
+// 用户输入时不断调用，只有停止输入 500ms 后才真正发送请求
+func searchTextDidChange(_ keyword: String) {
+    request.replaceParams(.dic(["keyword": keyword]))
+        .response([SearchResult].self) { result in
+            // 处理搜索结果
+        }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">✅ 自定义业务码校验</h3>
+                    <div class="description">
+                        自定义成功的业务码判断逻辑。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>自定义业务码校验</span>
+                        </div>
+                        <pre><code class="language-swift">// 默认情况下，code == 200 表示成功
+// 如果你的 API 有不同的成功码，可以自定义
+
+// 方式1：设置默认成功码列表
+request.setHttpResponseBusinessSuccessCodes([0, 200, 1000])
+
+// 方式2：完全自定义校验逻辑
+request.replaceBusinessCodeValidator { code in
+    // 自定义校验逻辑
+    guard let code = code else { return false }
+    return code >= 200 && code < 300
+}
+
+request.response(User.self) { result in
+    // 只有满足自定义条件的 code 才会进入 success
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔄 动态修改请求</h3>
+                    <div class="description">
+                        在发送前动态修改请求参数、URL 和请求头。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>链式调用修改请求</span>
+                        </div>
+                        <pre><code class="language-swift">let request = HttpRequest(
+    session: .shared,
+    queue: .main,
+    baseURL: "https://api.example.com",
+    method: .POST,
+    path: "/users",
+    params: .dic(["name": "张三"]),
+    contentType: .applicationJson,
+    requestStrategy: nil,
+    baseHeaders: ["Content-Type": "application/json"],
+    handlers: handlers
+)
+
+// 链式调用修改请求配置
+request
+    .replaceBaseURL("https://api-v2.example.com")  // 修改 BaseURL
+    .replaceParams(.dic([                          // 修改参数
+        "name": "李四",
+        "email": "lisi@example.com"
+    ]))
+    .addHeaders([                                  // 添加请求头
+        "Authorization": "Bearer new_token",
+        "X-Custom-Header": "custom_value"
+    ])
+    .setEncryptAndDecryptEnabled(false)            // 禁用加密
+    .response(User.self) { result in
+        // 处理响应
+    }</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 错误处理 -->
+            <div class="section">
+                <h2 class="section-title">错误处理</h2>
+                
+                <div class="description">
+                    HTTP 模块提供了完善的错误分类和处理机制。
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📋 错误类型</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th>错误类型</th>
+                                <th>说明</th>
+                                <th>场景</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>.httpStatus(Int)</code></td>
+                                <td>HTTP 状态码错误</td>
+                                <td>404, 500, 401 等</td>
+                            </tr>
+                            <tr>
+                                <td><code>.business(Int)</code></td>
+                                <td>业务错误码</td>
+                                <td>API 返回的业务错误</td>
+                            </tr>
+                            <tr>
+                                <td><code>.local(LocalErrorCode)</code></td>
+                                <td>本地错误</td>
+                                <td>网络异常、解析失败等</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📋 本地错误码</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th>错误码</th>
+                                <th>值</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>decodeFailed</code></td>
+                                <td>-1</td>
+                                <td>响应数据解析失败</td>
+                            </tr>
+                            <tr>
+                                <td><code>asURLRequestFailed</code></td>
+                                <td>-2</td>
+                                <td>构造 URL 请求失败</td>
+                            </tr>
+                            <tr>
+                                <td><code>cancelBecauseIsRequesting</code></td>
+                                <td>-3</td>
+                                <td>因正在请求而取消</td>
+                            </tr>
+                            <tr>
+                                <td><code>cancelBecauseBeAmended</code></td>
+                                <td>-4</td>
+                                <td>因被新请求替换而取消</td>
+                            </tr>
+                            <tr>
+                                <td><code>responseDataNil</code></td>
+                                <td>-5</td>
+                                <td>响应数据为空</td>
+                            </tr>
+                            <tr>
+                                <td><code>dataDescryptFailed</code></td>
+                                <td>-6</td>
+                                <td>数据解密失败</td>
+                            </tr>
+                            <tr>
+                                <td><code>noBusinessCode</code></td>
+                                <td>-7</td>
+                                <td>响应中没有业务码</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">💡 错误处理示例</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">Swift</span>
+                            <span>完整的错误处理</span>
+                        </div>
+                        <pre><code class="language-swift">request.response(User.self) { result in
+    switch result {
+    case .success(let user):
+        print("请求成功：\(user)")
+        
+    case .failure(let error):
+        // 判断错误类型
+        if error.isBusinessError {
+            // 业务错误
+            print("业务错误：\(error.msg ?? "未知错误")")
+            
+            // 处理特定业务错误码
+            if case .business(let code) = error.code {
+                switch code {
+                case 1001:
+                    print("用户不存在")
+                case 1002:
+                    print("权限不足")
+                default:
+                    print("其他业务错误：\(code)")
+                }
+            }
+        } else if error.isLocalError {
+            // 本地错误
+            print("本地错误：\(error.localizedDescription)")
+            
+            if case .local(let localCode) = error.code {
+                switch localCode {
+                case .decodeFailed:
+                    print("数据解析失败，请检查模型定义")
+                case .dataDescryptFailed:
+                    print("数据解密失败")
+                default:
+                    break
+                }
+            }
+        } else {
+            // HTTP 状态码错误
+            if case .httpStatus(let statusCode) = error.code {
+                switch statusCode {
+                case 401:
+                    print("未授权，请重新登录")
+                case 404:
+                    print("资源不存在")
+                case 500...599:
+                    print("服务器错误")
+                default:
+                    print("HTTP 错误：\(statusCode)")
+                }
+            }
+        }
+        
+        // 判断是否是取消的请求
+        if error.isCancelled {
+            print("请求被取消")
+            return
+        }
+        
+        // 获取错误码
+        let errorCode = error.code.intValue
+        print("错误码：\(errorCode)")
+    }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API 参考 -->
+            <div class="section">
+                <h2 class="section-title">API 参考</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">主要方法</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">方法</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>response&lt;T&gt;(_:completed:)</code></td>
+                                <td>请求并解析为指定类型对象</td>
+                            </tr>
+                            <tr>
+                                <td><code>response&lt;T&gt;([T].self, completed:)</code></td>
+                                <td>请求并解析为对象数组</td>
+                            </tr>
+                            <tr>
+                                <td><code>response([String: Any].self)</code></td>
+                                <td>请求并解析为字典</td>
+                            </tr>
+                            <tr>
+                                <td><code>response(String.self)</code></td>
+                                <td>请求并获取字符串</td>
+                            </tr>
+                            <tr>
+                                <td><code>responseEmpty(completed:)</code></td>
+                                <td>仅关心请求是否成功</td>
+                            </tr>
+                            <tr>
+                                <td><code>replaceParams(_:)</code></td>
+                                <td>替换请求参数</td>
+                            </tr>
+                            <tr>
+                                <td><code>replaceBaseURL(_:)</code></td>
+                                <td>替换 Base URL</td>
+                            </tr>
+                            <tr>
+                                <td><code>addHeaders(_:)</code></td>
+                                <td>添加请求头</td>
+                            </tr>
+                            <tr>
+                                <td><code>setEncryptAndDecryptEnabled(_:)</code></td>
+                                <td>启用/禁用加密解密</td>
+                            </tr>
+                            <tr>
+                                <td><code>setHttpResponseBusinessSuccessCodes(_:)</code></td>
+                                <td>设置成功的业务码列表</td>
+                            </tr>
+                            <tr>
+                                <td><code>replaceBusinessCodeValidator(_:)</code></td>
+                                <td>自定义业务码校验逻辑</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 最佳实践 -->
+            <div class="section">
+                <h2 class="section-title">最佳实践</h2>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">💡 推荐做法</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>创建全局的 Handlers 配置，统一处理加密解密和错误</li>
+                        <li>使用强类型的响应模型，避免使用字典</li>
+                        <li>合理使用请求策略，防止重复请求</li>
+                        <li>在调试环境开启详细日志，生产环境关闭或使用自定义日志</li>
+                        <li>为敏感接口启用加密，普通接口可以禁用以提高性能</li>
+                        <li>统一处理通用的 HTTP 状态码错误（如 401 跳转登录）</li>
+                        <li>使用可选类型处理可能为空的响应</li>
+                    </ul>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-lang">Swift</span>
+                        <span>推荐的封装方式</span>
+                    </div>
+                    <pre><code class="language-swift">// 创建一个 APIService 单例
+class APIService {
+    static let shared = APIService()
+    
+    private let session = URLSession.shared
+    private let queue = DispatchQueue.main
+    private let baseURL = "https://api.example.com"
+    
+    // 全局 handlers 配置
+    private lazy var handlers: HttpRequest.Handlers = {
+        return HttpRequest.Handlers(
+            encryptModelHandler: { model in
+                // 全局加密逻辑
+                return EncryptionService.encrypt(model)
+            },
+            encryptParamsHandler: { params in
+                // 全局参数加密
+                return EncryptionService.encryptParams(params)
+            },
+            decryptDataHandler: { data in
+                // 全局解密逻辑
+                return EncryptionService.decrypt(data)
+            },
+            logSuccessHandler: { message in
+                #if DEBUG
+                print("✅ \(message)")
+                #endif
+            },
+            logFailureHandler: { message in
+                #if DEBUG
+                print("❌ \(message)")
+                #endif
+            },
+            customizeResponseErrorMessageHandler: { error in
+                // 自定义错误消息
+                return ErrorMessageMapper.map(error)
+            },
+            onResponseHttpErrorStatusCodeHandler: { statusCode, context in
+                // 统一处理 HTTP 错误
+                if statusCode == 401 {
+                    NotificationCenter.default.post(
+                        name: .unauthorizedNotification,
+                        object: nil
+                    )
+                }
+            },
+            onResponseBusinessErrorCodeHandler: { code, context in
+                // 统一处理业务错误
+                if code == 1001 {
+                    // 处理特定业务错误
+                }
+            }
+        )
+    }()
+    
+    // 通用请求方法
+    func request<T: Codable>(
+        method: HttpRequest.Method,
+        path: String,
+        params: HttpRequest.ParamsType? = nil,
+        contentType: HttpRequest.ContentType? = .applicationJson,
+        needsAuth: Bool = true,
+        completion: @escaping (Result<T, HttpRequest.ResponseError>) -> Void
+    ) {
+        var headers: [String: String] = [:]
+        if needsAuth, let token = AuthManager.shared.token {
+            headers["Authorization"] = "Bearer \(token)"
+        }
+        
+        let request = HttpRequest(
+            session: session,
+            queue: queue,
+            baseURL: baseURL,
+            method: method,
+            path: path,
+            params: params,
+            contentType: contentType,
+            requestStrategy: .cancelIfRequesting,
+            baseHeaders: headers,
+            handlers: handlers
+        )
+        
+        request.response(T.self, completed: completion)
+    }
+}
+
+// 使用示例
+APIService.shared.request(
+    method: .GET,
+    path: "/users/123"
+) { (result: Result<User, HttpRequest.ResponseError>) in
+    // 处理响应
+}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化代码高亮
+        hljs.highlightAll();
+    </script>
+</body>
+</html>

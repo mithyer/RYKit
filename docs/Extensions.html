@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扩展模块 - ADKit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; position: relative; }
+        .back-btn { position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease; font-size: 14px; }
+        .back-btn:hover { background: white; color: #667eea; transform: translateX(-5px); }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 40px; }
+        .section { margin-bottom: 50px; }
+        .section-title { font-size: 2em; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea; }
+        .subsection { margin-bottom: 30px; }
+        .subsection-title { font-size: 1.5em; color: #667eea; margin-bottom: 15px; }
+        .description { line-height: 1.8; color: #555; margin-bottom: 20px; font-size: 1.05em; }
+        .feature-list { list-style: none; margin: 20px 0; }
+        .feature-list li { padding: 12px 0 12px 35px; position: relative; color: #555; line-height: 1.6; }
+        .feature-list li:before { content: "✓"; position: absolute; left: 10px; color: #667eea; font-weight: bold; font-size: 1.2em; }
+        .code-block { margin: 20px 0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        .code-header { background: #21252b; color: #abb2bf; padding: 12px 20px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
+        .code-lang { font-weight: bold; color: #61afef; }
+        pre { margin: 0 !important; border-radius: 0 !important; }
+        pre code { display: block; padding: 20px !important; font-size: 14px; line-height: 1.6; font-family: 'Monaco', 'Menlo', 'Consolas', monospace; }
+        .api-table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); border-radius: 10px; overflow: hidden; }
+        .api-table th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .api-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .api-table tr:last-child td { border-bottom: none; }
+        .api-table tr:nth-child(even) { background: #f8f9fa; }
+        .highlight-box { background: #f0f7ff; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .highlight-box-title { font-weight: bold; color: #667eea; margin-bottom: 10px; font-size: 1.1em; }
+        .tag { display: inline-block; background: #667eea; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.85em; margin-right: 10px; margin-bottom: 10px; }
+        @media (max-width: 768px) { .header h1 { font-size: 1.8em; } .content { padding: 20px; } .back-btn { position: static; margin-bottom: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-btn"><span>←</span><span>返回索引</span></a>
+            <h1><span>🔧</span><span>扩展模块</span></h1>
+            <p>常用的 Swift 类型扩展，提升开发效率</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title">模块概述</h2>
+                <div class="description">
+                    扩展模块为 Swift 标准库的常用类型添加了实用的扩展方法，包括 Collection、String、Number 等。这些扩展简化了常见操作，提供了类型安全的访问方式。
+                </div>
+                <div style="margin-top: 20px;">
+                    <span class="tag">iOS 13.0+</span>
+                    <span class="tag">macOS 10.15+</span>
+                    <span class="tag">tvOS 13.0+</span>
+                    <span class="tag">Swift 5.0+</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">安装方式</h2>
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Ruby (Podfile)</span></div>
+                    <pre><code class="language-ruby">pod 'ADKit/Extensions'</code></pre>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Collection 扩展</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 nilIfEmpty</h3>
+                    <div class="description">空集合返回 nil，非空集合返回自身。</div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span></div>
+                        <pre><code class="language-swift">let emptyArray: [Int] = []
+let result1 = emptyArray.nilIfEmpty  // nil
+
+let nonEmptyArray = [1, 2, 3]
+let result2 = nonEmptyArray.nilIfEmpty  // [1, 2, 3]
+
+// 应用场景：可选链调用
+let items: [String] = []
+items.nilIfEmpty?.forEach { print($0) }  // 不执行
+
+let validItems = ["A", "B"]
+validItems.nilIfEmpty?.forEach { print($0) }  // 执行</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 SHA1 哈希</h3>
+                    <div class="description">计算字符串、字典和数组的 SHA1 哈希值。</div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>SHA1 哈希计算</span></div>
+                        <pre><code class="language-swift">// 字符串 SHA1
+let text = "Hello, World!"
+let hash1 = text.sha1
+print(hash1)  // "0a0a9f2a6772942557ab5355d76af442f8f65e01"
+
+// 字典 SHA1 (按 key 排序后计算)
+let params = ["name": "张三", "age": "25", "city": "北京"]
+let hash2 = params.sha1
+print(hash2)  // 基于 "age=25&city=北京&name=张三" 计算
+
+// 数组 SHA1 (排序后计算)
+let tags = ["swift", "ios", "mobile"]
+let hash3 = tags.sha1
+print(hash3)  // 基于 "ios,mobile,swift" 计算
+
+// 应用场景：API 签名
+func signRequest(params: [String: String], secret: String) -> String {
+    let signature = (params.sortedURLParams + secret).sha1
+    return signature
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 类型安全的下标访问</h3>
+                    <div class="description">提供类型安全的字典和数组访问，支持自动类型转换。</div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>类型安全访问</span></div>
+                        <pre><code class="language-swift">// Dictionary 扩展
+let dict: [String: Any] = [
+    "name": "张三",
+    "age": 25,
+    "score": 95.5,
+    "isVIP": true,
+    "tags": ["A", "B"],
+    "profile": ["city": "北京"]
+]
+
+// 基础类型访问（自动转换）
+let name: String? = dict[(key: "name", type: String.self)]  // "张三"
+let age: Int? = dict[(key: "age", type: Int.self)]          // 25
+let score: Double? = dict[(key: "score", type: Double.self)] // 95.5
+let isVIP: Bool? = dict[(key: "isVIP", type: Bool.self)]    // true
+
+// 复杂类型访问
+let tags: [Any]? = dict[(key: "tags", type: [Any].self)]
+let profile: [String: Any]? = dict[(key: "profile", type: [String: Any].self)]
+
+// Array 扩展
+let array: [Any] = [100, "Hello", 3.14, true, ["key": "value"]]
+
+let num: Int? = array[(index: 0, type: Int.self)]      // 100
+let str: String? = array[(index: 1, type: String.self)] // "Hello"
+let decimal: Double? = array[(index: 2, type: Double.self)] // 3.14
+let bool: Bool? = array[(index: 3, type: Bool.self)]   // true
+let dict2: [String: Any]? = array[(index: 4, type: [String: Any].self)]
+
+// 越界安全
+let outOfBounds: Int? = array[(index: 100, type: Int.self)]  // nil</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 类型转换方法</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>批量类型转换</span></div>
+                        <pre><code class="language-swift">// Dictionary 值转换
+let dict: [String: Any] = ["a": "1", "b": "2", "c": "abc"]
+
+// map: 保留所有键，值可能为 nil
+let mapped: [String: Int?] = dict.mapValuesByConvertingTo(Int.self)
+// ["a": 1, "b": 2, "c": nil]
+
+// compactMap: 只保留转换成功的键值对
+let compacted: [String: Int] = dict.compactMapValuesByConvertingTo(Int.self)
+// ["a": 1, "b": 2]
+
+// Array 元素转换
+let array: [Any] = ["1", 2, "3", "abc", 4]
+
+// map: 保留所有元素
+let mapped2: [Int?] = array.mapByConvertingTo(Int.self)
+// [1, 2, 3, nil, 4]
+
+// compactMap: 只保留转换成功的元素
+let compacted2: [Int] = array.compactMapByConvertingTo(Int.self)
+// [1, 2, 3, 4]</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">String 扩展</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 transferIfNil</h3>
+                    <div class="description">当字符串为 nil 时，提供默认值。</div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span></div>
+                        <pre><code class="language-swift">let name: String? = nil
+let displayName = name.transferIfNil { "未命名" }
+print(displayName)  // "未命名"
+
+let validName: String? = "张三"
+let displayName2 = validName.transferIfNil { "未命名" }
+print(displayName2)  // "张三"
+
+// 应用场景：UI 显示
+label.text = user.nickname.transferIfNil { "用户\(user.id)" }</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Number 扩展</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 nilIfZero</h3>
+                    <div class="description">当数值为零时返回 nil。</div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span></div>
+                        <pre><code class="language-swift">let value1: Int = 0
+let result1 = value1.nilIfZero  // nil
+
+let value2: Int = 100
+let result2 = value2.nilIfZero  // 100
+
+let price: Double = 0.0
+let result3 = price.nilIfZero  // nil
+
+// 应用场景：可选链调用
+let count = 0
+count.nilIfZero.map { "有 \($0) 条消息" }  // nil
+
+let validCount = 5
+validCount.nilIfZero.map { "有 \($0) 条消息" }  // "有 5 条消息"</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">实际应用示例</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 API 参数签名</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span></div>
+                        <pre><code class="language-swift">func signAPIRequest(params: [String: String], secret: String) -> String {
+    // 参数按 key 排序并拼接
+    let paramString = params.sortedURLParams
+    
+    // 添加密钥并计算 SHA1
+    let signature = (paramString + secret).sha1
+    
+    return signature
+}
+
+let params = [
+    "timestamp": "1698765432",
+    "userId": "12345",
+    "action": "getProfile"
+]
+
+let signature = signAPIRequest(params: params, secret: "my_secret_key")
+// 基于 "action=getProfile&timestamp=1698765432&userId=12345my_secret_key" 计算</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 安全解析 JSON</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span></div>
+                        <pre><code class="language-swift">// 解析不确定类型的 JSON
+func parseUserInfo(_ json: [String: Any]) -> User? {
+    // 类型安全地提取值
+    guard let id: String = json[(key: "id", type: String.self)] else {
+        return nil
+    }
+    
+    let name: String = json[(key: "name", type: String.self)] ?? "未知"
+    let age: Int = json[(key: "age", type: Int.self)] ?? 0
+    let email: String? = json[(key: "email", type: String.self)]
+    
+    return User(id: id, name: name, age: age, email: email)
+}
+
+let json: [String: Any] = [
+    "id": "U001",
+    "name": "张三",
+    "age": 25
+]
+
+if let user = parseUserInfo(json) {
+    print("用户：\(user.name)")
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 UI 数据处理</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span></div>
+                        <pre><code class="language-swift">struct ProfileViewModel {
+    let user: User
+    
+    var displayName: String {
+        user.nickname.transferIfNil { "用户\(user.id)" }
+    }
+    
+    var badgeCount: String? {
+        user.unreadCount.nilIfZero.map { "\($0)" }
+    }
+    
+    var tagsToShow: [String]? {
+        user.tags.nilIfEmpty
+    }
+}
+
+// UI 更新
+func updateUI(viewModel: ProfileViewModel) {
+    nameLabel.text = viewModel.displayName
+    
+    if let badgeText = viewModel.badgeCount {
+        badgeLabel.text = badgeText
+        badgeLabel.isHidden = false
+    } else {
+        badgeLabel.isHidden = true
+    }
+    
+    if let tags = viewModel.tagsToShow {
+        tagsView.configure(with: tags)
+    } else {
+        tagsView.isHidden = true
+    }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">API 参考</h2>
+                
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">方法/属性</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>Collection.nilIfEmpty</code></td>
+                            <td>空集合返回 nil</td>
+                        </tr>
+                        <tr>
+                            <td><code>String.sha1</code></td>
+                            <td>计算 SHA1 哈希</td>
+                        </tr>
+                        <tr>
+                            <td><code>[String: String].sha1</code></td>
+                            <td>字典排序后计算 SHA1</td>
+                        </tr>
+                        <tr>
+                            <td><code>[String: String].sortedURLParams</code></td>
+                            <td>字典排序并拼接为 URL 参数格式</td>
+                        </tr>
+                        <tr>
+                            <td><code>[String].sha1</code></td>
+                            <td>数组排序后计算 SHA1</td>
+                        </tr>
+                        <tr>
+                            <td><code>Dictionary[(key:type:)]</code></td>
+                            <td>类型安全的字典访问</td>
+                        </tr>
+                        <tr>
+                            <td><code>Array[(index:type:)]</code></td>
+                            <td>类型安全的数组访问</td>
+                        </tr>
+                        <tr>
+                            <td><code>Dictionary.mapValuesByConvertingTo(_:)</code></td>
+                            <td>转换字典的值类型</td>
+                        </tr>
+                        <tr>
+                            <td><code>Dictionary.compactMapValuesByConvertingTo(_:)</code></td>
+                            <td>转换并过滤字典的值</td>
+                        </tr>
+                        <tr>
+                            <td><code>Array.mapByConvertingTo(_:)</code></td>
+                            <td>转换数组元素类型</td>
+                        </tr>
+                        <tr>
+                            <td><code>Array.compactMapByConvertingTo(_:)</code></td>
+                            <td>转换并过滤数组元素</td>
+                        </tr>
+                        <tr>
+                            <td><code>String?.transferIfNil(_:)</code></td>
+                            <td>nil 时提供默认值</td>
+                        </tr>
+                        <tr>
+                            <td><code>Numeric.nilIfZero</code></td>
+                            <td>零值返回 nil</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">最佳实践</h2>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">💡 推荐做法</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>使用 <code>nilIfEmpty</code> 简化空集合判断</li>
+                        <li>使用类型安全的下标访问代替强制转换</li>
+                        <li>使用 <code>sha1</code> 进行数据签名和校验</li>
+                        <li>使用 <code>nilIfZero</code> 简化零值处理</li>
+                        <li>使用 <code>transferIfNil</code> 提供友好的默认显示</li>
+                        <li>合理使用类型转换方法处理不确定类型的数据</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

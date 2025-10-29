@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STOMP 模块 - ADKit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; position: relative; }
+        .back-btn { position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease; font-size: 14px; }
+        .back-btn:hover { background: white; color: #667eea; transform: translateX(-5px); }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 40px; }
+        .section { margin-bottom: 50px; }
+        .section-title { font-size: 2em; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea; }
+        .subsection { margin-bottom: 30px; }
+        .subsection-title { font-size: 1.5em; color: #667eea; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .description { line-height: 1.8; color: #555; margin-bottom: 20px; font-size: 1.05em; }
+        .feature-list { list-style: none; margin: 20px 0; }
+        .feature-list li { padding: 12px 0 12px 35px; position: relative; color: #555; line-height: 1.6; }
+        .feature-list li:before { content: "✓"; position: absolute; left: 10px; color: #667eea; font-weight: bold; font-size: 1.2em; }
+        .code-block { margin: 20px 0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        .code-header { background: #21252b; color: #abb2bf; padding: 12px 20px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
+        .code-lang { font-weight: bold; color: #61afef; }
+        pre { margin: 0 !important; border-radius: 0 !important; }
+        pre code { display: block; padding: 20px !important; font-size: 14px; line-height: 1.6; font-family: 'Monaco', 'Menlo', 'Consolas', monospace; }
+        .api-table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); border-radius: 10px; overflow: hidden; }
+        .api-table th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .api-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .api-table tr:last-child td { border-bottom: none; }
+        .api-table tr:nth-child(even) { background: #f8f9fa; }
+        .highlight-box { background: #f0f7ff; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .highlight-box-title { font-weight: bold; color: #667eea; margin-bottom: 10px; font-size: 1.1em; }
+        .tag { display: inline-block; background: #667eea; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.85em; margin-right: 10px; margin-bottom: 10px; }
+        @media (max-width: 768px) { .header h1 { font-size: 1.8em; } .content { padding: 20px; } .back-btn { position: static; margin-bottom: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-btn"><span>←</span><span>返回索引</span></a>
+            <h1><span>🔌</span><span>WebSocket/STOMP 模块</span></h1>
+            <p>完整的 STOMP 协议实现，用于实时消息通信</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title">模块概述</h2>
+                <div class="description">
+                    STOMP (Simple Text Oriented Messaging Protocol) 模块提供了完整的 WebSocket 实时消息通信解决方案。它基于 STOMP 协议，支持自动重连、订阅管理、消息节流等高级特性，是构建实时应用的理想选择。
+                </div>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">🎯 核心优势</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>自动重连机制，网络断开后自动恢复连接</li>
+                        <li>智能订阅管理，自动重新订阅断开的频道</li>
+                        <li>支持消息节流，避免频繁更新导致性能问题</li>
+                        <li>线程安全的消息分发系统</li>
+                        <li>生命周期自动管理，释放即取消订阅</li>
+                        <li>Combine 框架深度集成</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <span class="tag">iOS 13.0+</span>
+                    <span class="tag">macOS 10.15+</span>
+                    <span class="tag">tvOS 13.0+</span>
+                    <span class="tag">Swift 5.0+</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">安装方式</h2>
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Ruby (Podfile)</span></div>
+                    <pre><code class="language-ruby">pod 'ADKit/Stomp'</code></pre>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">核心概念</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 StompManager</h3>
+                    <div class="description">
+                        订阅管理器，负责管理所有的 WebSocket 连接和订阅。每个用户应该创建一个独立的 StompManager 实例。
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 StompSubInfo</h3>
+                    <div class="description">
+                        订阅信息，包含 destination（频道地址）、identifier（订阅标识）和 headers（额外的订阅头）。
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 StompCallbackLifeHolder</h3>
+                    <div class="description">
+                        生命周期持有者，用于管理订阅回调的生命周期。当它被释放时，相应的订阅会被自动取消。
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 ReceiveMessageStrategy</h3>
+                    <div class="description">
+                        消息接收策略，控制如何处理接收到的消息。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>消息接收策略</span></div>
+                        <pre><code class="language-swift">public enum ReceiveMessageStrategy {
+    case all                         // 接收所有消息
+    case throttle(TimeInterval)      // 节流：在指定时间间隔内只处理最后一条消息
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">使用示例</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>创建 StompManager 并订阅频道</span></div>
+                        <pre><code class="language-swift">import ADKit
+
+// 1. 定义你的消息模型
+struct ChatMessage: Codable {
+    let id: String
+    let content: String
+    let sender: String
+    let timestamp: Date
+}
+
+// 2. 定义自定义的 Channel 类型
+class MyStompChannel: StompChannel {
+    let userToken: String
+    
+    init(userToken: String) {
+        self.userToken = userToken
+    }
+    
+    func configure() -> StompChannelConfig {
+        return StompChannelConfig(
+            url: "ws://your-server.com/websocket",
+            headers: [
+                "Authorization": "Bearer \(userToken)"
+            ]
+        )
+    }
+}
+
+// 3. 创建 StompManager
+let manager = StompManager<MyStompChannel>(userToken: "user_token_123")
+
+// 4. 订阅频道
+let subscription = StompSubInfo(
+    destination: "/topic/chat/room1",
+    identifier: "chat_room1_subscriber",
+    headers: nil
+)
+
+let holder = manager.subscribe(
+    dataType: ChatMessage.self,
+    subscription: subscription,
+    receiveMessageStrategy: .all,
+    callbackQueue: .main
+) { message, headers, raw in
+    if let message = message {
+        print("收到消息：\(message.content)")
+        print("发送者：\(message.sender)")
+    }
+}
+
+// holder 持有订阅，释放后会自动取消订阅
+// 保持 holder 的引用以维持订阅</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 订阅多个频道</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>同时订阅多个频道</span></div>
+                        <pre><code class="language-swift">class ChatViewController: UIViewController {
+    let manager = StompManager<MyStompChannel>(userToken: "user123")
+    var subscriptionHolders: [StompCallbackLifeHolder?] = []
+    
+    func subscribeToChannels() {
+        // 订阅聊天消息
+        let chatHolder = manager.subscribe(
+            dataType: ChatMessage.self,
+            subscription: StompSubInfo(
+                destination: "/topic/chat",
+                identifier: "chat",
+                headers: nil
+            ),
+            receiveMessageStrategy: .all,
+            callbackQueue: .main
+        ) { [weak self] message, headers, raw in
+            self?.handleChatMessage(message)
+        }
+        
+        // 订阅通知消息
+        let notificationHolder = manager.subscribe(
+            dataType: Notification.self,
+            subscription: StompSubInfo(
+                destination: "/user/queue/notifications",
+                identifier: "notifications",
+                headers: nil
+            ),
+            receiveMessageStrategy: .all,
+            callbackQueue: .main
+        ) { [weak self] notification, headers, raw in
+            self?.handleNotification(notification)
+        }
+        
+        // 订阅在线状态
+        let statusHolder = manager.subscribe(
+            dataType: UserStatus.self,
+            subscription: StompSubInfo(
+                destination: "/topic/status",
+                identifier: "status",
+                headers: nil
+            ),
+            receiveMessageStrategy: .throttle(1.0),  // 1秒内只处理最后一条
+            callbackQueue: .main
+        ) { [weak self] status, headers, raw in
+            self?.updateUserStatus(status)
+        }
+        
+        // 保存 holders
+        subscriptionHolders = [chatHolder, notificationHolder, statusHolder]
+    }
+    
+    func handleChatMessage(_ message: ChatMessage?) {
+        guard let message = message else { return }
+        // 处理聊天消息
+    }
+    
+    func handleNotification(_ notification: Notification?) {
+        // 处理通知
+    }
+    
+    func updateUserStatus(_ status: UserStatus?) {
+        // 更新用户状态
+    }
+    
+    deinit {
+        // 释放时自动取消所有订阅
+        subscriptionHolders.removeAll()
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 消息节流</h3>
+                    <div class="description">
+                        在某些场景下（如股票行情、实时位置），消息可能非常频繁。使用节流策略可以避免过度刷新界面。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>股票行情订阅 - 使用节流</span></div>
+                        <pre><code class="language-swift">struct StockPrice: Codable {
+    let symbol: String
+    let price: Decimal
+    let change: Decimal
+    let timestamp: Date
+}
+
+class StockViewController: UIViewController {
+    let manager = StompManager<MyStompChannel>(userToken: "user123")
+    var stockHolder: StompCallbackLifeHolder?
+    
+    func subscribeToStock(symbol: String) {
+        stockHolder = manager.subscribe(
+            dataType: StockPrice.self,
+            subscription: StompSubInfo(
+                destination: "/topic/stock/\(symbol)",
+                identifier: "stock_\(symbol)",
+                headers: nil
+            ),
+            // 使用节流：500ms 内只处理最后一条消息
+            // 避免过于频繁的 UI 更新
+            receiveMessageStrategy: .throttle(0.5),
+            callbackQueue: .main
+        ) { [weak self] price, headers, raw in
+            guard let price = price else { return }
+            self?.updateStockPrice(price)
+        }
+    }
+    
+    func updateStockPrice(_ price: StockPrice) {
+        // 更新 UI
+        priceLabel.text = "\(price.price)"
+        changeLabel.text = "\(price.change)"
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 监听连接状态</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>监听连接状态变化</span></div>
+                        <pre><code class="language-swift">import Combine
+
+class ConnectionManager {
+    let manager = StompManager<MyStompChannel>(userToken: "user123")
+    var cancellables = Set<AnyCancellable>()
+    
+    func monitorConnection() {
+        // 监听连接状态
+        manager.connectedSubject
+            .receive(on: DispatchQueue.main)
+            .sink { isConnected in
+                if isConnected {
+                    print("✅ WebSocket 已连接")
+                    self.showConnectedStatus()
+                } else {
+                    print("❌ WebSocket 已断开")
+                    self.showDisconnectedStatus()
+                }
+            }
+            .store(in: &cancellables)
+        
+        // 主动检查连接状态
+        if manager.connected {
+            print("当前已连接")
+        }
+        
+        // 手动启动连接
+        manager.startConnection()
+    }
+    
+    func showConnectedStatus() {
+        // 显示已连接状态
+    }
+    
+    func showDisconnectedStatus() {
+        // 显示断开连接状态
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 全局消息监听</h3>
+                    <div class="description">
+                        除了针对特定订阅的回调，还可以监听所有解码后的消息。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>全局消息监听</span></div>
+                        <pre><code class="language-swift">import Combine
+
+class GlobalMessageHandler {
+    let manager = StompManager<MyStompChannel>(userToken: "user123")
+    var cancellables = Set<AnyCancellable>()
+    
+    func setupGlobalListeners() {
+        // 监听所有解码成功的消息
+        manager.decodedPublishedSubject
+            .receive(on: DispatchQueue.main)
+            .sink { decoded, publisher in
+                print("收到消息：\(decoded)")
+                print("来自频道：\(publisher.destination)")
+                
+                // 根据消息类型处理
+                if let chatMsg = decoded as? ChatMessage {
+                    self.handleChatMessage(chatMsg)
+                } else if let notification = decoded as? NotificationMessage {
+                    self.handleNotification(notification)
+                }
+            }
+            .store(in: &cancellables)
+        
+        // 监听未解码的原始消息（用于调试或特殊处理）
+        manager.unDecodedPublishedSubject
+            .receive(on: DispatchQueue.main)
+            .sink { stringMessage, dataMessage, publisher in
+                if let message = stringMessage {
+                    print("原始字符串消息：\(message)")
+                }
+            }
+            .store(in: &cancellables)
+    }
+    
+    func handleChatMessage(_ message: ChatMessage) {
+        // 处理聊天消息
+    }
+    
+    func handleNotification(_ notification: NotificationMessage) {
+        // 处理通知
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 取消订阅</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>手动取消订阅</span></div>
+                        <pre><code class="language-swift">// 方式1：释放 holder（推荐）
+var holder: StompCallbackLifeHolder? = manager.subscribe(...)
+// 取消订阅
+holder = nil
+
+// 方式2：调用 unsubscribe 方法
+let subscription = StompSubInfo(
+    destination: "/topic/chat",
+    identifier: "chat",
+    headers: nil
+)
+manager.unsbscribe(subscription: subscription)
+
+// 注意：如果有多个回调订阅同一个 destination，
+// 只有当所有回调都取消后，才会真正取消服务器端的订阅</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 处理订阅回调</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>订阅成功/失败回调</span></div>
+                        <pre><code class="language-swift">let holder = manager.subscribe(
+    dataType: ChatMessage.self,
+    subscription: StompSubInfo(
+        destination: "/topic/chat",
+        identifier: "chat",
+        headers: nil
+    ),
+    receiveMessageStrategy: .all,
+    callbackQueue: .main,
+    subscribedCallback: { result in
+        switch result {
+        case .success(let headerId):
+            print("✅ 订阅成功，header ID: \(headerId)")
+            // 显示订阅成功状态
+            
+        case .failed(let headerId, let error):
+            print("❌ 订阅失败: \(error)")
+            // 显示错误提示
+            // 注意：即使订阅失败，也会自动重试
+        }
+    }
+) { message, headers, raw in
+    // 处理消息
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">高级功能</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🔒 自定义 Channel 配置</h3>
+                    <div class="description">
+                        通过自定义 StompChannel 实现来配置连接参数。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>完整的 Channel 实现</span></div>
+                        <pre><code class="language-swift">import Foundation
+
+class MyStompChannel: StompChannel {
+    let userToken: String
+    var customHeaders: [String: String] = [:]
+    
+    init(userToken: String) {
+        self.userToken = userToken
+    }
+    
+    func configure() -> StompChannelConfig {
+        // 获取最新的认证信息
+        let authToken = AuthManager.shared.getToken() ?? userToken
+        
+        return StompChannelConfig(
+            url: AppConfig.websocketURL,
+            headers: [
+                "Authorization": "Bearer \(authToken)",
+                "Client-Version": AppConfig.version,
+                "Device-ID": DeviceInfo.deviceId,
+                "User-Agent": "iOS/\(UIDevice.current.systemVersion)"
+            ].merging(customHeaders) { $1 },
+            heartbeat: (send: 10000, receive: 10000),  // 心跳配置
+            timeout: 30  // 连接超时
+        )
+    }
+    
+    // 动态更新 headers
+    func updateHeaders(_ headers: [String: String]) {
+        customHeaders.merge(headers) { $1 }
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">⚡️ 性能优化</h3>
+                    <div class="highlight-box">
+                        <div class="highlight-box-title">💡 优化建议</div>
+                        <ul class="feature-list" style="margin: 10px 0;">
+                            <li>对于高频消息使用 <code>.throttle</code> 策略</li>
+                            <li>在合适的队列处理消息（UI 更新用 main queue，其他用后台队列）</li>
+                            <li>及时释放不需要的订阅</li>
+                            <li>同一个 destination 的多个订阅会共享连接</li>
+                            <li>使用 <code>enableLog</code> 在调试时查看详细日志</li>
+                        </ul>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>性能优化示例</span></div>
+                        <pre><code class="language-swift">let manager = StompManager<MyStompChannel>(userToken: "user123")
+
+// 开启日志（仅调试时）
+#if DEBUG
+manager.enableLog = true
+#endif
+
+// 对于需要耗时处理的消息，使用后台队列
+let backgroundQueue = DispatchQueue(label: "com.app.stomp.processing", qos: .userInitiated)
+
+manager.subscribe(
+    dataType: LargeDataMessage.self,
+    subscription: subscription,
+    receiveMessageStrategy: .throttle(1.0),
+    callbackQueue: backgroundQueue,  // 在后台队列处理
+    subscribedCallback: nil
+) { message, headers, raw in
+    // 耗时处理
+    let processedData = self.processLargeData(message)
+    
+    // 更新 UI 切换到主队列
+    DispatchQueue.main.async {
+        self.updateUI(with: processedData)
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔄 处理重连</h3>
+                    <div class="description">
+                        STOMP 模块内置了强大的自动重连机制，无需手动处理。
+                    </div>
+                    <div class="highlight-box">
+                        <div class="highlight-box-title">🎯 自动重连特性</div>
+                        <ul class="feature-list" style="margin: 10px 0;">
+                            <li>网络断开后自动重连</li>
+                            <li>重连成功后自动恢复所有订阅</li>
+                            <li>智能重连间隔（5秒起，逐步增加到15秒）</li>
+                            <li>订阅失败自动重试</li>
+                            <li>线程安全的重连处理</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">API 参考</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">StompManager 主要方法</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%;">方法</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>init(userToken:)</code></td>
+                                <td>创建 StompManager 实例</td>
+                            </tr>
+                            <tr>
+                                <td><code>subscribe(...)</code></td>
+                                <td>订阅频道并接收消息</td>
+                            </tr>
+                            <tr>
+                                <td><code>unsbscribe(subscription:)</code></td>
+                                <td>取消指定订阅</td>
+                            </tr>
+                            <tr>
+                                <td><code>startConnection(delay:)</code></td>
+                                <td>手动启动连接</td>
+                            </tr>
+                            <tr>
+                                <td><code>connected</code></td>
+                                <td>当前连接状态（Bool）</td>
+                            </tr>
+                            <tr>
+                                <td><code>connectedSubject</code></td>
+                                <td>连接状态 Publisher</td>
+                            </tr>
+                            <tr>
+                                <td><code>decodedPublishedSubject</code></td>
+                                <td>全局解码消息 Publisher</td>
+                            </tr>
+                            <tr>
+                                <td><code>unDecodedPublishedSubject</code></td>
+                                <td>全局未解码消息 Publisher</td>
+                            </tr>
+                            <tr>
+                                <td><code>enableLog</code></td>
+                                <td>是否启用日志</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">StompSubInfo 属性</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">属性</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>destination</code></td>
+                                <td>订阅的频道地址，如 "/topic/chat"</td>
+                            </tr>
+                            <tr>
+                                <td><code>identifier</code></td>
+                                <td>订阅的唯一标识符</td>
+                            </tr>
+                            <tr>
+                                <td><code>headers</code></td>
+                                <td>额外的订阅头信息（可选）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">最佳实践</h2>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">💡 推荐做法</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>每个用户创建一个 StompManager 实例</li>
+                        <li>使用 weak self 避免循环引用</li>
+                        <li>利用 StompCallbackLifeHolder 自动管理订阅生命周期</li>
+                        <li>对高频消息使用节流策略</li>
+                        <li>在合适的队列处理消息（UI 操作在主队列）</li>
+                        <li>使用 Combine 监听连接状态和全局消息</li>
+                        <li>在 ViewController/View 的 deinit 中清理订阅</li>
+                        <li>定义清晰的消息模型，遵循 Codable 协议</li>
+                    </ul>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Swift</span><span>推荐的使用模式</span></div>
+                    <pre><code class="language-swift">class ChatViewModel: ObservableObject {
+    private let stompManager: StompManager<MyStompChannel>
+    private var messageHolder: StompCallbackLifeHolder?
+    private var cancellables = Set<AnyCancellable>()
+    
+    @Published var messages: [ChatMessage] = []
+    @Published var isConnected = false
+    
+    init(userToken: String) {
+        self.stompManager = StompManager<MyStompChannel>(userToken: userToken)
+        setupConnection()
+        subscribeToMessages()
+    }
+    
+    private func setupConnection() {
+        // 监听连接状态
+        stompManager.connectedSubject
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$isConnected)
+        
+        // 启动连接
+        stompManager.startConnection()
+    }
+    
+    private func subscribeToMessages() {
+        messageHolder = stompManager.subscribe(
+            dataType: ChatMessage.self,
+            subscription: StompSubInfo(
+                destination: "/topic/chat/\(roomId)",
+                identifier: "chat_\(roomId)",
+                headers: nil
+            ),
+            receiveMessageStrategy: .all,
+            callbackQueue: .main
+        ) { [weak self] message, headers, raw in
+            guard let self = self, let message = message else { return }
+            self.messages.append(message)
+        }
+    }
+    
+    deinit {
+        // 自动清理：holder 释放时会取消订阅
+        messageHolder = nil
+    }
+}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

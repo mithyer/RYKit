@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>属性包装器模块 - ADKit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; position: relative; }
+        .back-btn { position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease; font-size: 14px; }
+        .back-btn:hover { background: white; color: #667eea; transform: translateX(-5px); }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 40px; }
+        .section { margin-bottom: 50px; }
+        .section-title { font-size: 2em; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea; }
+        .subsection { margin-bottom: 30px; }
+        .subsection-title { font-size: 1.5em; color: #667eea; margin-bottom: 15px; }
+        .description { line-height: 1.8; color: #555; margin-bottom: 20px; font-size: 1.05em; }
+        .feature-list { list-style: none; margin: 20px 0; }
+        .feature-list li { padding: 12px 0 12px 35px; position: relative; color: #555; line-height: 1.6; }
+        .feature-list li:before { content: "✓"; position: absolute; left: 10px; color: #667eea; font-weight: bold; font-size: 1.2em; }
+        .code-block { margin: 20px 0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        .code-header { background: #21252b; color: #abb2bf; padding: 12px 20px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
+        .code-lang { font-weight: bold; color: #61afef; }
+        pre { margin: 0 !important; border-radius: 0 !important; }
+        pre code { display: block; padding: 20px !important; font-size: 14px; line-height: 1.6; font-family: 'Monaco', 'Menlo', 'Consolas', monospace; }
+        .api-table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); border-radius: 10px; overflow: hidden; }
+        .api-table th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .api-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .api-table tr:last-child td { border-bottom: none; }
+        .api-table tr:nth-child(even) { background: #f8f9fa; }
+        .highlight-box { background: #f0f7ff; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .highlight-box-title { font-weight: bold; color: #667eea; margin-bottom: 10px; font-size: 1.1em; }
+        .tag { display: inline-block; background: #667eea; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.85em; margin-right: 10px; margin-bottom: 10px; }
+        .warning-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        @media (max-width: 768px) { .header h1 { font-size: 1.8em; } .content { padding: 20px; } .back-btn { position: static; margin-bottom: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-btn"><span>←</span><span>返回索引</span></a>
+            <h1><span>🎁</span><span>属性包装器模块</span></h1>
+            <p>提供多种 Property Wrapper 简化 Codable 使用</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title">模块概述</h2>
+                <div class="description">
+                    属性包装器模块提供了三个强大的 Property Wrapper，用于简化 Swift Codable 的使用。它们解决了 JSON 解析中常见的问题：字段缺失、类型不匹配、需要忽略某些字段等。
+                </div>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">🎯 核心优势</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li><strong>@DefaultValue</strong> - 字段缺失时提供默认值，避免解码失败</li>
+                        <li><strong>@PreferValue</strong> - 尝试类型转换，类型不匹配时返回 nil</li>
+                        <li><strong>@IgnoreValue</strong> - 跳过编码/解码，用于临时属性</li>
+                        <li>自动类型转换：String ↔ Int ↔ Double ↔ Bool ↔ Decimal</li>
+                        <li>减少样板代码，提高开发效率</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <span class="tag">iOS 13.0+</span>
+                    <span class="tag">macOS 10.15+</span>
+                    <span class="tag">tvOS 13.0+</span>
+                    <span class="tag">Swift 5.0+</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">安装方式</h2>
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Ruby (Podfile)</span></div>
+                    <pre><code class="language-ruby">pod 'ADKit/ValueWrapper'</code></pre>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">@DefaultValue</h2>
+                
+                <div class="description">
+                    <strong>@DefaultValue</strong> 在字段缺失或无法解码时提供默认值，避免整个模型解码失败。同时支持自动类型转换。
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>使用默认值</span></div>
+                        <pre><code class="language-swift">import ADKit
+
+struct User: Codable {
+    @Default.StringEmpty var name: String          // 默认 ""
+    @Default.IntZero var age: Int                  // 默认 0
+    @Default.BoolFalse var isVIP: Bool             // 默认 false
+    @Default.DoubleZero var score: Double          // 默认 0.0
+    @Default.DecimalZero var balance: Decimal      // 默认 0
+    @Default.ArrayEmpty var tags: [String]         // 默认 []
+}
+
+// JSON 示例
+let json1 = """
+{
+    "name": "张三",
+    "age": 25,
+    "isVIP": true,
+    "score": 95.5,
+    "balance": "1000.50",
+    "tags": ["VIP", "Active"]
+}
+"""
+
+let json2 = """
+{
+    "name": "李四"
+    // 其他字段缺失，会使用默认值
+}
+"""
+
+// 解码成功，缺失的字段使用默认值
+let user1 = try JSONDecoder().decode(User.self, from: json1.data(using: .utf8)!)
+// name: "张三", age: 25, isVIP: true, score: 95.5, balance: 1000.50, tags: ["VIP", "Active"]
+
+let user2 = try JSONDecoder().decode(User.self, from: json2.data(using: .utf8)!)
+// name: "李四", age: 0, isVIP: false, score: 0.0, balance: 0, tags: []</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📋 可用的默认值类型</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">类型</th>
+                                <th>默认值</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>@Default.BoolFalse</code></td>
+                                <td><code>false</code></td>
+                                <td>布尔值默认 false</td>
+                            </tr>
+                            <tr>
+                                <td><code>@Default.BoolTrue</code></td>
+                                <td><code>true</code></td>
+                                <td>布尔值默认 true</td>
+                            </tr>
+                            <tr>
+                                <td><code>@Default.IntZero</code></td>
+                                <td><code>0</code></td>
+                                <td>整数默认 0</td>
+                            </tr>
+                            <tr>
+                                <td><code>@Default.DoubleZero</code></td>
+                                <td><code>0.0</code></td>
+                                <td>浮点数默认 0.0</td>
+                            </tr>
+                            <tr>
+                                <td><code>@Default.DecimalZero</code></td>
+                                <td><code>Decimal.zero</code></td>
+                                <td>精确小数默认 0</td>
+                            </tr>
+                            <tr>
+                                <td><code>@Default.StringEmpty</code></td>
+                                <td><code>""</code></td>
+                                <td>字符串默认空串</td>
+                            </tr>
+                            <tr>
+                                <td><code>@Default.ArrayEmpty</code></td>
+                                <td><code>[]</code></td>
+                                <td>数组默认空数组</td>
+                            </tr>
+                            <tr>
+                                <td><code>@Default.DicEmpty</code></td>
+                                <td><code>[:]</code></td>
+                                <td>字典默认空字典</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔄 自动类型转换</h3>
+                    <div class="description">
+                        @DefaultValue 支持自动类型转换，即使 JSON 中的类型不匹配也能正确解析。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>类型自动转换</span></div>
+                        <pre><code class="language-swift">struct Product: Codable {
+    @Default.StringEmpty var id: String
+    @Default.IntZero var stock: Int
+    @Default.DoubleZero var price: Double
+    @Default.BoolFalse var available: Bool
+}
+
+// JSON 中类型不匹配，但仍能正确解析
+let json = """
+{
+    "id": 12345,              // 数字会转换为字符串 "12345"
+    "stock": "100",           // 字符串会转换为数字 100
+    "price": "99.99",         // 字符串会转换为浮点数 99.99
+    "available": 1            // 数字 1 会转换为 true
+}
+"""
+
+let product = try JSONDecoder().decode(Product.self, from: json.data(using: .utf8)!)
+// id: "12345", stock: 100, price: 99.99, available: true
+
+// 支持的转换规则：
+// String ↔ Int: "123" → 123, 123 → "123"
+// String ↔ Double: "99.99" → 99.99, 99.99 → "99.99"
+// String ↔ Bool: "true"/"yes"/"1" → true, true → "true"
+// Int ↔ Bool: 0 → false, 1 → true
+// Int ↔ Double: 100 → 100.0, 100.0 → 100</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 实际应用场景</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>API 响应模型</span></div>
+                        <pre><code class="language-swift">// 场景：后端 API 可能返回不完整的数据
+struct APIResponse: Codable {
+    @Default.StringEmpty var message: String
+    @Default.IntZero var code: Int
+    @Default.BoolTrue var success: Bool
+    @Default.ArrayEmpty var items: [Item]
+    
+    struct Item: Codable {
+        @Default.StringEmpty var id: String
+        @Default.StringEmpty var name: String
+        @Default.DoubleZero var price: Double
+        @Default.IntZero var quantity: Int
+    }
+}
+
+// 即使后端返回数据不完整，也不会导致整个解析失败
+let partialJSON = """
+{
+    "code": 200
+    // message, success, items 字段缺失
+}
+"""
+
+let response = try JSONDecoder().decode(APIResponse.self, from: partialJSON.data(using: .utf8)!)
+// message: "", code: 200, success: true, items: []</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">@PreferValue</h2>
+                
+                <div class="description">
+                    <strong>@PreferValue</strong> 用于可选类型，尝试类型转换，转换失败则为 nil。与 @DefaultValue 的区别是它不会在失败时使用默认值，而是返回 nil。
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>可选值转换</span></div>
+                        <pre><code class="language-swift">struct Product: Codable {
+    @PreferValue var id: String?
+    @PreferValue var count: Int?
+    @PreferValue var price: Double?
+    @PreferValue var isAvailable: Bool?
+}
+
+// 示例1：类型匹配
+let json1 = """
+{
+    "id": "P001",
+    "count": 100,
+    "price": 99.99,
+    "isAvailable": true
+}
+"""
+let p1 = try JSONDecoder().decode(Product.self, from: json1.data(using: .utf8)!)
+// id: "P001", count: 100, price: 99.99, isAvailable: true
+
+// 示例2：类型不匹配但可以转换
+let json2 = """
+{
+    "id": 123,              // Int → String
+    "count": "50",          // String → Int
+    "price": "29.99",       // String → Double
+    "isAvailable": 1        // Int → Bool
+}
+"""
+let p2 = try JSONDecoder().decode(Product.self, from: json2.data(using: .utf8)!)
+// id: "123", count: 50, price: 29.99, isAvailable: true
+
+// 示例3：无法转换，返回 nil
+let json3 = """
+{
+    "id": "P002",
+    "count": "abc",         // 无法转换为 Int
+    "price": "invalid",     // 无法转换为 Double
+    "isAvailable": "maybe"  // 无法转换为 Bool
+}
+"""
+let p3 = try JSONDecoder().decode(Product.self, from: json3.data(using: .utf8)!)
+// id: "P002", count: nil, price: nil, isAvailable: nil</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🆚 @DefaultValue vs @PreferValue</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%;">特性</th>
+                                <th>@DefaultValue</th>
+                                <th>@PreferValue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>类型</td>
+                                <td>非可选类型</td>
+                                <td>可选类型</td>
+                            </tr>
+                            <tr>
+                                <td>字段缺失</td>
+                                <td>使用默认值</td>
+                                <td>返回 nil</td>
+                            </tr>
+                            <tr>
+                                <td>类型不匹配</td>
+                                <td>尝试转换，失败用默认值</td>
+                                <td>尝试转换，失败返回 nil</td>
+                            </tr>
+                            <tr>
+                                <td>使用场景</td>
+                                <td>必须有值的字段</td>
+                                <td>可能为空的字段</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 组合使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>混合使用两种包装器</span></div>
+                        <pre><code class="language-swift">struct User: Codable {
+    // 必填字段，使用 @DefaultValue
+    @Default.StringEmpty var id: String
+    @Default.StringEmpty var username: String
+    @Default.IntZero var age: Int
+    
+    // 选填字段，使用 @PreferValue
+    @PreferValue var email: String?
+    @PreferValue var phone: String?
+    @PreferValue var score: Double?
+    @PreferValue var vipLevel: Int?
+}
+
+let json = """
+{
+    "id": "U001",
+    "username": "张三",
+    "email": "zhangsan@example.com",
+    "score": "95.5"
+    // age, phone, vipLevel 缺失
+}
+"""
+
+let user = try JSONDecoder().decode(User.self, from: json.data(using: .utf8)!)
+// id: "U001"
+// username: "张三"
+// age: 0 (默认值)
+// email: "zhangsan@example.com"
+// phone: nil
+// score: 95.5 (类型转换成功)
+// vipLevel: nil</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">@IgnoreValue</h2>
+                
+                <div class="description">
+                    <strong>@IgnoreValue</strong> 标记的属性不参与 Codable 的编码和解码过程，适用于临时计算属性或不需要持久化的字段。
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>忽略字段</span></div>
+                        <pre><code class="language-swift">struct Article: Codable {
+    var id: String
+    var title: String
+    var content: String
+    var publishDate: Date
+    
+    // 临时状态，不需要编码/解码
+    @IgnoreValue var isExpanded: Bool?
+    @IgnoreValue var cachedHTML: String?
+    @IgnoreValue var viewController: UIViewController?
+}
+
+let article = Article(
+    id: "A001",
+    title: "Swift 教程",
+    content: "...",
+    publishDate: Date()
+)
+
+// 编码时，@IgnoreValue 标记的字段会被跳过
+let encoder = JSONEncoder()
+let jsonData = try encoder.encode(article)
+let jsonString = String(data: jsonData, encoding: .utf8)!
+print(jsonString)
+// 输出：{"id":"A001","title":"Swift 教程","content":"...","publishDate":...}
+// isExpanded, cachedHTML, viewController 不在 JSON 中
+
+// 解码时，@IgnoreValue 字段总是 nil
+let decoded = try JSONDecoder().decode(Article.self, from: jsonData)
+// decoded.isExpanded == nil
+// decoded.cachedHTML == nil
+// decoded.viewController == nil</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 使用场景</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>典型应用场景</span></div>
+                        <pre><code class="language-swift">// 场景1：UI 状态
+struct ListItem: Codable {
+    var id: String
+    var name: String
+    
+    @IgnoreValue var isSelected: Bool?     // UI 选中状态
+    @IgnoreValue var isExpanded: Bool?     // UI 展开状态
+}
+
+// 场景2：缓存数据
+struct User: Codable {
+    var id: String
+    var username: String
+    var avatarURL: String
+    
+    @IgnoreValue var cachedAvatar: UIImage?    // 缓存的头像
+    @IgnoreValue var lastFetchTime: Date?      // 最后获取时间
+}
+
+// 场景3：引用类型
+struct ChatMessage: Codable {
+    var id: String
+    var content: String
+    var senderId: String
+    
+    @IgnoreValue var senderInfo: User?         // 不需要序列化的关联数据
+    @IgnoreValue var cell: UITableViewCell?    // UI 组件引用
+}
+
+// 场景4：计算属性的存储
+struct Product: Codable {
+    var id: String
+    var price: Double
+    var discount: Double
+    
+    // 最终价格可以计算，不需要存储
+    var finalPrice: Double {
+        price * (1 - discount)
+    }
+    
+    // 但如果需要临时缓存计算结果
+    @IgnoreValue var cachedFinalPrice: Double?
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">类型转换规则</h2>
+                
+                <div class="description">
+                    @DefaultValue 和 @PreferValue 支持以下类型之间的自动转换：
+                </div>
+
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th>从类型</th>
+                            <th>到类型</th>
+                            <th>转换规则</th>
+                            <th>示例</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>String</td>
+                            <td>Int</td>
+                            <td>解析数字字符串</td>
+                            <td>"123" → 123</td>
+                        </tr>
+                        <tr>
+                            <td>String</td>
+                            <td>Double</td>
+                            <td>解析小数字符串</td>
+                            <td>"99.99" → 99.99</td>
+                        </tr>
+                        <tr>
+                            <td>String</td>
+                            <td>Bool</td>
+                            <td>"true","yes","1" → true</td>
+                            <td>"yes" → true</td>
+                        </tr>
+                        <tr>
+                            <td>Int</td>
+                            <td>String</td>
+                            <td>转为字符串</td>
+                            <td>123 → "123"</td>
+                        </tr>
+                        <tr>
+                            <td>Int</td>
+                            <td>Double</td>
+                            <td>转为浮点数</td>
+                            <td>100 → 100.0</td>
+                        </tr>
+                        <tr>
+                            <td>Int</td>
+                            <td>Bool</td>
+                            <td>0 → false, 1 → true</td>
+                            <td>1 → true</td>
+                        </tr>
+                        <tr>
+                            <td>Double</td>
+                            <td>Int</td>
+                            <td>截断小数部分</td>
+                            <td>99.9 → 99</td>
+                        </tr>
+                        <tr>
+                            <td>Bool</td>
+                            <td>Int</td>
+                            <td>false → 0, true → 1</td>
+                            <td>true → 1</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">最佳实践</h2>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">💡 推荐做法</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>对于必填字段使用 @DefaultValue，可选字段使用 @PreferValue</li>
+                        <li>明确字段的业务含义，选择合适的默认值</li>
+                        <li>使用 @IgnoreValue 存储 UI 状态或临时数据</li>
+                        <li>在团队中统一使用这些包装器，减少手动处理 JSON 的代码</li>
+                        <li>对于金额等敏感数据，使用 Decimal 而不是 Double</li>
+                        <li>在单元测试中验证边界情况（字段缺失、类型不匹配等）</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <strong>⚠️ 注意事项</strong>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>@DefaultValue 只能用于非可选类型</li>
+                        <li>@PreferValue 只能用于可选类型</li>
+                        <li>@IgnoreValue 的字段在解码后总是 nil</li>
+                        <li>类型转换可能导致精度损失（如 Double → Int）</li>
+                        <li>确保默认值符合业务逻辑要求</li>
+                    </ul>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Swift</span><span>完整示例</span></div>
+                    <pre><code class="language-swift">struct OrderItem: Codable {
+    // 必填字段
+    @Default.StringEmpty var id: String
+    @Default.StringEmpty var productId: String
+    @Default.IntZero var quantity: Int
+    @Default.DecimalZero var unitPrice: Decimal
+    
+    // 可选字段
+    @PreferValue var discountPercent: Double?
+    @PreferValue var note: String?
+    
+    // 临时状态
+    @IgnoreValue var isSelected: Bool?
+    @IgnoreValue var cachedSubtotal: Decimal?
+    
+    // 计算属性
+    var subtotal: Decimal {
+        if let cached = cachedSubtotal {
+            return cached
+        }
+        let value = Decimal(quantity) * unitPrice
+        return value
+    }
+}
+
+// 可以处理各种情况的 JSON
+let json1 = """
+{ "id": "I001", "productId": "P001", "quantity": 2, "unitPrice": "99.50" }
+"""
+
+let json2 = """
+{ "id": "I002", "productId": "P002", "quantity": "5", "unitPrice": 150 }
+"""
+
+let json3 = """
+{ "id": "I003" }  // 大部分字段缺失
+"""
+
+// 都可以正确解码
+let item1 = try JSONDecoder().decode(OrderItem.self, from: json1.data(using: .utf8)!)
+let item2 = try JSONDecoder().decode(OrderItem.self, from: json2.data(using: .utf8)!)
+let item3 = try JSONDecoder().decode(OrderItem.self, from: json3.data(using: .utf8)!)</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

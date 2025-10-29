@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>核心工具 - ADKit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; position: relative; }
+        .back-btn { position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease; font-size: 14px; }
+        .back-btn:hover { background: white; color: #667eea; transform: translateX(-5px); }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 40px; }
+        .section { margin-bottom: 50px; }
+        .section-title { font-size: 2em; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea; }
+        .subsection { margin-bottom: 30px; }
+        .subsection-title { font-size: 1.5em; color: #667eea; margin-bottom: 15px; }
+        .description { line-height: 1.8; color: #555; margin-bottom: 20px; font-size: 1.05em; }
+        .feature-list { list-style: none; margin: 20px 0; }
+        .feature-list li { padding: 12px 0 12px 35px; position: relative; color: #555; line-height: 1.6; }
+        .feature-list li:before { content: "✓"; position: absolute; left: 10px; color: #667eea; font-weight: bold; font-size: 1.2em; }
+        .code-block { margin: 20px 0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        .code-header { background: #21252b; color: #abb2bf; padding: 12px 20px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
+        .code-lang { font-weight: bold; color: #61afef; }
+        pre { margin: 0 !important; border-radius: 0 !important; }
+        pre code { display: block; padding: 20px !important; font-size: 14px; line-height: 1.6; font-family: 'Monaco', 'Menlo', 'Consolas', monospace; }
+        .api-table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); border-radius: 10px; overflow: hidden; }
+        .api-table th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .api-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .api-table tr:last-child td { border-bottom: none; }
+        .api-table tr:nth-child(even) { background: #f8f9fa; }
+        .highlight-box { background: #f0f7ff; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .highlight-box-title { font-weight: bold; color: #667eea; margin-bottom: 10px; font-size: 1.1em; }
+        .tag { display: inline-block; background: #667eea; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.85em; margin-right: 10px; margin-bottom: 10px; }
+        @media (max-width: 768px) { .header h1 { font-size: 1.8em; } .content { padding: 20px; } .back-btn { position: static; margin-bottom: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-btn"><span>←</span><span>返回索引</span></a>
+            <h1><span>🛠</span><span>核心工具</span></h1>
+            <p>ADKit 基础功能：版本比较和信息获取</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title">模块概述</h2>
+                <div class="description">
+                    核心工具模块提供了 ADKit 的基础功能，包括版本号比较和获取库版本信息。这些工具方法简单实用，是其他模块的基础。
+                </div>
+                <div style="margin-top: 20px;">
+                    <span class="tag">iOS 13.0+</span>
+                    <span class="tag">macOS 10.15+</span>
+                    <span class="tag">tvOS 13.0+</span>
+                    <span class="tag">Swift 5.0+</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">安装方式</h2>
+                <div class="description">
+                    核心工具包含在 ADKit 主模块中，无需单独安装。
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Ruby (Podfile)</span></div>
+                    <pre><code class="language-ruby">pod 'ADKit'</code></pre>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">版本比较</h2>
+                
+                <div class="description">
+                    <code>ADKit.compareVersion(_:_:)</code> 方法用于比较两个版本号字符串，遵循语义化版本规范。
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>比较版本号</span></div>
+                        <pre><code class="language-swift">import ADKit
+
+// 返回值说明：
+// 1  - 第一个版本更新
+// 0  - 两个版本相同
+// -1 - 第二个版本更新
+
+let result1 = ADKit.compareVersion("1.2.3", "1.2.0")
+print(result1)  // 1 (1.2.3 > 1.2.0)
+
+let result2 = ADKit.compareVersion("1.0.0", "1.0.0")
+print(result2)  // 0 (相同版本)
+
+let result3 = ADKit.compareVersion("2.1.0", "2.3.0")
+print(result3)  // -1 (2.1.0 < 2.3.0)
+
+// 自动补齐版本号
+let result4 = ADKit.compareVersion("1.2", "1.2.0")
+print(result4)  // 0 (1.2 等同于 1.2.0)
+
+let result5 = ADKit.compareVersion("2", "2.0.0")
+print(result5)  // 0 (2 等同于 2.0.0)</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 实际应用场景</h3>
+                    
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>检查 App 版本更新</span></div>
+                        <pre><code class="language-swift">class UpdateManager {
+    func checkForUpdate(currentVersion: String, latestVersion: String) {
+        let result = ADKit.compareVersion(currentVersion, latestVersion)
+        
+        switch result {
+        case 1:
+            print("当前版本已经是最新版本")
+            
+        case 0:
+            print("当前版本就是最新版本")
+            
+        case -1:
+            print("发现新版本：\(latestVersion)")
+            showUpdateAlert(newVersion: latestVersion)
+            
+        default:
+            break
+        }
+    }
+    
+    func showUpdateAlert(newVersion: String) {
+        // 显示更新提示
+    }
+}
+
+// 使用示例
+let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+let updateManager = UpdateManager()
+updateManager.checkForUpdate(currentVersion: currentVersion, latestVersion: "2.0.0")</code></pre>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>API 版本兼容性检查</span></div>
+                        <pre><code class="language-swift">class APIManager {
+    let minRequiredVersion = "1.5.0"
+    
+    func checkAPICompatibility(serverVersion: String) -> Bool {
+        let result = ADKit.compareVersion(serverVersion, minRequiredVersion)
+        
+        // serverVersion >= minRequiredVersion
+        return result >= 0
+    }
+    
+    func makeAPIRequest() {
+        let serverVersion = "1.6.2"
+        
+        if checkAPICompatibility(serverVersion: serverVersion) {
+            // API 版本兼容，可以使用新特性
+            print("✅ API 版本兼容")
+            performRequest()
+        } else {
+            // API 版本过低
+            print("❌ API 版本过低，需要更新")
+            showUpgradePrompt()
+        }
+    }
+    
+    func performRequest() {
+        // 执行 API 请求
+    }
+    
+    func showUpgradePrompt() {
+        // 提示用户升级
+    }
+}</code></pre>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>功能开关（Feature Flag）</span></div>
+                        <pre><code class="language-swift">class FeatureManager {
+    func isFeatureAvailable(_ feature: Feature, appVersion: String) -> Bool {
+        let result = ADKit.compareVersion(appVersion, feature.minVersion)
+        return result >= 0
+    }
+}
+
+struct Feature {
+    let name: String
+    let minVersion: String
+}
+
+// 定义功能及其最低版本要求
+let newPaymentFeature = Feature(name: "新支付方式", minVersion: "2.0.0")
+let darkModeFeature = Feature(name: "深色模式", minVersion: "1.5.0")
+
+let featureManager = FeatureManager()
+let currentVersion = "1.8.0"
+
+// 检查功能可用性
+if featureManager.isFeatureAvailable(darkModeFeature, appVersion: currentVersion) {
+    // 显示深色模式选项
+    print("✅ 深色模式可用")
+} else {
+    print("❌ 深色模式不可用")
+}
+
+if featureManager.isFeatureAvailable(newPaymentFeature, appVersion: currentVersion) {
+    // 显示新支付方式
+    print("✅ 新支付方式可用")
+} else {
+    print("❌ 新支付方式不可用（需要 2.0.0 或更高版本）")
+}</code></pre>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>SDK 版本检查</span></div>
+                        <pre><code class="language-swift">class SDKManager {
+    func checkSDKVersion() {
+        let adkitVersion = ADKit.version
+        let requiredVersion = "1.2.0"
+        
+        let result = ADKit.compareVersion(adkitVersion, requiredVersion)
+        
+        if result >= 0 {
+            print("✅ ADKit 版本满足要求：\(adkitVersion)")
+            initializeSDK()
+        } else {
+            print("❌ ADKit 版本过低，需要 \(requiredVersion) 或更高版本")
+            print("当前版本：\(adkitVersion)")
+            showSDKUpdateWarning()
+        }
+    }
+    
+    func initializeSDK() {
+        // 初始化 SDK
+    }
+    
+    func showSDKUpdateWarning() {
+        // 显示 SDK 更新警告
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📋 版本比较规则</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">比较示例</th>
+                                <th style="width: 15%;">结果</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>1.2.3</code> vs <code>1.2.0</code></td>
+                                <td><code>1</code></td>
+                                <td>主版本和次版本相同，修订版本更高</td>
+                            </tr>
+                            <tr>
+                                <td><code>2.0.0</code> vs <code>1.9.9</code></td>
+                                <td><code>1</code></td>
+                                <td>主版本更高</td>
+                            </tr>
+                            <tr>
+                                <td><code>1.5.0</code> vs <code>1.10.0</code></td>
+                                <td><code>-1</code></td>
+                                <td>次版本更低（按数字比较，不是字符串）</td>
+                            </tr>
+                            <tr>
+                                <td><code>1.0.0</code> vs <code>1.0.0</code></td>
+                                <td><code>0</code></td>
+                                <td>完全相同</td>
+                            </tr>
+                            <tr>
+                                <td><code>1.2</code> vs <code>1.2.0</code></td>
+                                <td><code>0</code></td>
+                                <td>自动补齐缺失部分为 0</td>
+                            </tr>
+                            <tr>
+                                <td><code>2</code> vs <code>2.0</code></td>
+                                <td><code>0</code></td>
+                                <td>自动补齐缺失部分为 0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">获取库版本</h2>
+                
+                <div class="description">
+                    <code>ADKit.version</code> 属性返回当前 ADKit 库的版本号。
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>获取 ADKit 版本</span></div>
+                        <pre><code class="language-swift">import ADKit
+
+let version = ADKit.version
+print("ADKit 版本：\(version)")  // 例如："1.2.15"</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 实际应用场景</h3>
+                    
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>在日志中记录版本信息</span></div>
+                        <pre><code class="language-swift">class AppLogger {
+    func logAppInfo() {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let adkitVersion = ADKit.version
+        
+        print("=== App Info ===")
+        print("App Version: \(appVersion)")
+        print("ADKit Version: \(adkitVersion)")
+        print("iOS Version: \(UIDevice.current.systemVersion)")
+        print("===============")
+    }
+}
+
+// 在 App 启动时记录
+AppLogger().logAppInfo()</code></pre>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>发送到后端的设备信息</span></div>
+                        <pre><code class="language-swift">struct DeviceInfo: Codable {
+    let appVersion: String
+    let sdkVersion: String
+    let deviceModel: String
+    let osVersion: String
+}
+
+class AnalyticsManager {
+    func getDeviceInfo() -> DeviceInfo {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        
+        return DeviceInfo(
+            appVersion: appVersion,
+            sdkVersion: ADKit.version,
+            deviceModel: UIDevice.current.model,
+            osVersion: UIDevice.current.systemVersion
+        )
+    }
+    
+    func sendDeviceInfo() {
+        let info = getDeviceInfo()
+        // 发送到后端进行统计分析
+        APIManager.shared.uploadDeviceInfo(info)
+    }
+}</code></pre>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>显示在 App 设置页面</span></div>
+                        <pre><code class="language-swift">class SettingsViewController: UIViewController {
+    @IBOutlet weak var versionLabel: UILabel!
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        displayVersionInfo()
+    }
+    
+    func displayVersionInfo() {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        let adkitVersion = ADKit.version
+        
+        versionLabel.text = """
+        版本信息
+        App: \(appVersion) (\(buildNumber))
+        ADKit: \(adkitVersion)
+        """
+    }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">API 参考</h2>
+                
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45%;">方法/属性</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>static func compareVersion(_:_:) -> Int</code></td>
+                            <td>比较两个版本号，返回 1、0 或 -1</td>
+                        </tr>
+                        <tr>
+                            <td><code>static var version: String</code></td>
+                            <td>获取 ADKit 库的版本号</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">完整示例</h2>
+                
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Swift</span><span>版本管理工具类</span></div>
+                    <pre><code class="language-swift">import ADKit
+
+class VersionManager {
+    static let shared = VersionManager()
+    
+    // 当前 App 版本
+    var currentAppVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    }
+    
+    // ADKit 版本
+    var adkitVersion: String {
+        ADKit.version
+    }
+    
+    // 检查是否需要更新
+    func needsUpdate(latestVersion: String) -> Bool {
+        ADKit.compareVersion(currentAppVersion, latestVersion) < 0
+    }
+    
+    // 检查是否为最新版本
+    func isLatestVersion(latestVersion: String) -> Bool {
+        ADKit.compareVersion(currentAppVersion, latestVersion) == 0
+    }
+    
+    // 检查功能是否可用
+    func isFeatureAvailable(minVersion: String) -> Bool {
+        ADKit.compareVersion(currentAppVersion, minVersion) >= 0
+    }
+    
+    // 获取完整版本信息
+    func getVersionInfo() -> [String: String] {
+        return [
+            "app_version": currentAppVersion,
+            "build_number": Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "",
+            "adkit_version": adkitVersion,
+            "os_version": UIDevice.current.systemVersion,
+            "device_model": UIDevice.current.model
+        ]
+    }
+    
+    // 打印版本信息
+    func printVersionInfo() {
+        print("========= 版本信息 =========")
+        print("App 版本：\(currentAppVersion)")
+        print("ADKit 版本：\(adkitVersion)")
+        print("iOS 版本：\(UIDevice.current.systemVersion)")
+        print("设备型号：\(UIDevice.current.model)")
+        print("===========================")
+    }
+}
+
+// 使用示例
+let versionManager = VersionManager.shared
+
+// 打印版本信息
+versionManager.printVersionInfo()
+
+// 检查更新
+if versionManager.needsUpdate(latestVersion: "2.0.0") {
+    print("需要更新到新版本")
+}
+
+// 检查功能可用性
+if versionManager.isFeatureAvailable(minVersion: "1.5.0") {
+    print("新功能可用")
+}
+
+// 获取版本信息字典（可用于上报到服务器）
+let info = versionManager.getVersionInfo()
+print(info)</code></pre>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">最佳实践</h2>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">💡 推荐做法</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>使用 <code>compareVersion</code> 进行版本比较，而不是字符串比较</li>
+                        <li>在 App 启动时记录版本信息，便于问题追踪</li>
+                        <li>根据版本号控制功能开关和 API 兼容性</li>
+                        <li>在发送到后端的请求中包含版本信息</li>
+                        <li>在设置页面显示详细的版本信息</li>
+                        <li>创建统一的版本管理工具类</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

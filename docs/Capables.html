@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>能力扩展模块 - ADKit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; position: relative; }
+        .back-btn { position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease; font-size: 14px; }
+        .back-btn:hover { background: white; color: #667eea; transform: translateX(-5px); }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 40px; }
+        .section { margin-bottom: 50px; }
+        .section-title { font-size: 2em; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea; }
+        .subsection { margin-bottom: 30px; }
+        .subsection-title { font-size: 1.5em; color: #667eea; margin-bottom: 15px; }
+        .description { line-height: 1.8; color: #555; margin-bottom: 20px; font-size: 1.05em; }
+        .feature-list { list-style: none; margin: 20px 0; }
+        .feature-list li { padding: 12px 0 12px 35px; position: relative; color: #555; line-height: 1.6; }
+        .feature-list li:before { content: "✓"; position: absolute; left: 10px; color: #667eea; font-weight: bold; font-size: 1.2em; }
+        .code-block { margin: 20px 0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        .code-header { background: #21252b; color: #abb2bf; padding: 12px 20px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
+        .code-lang { font-weight: bold; color: #61afef; }
+        pre { margin: 0 !important; border-radius: 0 !important; }
+        pre code { display: block; padding: 20px !important; font-size: 14px; line-height: 1.6; font-family: 'Monaco', 'Menlo', 'Consolas', monospace; }
+        .api-table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); border-radius: 10px; overflow: hidden; }
+        .api-table th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .api-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .api-table tr:last-child td { border-bottom: none; }
+        .api-table tr:nth-child(even) { background: #f8f9fa; }
+        .highlight-box { background: #f0f7ff; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .highlight-box-title { font-weight: bold; color: #667eea; margin-bottom: 10px; font-size: 1.1em; }
+        .tag { display: inline-block; background: #667eea; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.85em; margin-right: 10px; margin-bottom: 10px; }
+        @media (max-width: 768px) { .header h1 { font-size: 1.8em; } .content { padding: 20px; } .back-btn { position: static; margin-bottom: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-btn"><span>←</span><span>返回索引</span></a>
+            <h1><span>🌐</span><span>能力扩展模块</span></h1>
+            <p>提供额外的能力支持：网络监听和关联对象</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title">模块概述</h2>
+                <div class="description">
+                    能力扩展模块提供两个实用功能：GlobalReachability（网络可达性监听）和 Associatable（关联对象协议）。这些功能可以帮助你更好地处理网络状态变化和为现有类添加动态属性。
+                </div>
+                <div style="margin-top: 20px;">
+                    <span class="tag">iOS 13.0+</span>
+                    <span class="tag">macOS 10.15+</span>
+                    <span class="tag">tvOS 13.0+</span>
+                    <span class="tag">Swift 5.0+</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">安装方式</h2>
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Ruby (Podfile)</span></div>
+                    <pre><code class="language-ruby">pod 'ADKit/Capables'</code></pre>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">GlobalReachability - 网络可达性监听</h2>
+                
+                <div class="description">
+                    GlobalReachability 提供了简单易用的网络状态监听功能，自动管理监听生命周期。
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>监听网络状态</span></div>
+                        <pre><code class="language-swift">import ADKit
+
+class NetworkManager {
+    var listener: AnyObject?
+    
+    func startMonitoring() {
+        listener = GlobalReachability.shared.listen { connection in
+            switch connection {
+            case .wifi:
+                print("✅ WiFi 已连接")
+                self.handleWiFiConnected()
+                
+            case .cellular:
+                print("📱 蜂窝网络已连接")
+                self.handleCellularConnected()
+                
+            case .unavailable:
+                print("❌ 网络不可用")
+                self.handleNetworkUnavailable()
+                
+            case .none:
+                print("❓ 未知网络状态")
+            }
+        }
+    }
+    
+    func handleWiFiConnected() {
+        // 处理 WiFi 连接：可以开始大文件下载
+    }
+    
+    func handleCellularConnected() {
+        // 处理蜂窝网络：提示用户流量消耗
+    }
+    
+    func handleNetworkUnavailable() {
+        // 处理网络断开：显示离线提示
+    }
+    
+    deinit {
+        // listener 释放后自动停止监听
+        listener = nil
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 在 ViewController 中使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>UI 中监听网络</span></div>
+                        <pre><code class="language-swift">class HomeViewController: UIViewController {
+    private var networkListener: AnyObject?
+    private var isNetworkAvailable = true
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupNetworkMonitoring()
+    }
+    
+    private func setupNetworkMonitoring() {
+        networkListener = GlobalReachability.shared.listen { [weak self] connection in
+            DispatchQueue.main.async {
+                switch connection {
+                case .wifi, .cellular:
+                    self?.isNetworkAvailable = true
+                    self?.hideOfflineBanner()
+                    self?.reloadDataIfNeeded()
+                    
+                case .unavailable:
+                    self?.isNetworkAvailable = false
+                    self?.showOfflineBanner()
+                    
+                case .none:
+                    break
+                }
+            }
+        }
+    }
+    
+    private func showOfflineBanner() {
+        // 显示离线提示横幅
+    }
+    
+    private func hideOfflineBanner() {
+        // 隐藏离线提示横幅
+    }
+    
+    private func reloadDataIfNeeded() {
+        // 网络恢复后重新加载数据
+    }
+    
+    deinit {
+        networkListener = nil
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 根据网络状态优化体验</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>智能网络策略</span></div>
+                        <pre><code class="language-swift">class MediaDownloadManager {
+    private var listener: AnyObject?
+    private var currentConnection: SwiftReachability.Connection = .none
+    
+    init() {
+        setupReachability()
+    }
+    
+    private func setupReachability() {
+        listener = GlobalReachability.shared.listen { [weak self] connection in
+            self?.currentConnection = connection
+            self?.updateDownloadStrategy()
+        }
+    }
+    
+    private func updateDownloadStrategy() {
+        switch currentConnection {
+        case .wifi:
+            // WiFi 下启用高清下载
+            enableHDDownload()
+            resumeAllDownloads()
+            
+        case .cellular:
+            // 蜂窝网络下降低画质
+            disableHDDownload()
+            showDataUsageWarning()
+            
+        case .unavailable:
+            // 网络不可用，暂停所有下载
+            pauseAllDownloads()
+            
+        case .none:
+            break
+        }
+    }
+    
+    func downloadMedia(url: URL) {
+        guard currentConnection != .unavailable else {
+            showNoNetworkError()
+            return
+        }
+        
+        if currentConnection == .cellular {
+            // 蜂窝网络下询问用户
+            askUserBeforeDownload(url)
+        } else {
+            // WiFi 下直接下载
+            startDownload(url)
+        }
+    }
+    
+    private func enableHDDownload() { }
+    private func disableHDDownload() { }
+    private func showDataUsageWarning() { }
+    private func pauseAllDownloads() { }
+    private func resumeAllDownloads() { }
+    private func showNoNetworkError() { }
+    private func askUserBeforeDownload(_ url: URL) { }
+    private func startDownload(_ url: URL) { }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📋 网络连接类型</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">类型</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>.wifi</code></td>
+                                <td>WiFi 连接</td>
+                            </tr>
+                            <tr>
+                                <td><code>.cellular</code></td>
+                                <td>蜂窝网络连接（3G/4G/5G）</td>
+                            </tr>
+                            <tr>
+                                <td><code>.unavailable</code></td>
+                                <td>网络不可用</td>
+                            </tr>
+                            <tr>
+                                <td><code>.none</code></td>
+                                <td>未知状态</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Associatable - 关联对象协议</h2>
+                
+                <div class="description">
+                    Associatable 协议允许为任意类动态添加属性，无需继承或修改原类。这在处理不能修改源代码的类时特别有用。
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 基础使用</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>添加关联属性</span></div>
+                        <pre><code class="language-swift">import ADKit
+import UIKit
+
+// 让 UIView 遵循 Associatable
+extension UIView: Associatable {}
+
+// 使用示例
+let view = UIView()
+
+// 存储关联值
+view.setAssociated("customID", value: "VIEW_001")
+view.setAssociated("userData", value: ["name": "张三", "age": 25])
+view.setAssociated("tapCount", value: 0)
+
+// 读取关联值
+let id: String? = view.associated("customID", initializer: nil)
+print(id)  // "VIEW_001"
+
+let userData: [String: Any]? = view.associated("userData", initializer: nil)
+print(userData)  // ["name": "张三", "age": 25]
+
+var count: Int? = view.associated("tapCount", initializer: nil)
+count = (count ?? 0) + 1
+view.setAssociated("tapCount", value: count)</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 使用类型推断简化代码</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>自动类型推断</span></div>
+                        <pre><code class="language-swift">extension UIView: Associatable {}
+
+let view = UIView()
+
+// 通过 initializer 提供默认值
+let count: Int = view.associated(initializer: 0)  // key 自动为 "Int"
+let name: String = view.associated(initializer: "")  // key 自动为 "String"
+
+// 更新值
+view.setAssociated(value: count + 1)
+view.setAssociated(value: "新名称")</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 实际应用：为 UIButton 添加闭包回调</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>闭包式按钮回调</span></div>
+                        <pre><code class="language-swift">extension UIButton: Associatable {
+    // 添加 tapHandler 属性
+    var tapHandler: (() -> Void)? {
+        get {
+            return associated("tapHandler", initializer: nil)
+        }
+        set {
+            setAssociated("tapHandler", value: newValue)
+            
+            // 移除旧的 target
+            removeTarget(nil, action: nil, for: .touchUpInside)
+            
+            // 添加新的 target
+            if newValue != nil {
+                addTarget(self, action: #selector(handleTap), for: .touchUpInside)
+            }
+        }
+    }
+    
+    @objc private func handleTap() {
+        tapHandler?()
+    }
+}
+
+// 使用示例
+let button = UIButton()
+button.tapHandler = {
+    print("按钮被点击了")
+}
+
+// 简洁的语法，不需要 addTarget/action
+let submitButton = UIButton()
+submitButton.tapHandler = { [weak self] in
+    self?.submitForm()
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 为 UITableViewCell 添加数据关联</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>Cell 数据绑定</span></div>
+                        <pre><code class="language-swift">extension UITableViewCell: Associatable {}
+
+class CustomCell: UITableViewCell {
+    var model: CellModel? {
+        get {
+            return associated("model", initializer: nil)
+        }
+        set {
+            setAssociated("model", value: newValue)
+            updateUI()
+        }
+    }
+    
+    private func updateUI() {
+        guard let model = model else { return }
+        textLabel?.text = model.title
+        detailTextLabel?.text = model.subtitle
+    }
+}
+
+// 使用
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath) as! CustomCell
+    cell.model = dataSource[indexPath.row]
+    return cell
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 为 UIViewController 添加标识</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>ViewController 元数据</span></div>
+                        <pre><code class="language-swift">extension UIViewController: Associatable {
+    var screenName: String? {
+        get { associated("screenName", initializer: nil) }
+        set { setAssociated("screenName", value: newValue) }
+    }
+    
+    var analyticsData: [String: Any]? {
+        get { associated("analyticsData", initializer: nil) }
+        set { setAssociated("analyticsData", value: newValue) }
+    }
+}
+
+// 使用
+class ProfileViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        screenName = "Profile"
+        analyticsData = [
+            "userId": UserManager.shared.currentUserId,
+            "source": "main_tab"
+        ]
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        // 统一的页面访问统计
+        if let screenName = screenName {
+            AnalyticsManager.shared.trackScreen(
+                name: screenName,
+                data: analyticsData
+            )
+        }
+    }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">API 参考</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">GlobalReachability</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">方法/属性</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>static var shared</code></td>
+                                <td>全局单例</td>
+                            </tr>
+                            <tr>
+                                <td><code>listen(_:)</code></td>
+                                <td>监听网络状态变化，返回 listener 对象</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">Associatable</h3>
+                    <table class="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%;">方法</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>associated&lt;T&gt;(_:initializer:)</code></td>
+                                <td>获取关联值，不存在时使用 initializer</td>
+                            </tr>
+                            <tr>
+                                <td><code>setAssociated&lt;T&gt;(_:value:)</code></td>
+                                <td>设置关联值</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">最佳实践</h2>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">💡 GlobalReachability 推荐做法</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>保持 listener 引用以维持监听</li>
+                        <li>在回调中使用 weak self 避免循环引用</li>
+                        <li>WiFi 和蜂窝网络采用不同的策略</li>
+                        <li>网络恢复后适时重新加载数据</li>
+                        <li>给用户友好的网络状态提示</li>
+                    </ul>
+                </div>
+
+                <div class="highlight-box">
+                    <div class="highlight-box-title">💡 Associatable 推荐做法</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>使用有意义的 key 名称</li>
+                        <li>通过扩展封装为计算属性</li>
+                        <li>注意类型安全，使用明确的泛型</li>
+                        <li>不要存储大量数据，影响性能</li>
+                        <li>适合存储临时状态或元数据</li>
+                        <li>对象释放时关联数据会自动清理</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

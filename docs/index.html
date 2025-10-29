@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADKit 模块文档 - 索引</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+            position: relative;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .back-btn:hover {
+            background: white;
+            color: #667eea;
+            transform: translateX(-5px);
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .header p {
+            font-size: 1.3em;
+            opacity: 0.95;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 20px;
+            border-radius: 20px;
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+
+        .content {
+            padding: 60px 40px;
+        }
+
+        .intro {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .intro h2 {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .intro p {
+            font-size: 1.1em;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .module-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            display: block;
+        }
+
+        .module-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+            background: white;
+        }
+
+        .module-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .module-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .module-desc {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .module-features {
+            list-style: none;
+            margin-top: 15px;
+        }
+
+        .module-features li {
+            padding: 5px 0 5px 25px;
+            position: relative;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        .module-features li:before {
+            content: "▸";
+            position: absolute;
+            left: 8px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .view-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            margin-top: 15px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .module-card:hover .view-btn {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 50px 0;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            background: #f8f9fa;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+
+            .back-btn {
+                position: static;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 ADKit 模块文档</h1>
+            <p>完整的 Swift 工具库，为 iOS、macOS 和 tvOS 应用提供强大支持</p>
+            <div class="version-badge">v1.2.15</div>
+        </div>
+
+        <div class="content">
+            <div class="intro">
+                <h2>选择模块查看详细文档</h2>
+                <p>ADKit 提供 7 个核心模块，涵盖网络请求、实时通信、日志记录等常用功能</p>
+            </div>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-number">7</div>
+                    <div class="stat-label">核心模块</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">3</div>
+                    <div class="stat-label">支持平台</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">100+</div>
+                    <div class="stat-label">API 方法</div>
+                </div>
+            </div>
+
+            <div class="modules-grid">
+                <!-- HTTP 模块 -->
+                <a href="Http.html" class="module-card">
+                    <span class="module-icon">📡</span>
+                    <div class="module-title">HTTP 请求模块</div>
+                    <div class="module-desc">功能强大的 HTTP 网络请求封装</div>
+                    <ul class="module-features">
+                        <li>支持 GET、POST 等多种请求方法</li>
+                        <li>自动加密/解密数据</li>
+                        <li>完善的错误处理</li>
+                        <li>请求策略控制</li>
+                    </ul>
+                    <span class="view-btn">查看文档 →</span>
+                </a>
+
+                <!-- STOMP 模块 -->
+                <a href="Stomp.html" class="module-card">
+                    <span class="module-icon">🔌</span>
+                    <div class="module-title">WebSocket/STOMP 模块</div>
+                    <div class="module-desc">完整的 STOMP 协议实现，用于实时消息通信</div>
+                    <ul class="module-features">
+                        <li>自动重连机制</li>
+                        <li>订阅管理和生命周期控制</li>
+                        <li>消息节流策略</li>
+                        <li>Combine 框架集成</li>
+                    </ul>
+                    <span class="view-btn">查看文档 →</span>
+                </a>
+
+                <!-- 日志模块 -->
+                <a href="Log.html" class="module-card">
+                    <span class="module-icon">📝</span>
+                    <div class="module-title">日志记录模块</div>
+                    <div class="module-desc">简单易用的日志记录工具</div>
+                    <ul class="module-features">
+                        <li>按时间自动创建日志文件</li>
+                        <li>支持任意 Encodable 类型</li>
+                        <li>异步写入不阻塞主线程</li>
+                        <li>JSON 格式便于分析</li>
+                    </ul>
+                    <span class="view-btn">查看文档 →</span>
+                </a>
+
+                <!-- 属性包装器模块 -->
+                <a href="ValueWrapper.html" class="module-card">
+                    <span class="module-icon">🎁</span>
+                    <div class="module-title">属性包装器模块</div>
+                    <div class="module-desc">简化 Codable 使用的 Property Wrapper</div>
+                    <ul class="module-features">
+                        <li>@DefaultValue 提供默认值</li>
+                        <li>@PreferValue 类型转换</li>
+                        <li>@IgnoreValue 忽略编解码</li>
+                        <li>自动类型转换</li>
+                    </ul>
+                    <span class="view-btn">查看文档 →</span>
+                </a>
+
+                <!-- 扩展模块 -->
+                <a href="Extensions.html" class="module-card">
+                    <span class="module-icon">🔧</span>
+                    <div class="module-title">扩展模块</div>
+                    <div class="module-desc">常用的 Swift 类型扩展</div>
+                    <ul class="module-features">
+                        <li>Collection 扩展</li>
+                        <li>SHA1 哈希计算</li>
+                        <li>类型安全的下标访问</li>
+                        <li>Number 和 String 扩展</li>
+                    </ul>
+                    <span class="view-btn">查看文档 →</span>
+                </a>
+
+                <!-- 能力扩展模块 -->
+                <a href="Capables.html" class="module-card">
+                    <span class="module-icon">🌐</span>
+                    <div class="module-title">能力扩展模块</div>
+                    <div class="module-desc">提供额外的能力支持</div>
+                    <ul class="module-features">
+                        <li>GlobalReachability 网络监听</li>
+                        <li>Associatable 关联对象</li>
+                        <li>自动生命周期管理</li>
+                        <li>类型安全的存储</li>
+                    </ul>
+                    <span class="view-btn">查看文档 →</span>
+                </a>
+
+                <!-- 核心工具 -->
+                <a href="Core.html" class="module-card">
+                    <span class="module-icon">🛠</span>
+                    <div class="module-title">核心工具</div>
+                    <div class="module-desc">ADKit 基础功能</div>
+                    <ul class="module-features">
+                        <li>版本号比较</li>
+                        <li>获取库版本信息</li>
+                        <li>语义化版本支持</li>
+                        <li>实用工具方法</li>
+                    </ul>
+                    <span class="view-btn">查看文档 →</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>ADKit v1.2.15</strong> | Made with ❤️ by Ray</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">
+                <a href="http://github.com/mithyer" style="color: #667eea; text-decoration: none;">GitHub</a> | 
+                MIT License | 
+                iOS 13.0+ / macOS 10.15+ / tvOS 13.0+
+            </p>
+        </div>
+    </div>
+</body>
+</html>

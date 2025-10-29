@@ -8,49 +8,95 @@
 import Foundation
 import Combine
 
+/// STOMP 发布者基础协议
 public protocol StompPublishBaseCapable: AnyObject {
+    /// STOMP ID
     var stompID: String { get }
+    /// 订阅目标地址
     var destination: String { get }
+    /// 发送消息
+    /// - Parameters:
+    ///   - body: 消息体
+    ///   - destination: 目标地址
+    ///   - receiptId: 回执 ID
+    ///   - headers: 请求头
     func send(body: Data, to destination: String, receiptId: String?, headers: [String : String]?)
 }
 
+/// STOMP 发布者完整协议（内部使用）
 protocol StompPublishCapable: StompPublishBaseCapable {
+    /// 可解码的数据类型
     associatedtype DecodableType: Decodable
     
+    /// 设置消息回调
+    /// - Returns: 是否已存在相同标识的回调
     func setMessageCallback(identifier: String,
                             outterSubject: PassthroughSubject<StompUpstreamMessage, Never>,
                             strategy: ReceiveMessageStrategy,
                             subscribeQueue: DispatchQueue,
                             callbackQueue: DispatchQueue,
                             callback: @escaping (DecodableType?, [String : String]?, Any) -> Void) -> Bool
+    /// 移除指定标识的回调
     func removeMessageCallback(for identifier: String)
+    /// 移除所有回调
     func removeAllCallbacks()
+    /// 是否已订阅
     var subscribed: Bool { get set }
+    /// 订阅请求头
     var subscribeHeaders: [String: String]? { get set }
+    /// 是否有回调
     var hasCallbacks: Bool { get }
+    /// STOMP 连接实例
     var stomp: SwiftStomp? { get set }
+    /// 已解码消息主题
     var decodedPublishedSubject: DecodedPublishedSubject? { get }
+    /// 未解码消息主题
     var unDecodedPublishedSubject: UnDecodedPublishedSubject? { get }
 
-
+    /// 执行订阅
     func subscribe(completed: @escaping (SubscriptionError?) -> Void)
+    /// 取消订阅
     func unsubscribe(completed: @escaping (SubscriptionError?) -> Void)
 }
 
+/// 订阅错误类型
 enum SubscriptionError: Error {
+    /// STOMP 未连接
     case stompNotConnected
+    /// STOMP 错误
     case stompError(StompError)
 }
 
+/// 消息分发器，负责接收和分发特定类型的消息
 fileprivate class MessageDispatcher<T: Decodable> {
     
+    /// 分发器标识符
     let identifier: String
+    
+    /// 数据回调
     let callback: (T?, [String: String]?, Any) -> Void
+    
+    /// JSON 解码器
     let decoder = JSONDecoder()
+    
+    /// Combine 订阅句柄集合
     var cancelables = Set<AnyCancellable>()
+    
+    /// 回调执行队列
     weak var callbackQueue: DispatchQueue?
+    
+    /// 关联的发布者
     weak var publisher: (any StompPublishCapable)?
 
+    /// 初始化消息分发器
+    /// - Parameters:
+    ///   - identifier: 标识符
+    ///   - publisher: 发布者
+    ///   - outterSubject: 外部消息主题
+    ///   - strategy: 接收策略
+    ///   - subscribeQueue: 订阅队列
+    ///   - callbackQueue: 回调队列
+    ///   - callback: 数据回调
     init(identifier: String,
          publisher: any StompPublishCapable,
          outterSubject: Publishers.Filter<PassthroughSubject<StompUpstreamMessage, Never>>,
@@ -99,6 +145,8 @@ fileprivate class MessageDispatcher<T: Decodable> {
         }
     }
     
+    /// 处理接收到的消息
+    /// - Parameter message: STOMP 消息
     func dealWithMessage(_ message: StompUpstreamMessage) {
         guard let publisher = self.publisher else {
             return
@@ -123,6 +171,11 @@ fileprivate class MessageDispatcher<T: Decodable> {
         publisher.decodedPublishedSubject?.send((res, publisher))
     }
     
+    /// 发布二进制消息
+    /// - Parameters:
+    ///   - data: 消息数据
+    ///   - headers: 消息头
+    /// - Returns: 解码后的数据
     func publishMessage(data: Data, headers: [String: String]?) -> T? {
         var res: T?
         do {
@@ -136,6 +189,11 @@ fileprivate class MessageDispatcher<T: Decodable> {
         return res
     }
     
+    /// 发布文本消息
+    /// - Parameters:
+    ///   - message: 消息字符串
+    ///   - headers: 消息头
+    /// - Returns: 解码后的数据
     func publishMessage(message: String, headers: [String: String]?) -> T? {
         var res: T?
         do {
@@ -157,25 +215,53 @@ fileprivate class MessageDispatcher<T: Decodable> {
     }
 }
 
-// 用于同一个destination不同identifier的分发
+/// STOMP 发布者实现类
+/// 用于同一个 destination 下不同 identifier 的消息分发
 class StompPublisher<T: Decodable>: StompPublishCapable {
     
     typealias DecodableType = T
+    
+    /// STOMP 连接实例
     weak var stomp: SwiftStomp?
+    
+    /// STOMP ID
     let stompID: String
+    
+    /// 订阅目标地址
     let destination: String
+    
+    /// 是否已订阅
     var subscribed: Bool = false
+    
+    /// 订阅请求头
     var subscribeHeaders: [String: String]?
+    
+    /// 已解码消息主题
     weak var decodedPublishedSubject: DecodedPublishedSubject?
+    
+    /// 未解码消息主题
     weak var unDecodedPublishedSubject: UnDecodedPublishedSubject?
 
+    /// 消息分发器映射表（identifier -> MessageDispatcher）
     private var dispatchers = [String: MessageDispatcher<T>]()
+    
+    /// 哈希后的 STOMP ID，用于订阅头
     let hashedStompID: String
 
+    /// 是否有回调
     var hasCallbacks: Bool {
         return !dispatchers.isEmpty
     }
     
+    /// 初始化发布者
+    /// - Parameters:
+    ///   - destination: 目标地址
+    ///   - stompID: STOMP ID
+    ///   - headerIdPrefix: Header ID 前缀
+    ///   - subscribeHeaders: 订阅请求头
+    ///   - decodedPublishedSubject: 已解码消息主题
+    ///   - unDecodedPublishedSubject: 未解码消息主题
+    ///   - type: 数据类型
     init(destination: String,
          stompID: String,
          headerIdPrefix: String?,
@@ -224,11 +310,14 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         return preHave
     }
     
+    /// 移除指定标识的回调
+    /// - Parameter identifier: 回调标识
     func removeMessageCallback(for identifier: String) {
         dispatchers.removeValue(forKey: identifier)
         stomp_log("local call back removed: \(identifier)(\(destination)")
     }
     
+    /// 移除所有回调
     func removeAllCallbacks() {
 #if DEBUG
         let identifiers = dispatchers.values.map {
@@ -240,7 +329,9 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         dispatchers.removeAll()
 #endif
     }
-        
+    
+    /// 执行订阅
+    /// - Parameter completed: 订阅完成回调
     func subscribe(completed: @escaping (SubscriptionError?) -> Void) {
         if self.subscribed {
             completed(nil)
@@ -266,6 +357,8 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         }
     }
     
+    /// 取消订阅
+    /// - Parameter completed: 取消订阅完成回调
     func unsubscribe(completed: @escaping (SubscriptionError?) -> Void) {
         if !self.subscribed {
             completed(nil)
@@ -290,6 +383,12 @@ class StompPublisher<T: Decodable>: StompPublishCapable {
         }
     }
     
+    /// 发送消息到指定目标
+    /// - Parameters:
+    ///   - body: 消息体
+    ///   - destination: 目标地址
+    ///   - receiptId: 回执 ID
+    ///   - headers: 请求头
     func send(body: Data, to destination: String, receiptId: String? = nil, headers: [String : String]? = nil) {
         stomp?.send(body: body, to: destination, receiptId: receiptId, headers: headers)
     }

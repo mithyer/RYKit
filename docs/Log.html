@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日志记录模块 - ADKit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; position: relative; }
+        .back-btn { position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease; font-size: 14px; }
+        .back-btn:hover { background: white; color: #667eea; transform: translateX(-5px); }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 40px; }
+        .section { margin-bottom: 50px; }
+        .section-title { font-size: 2em; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea; }
+        .subsection { margin-bottom: 30px; }
+        .subsection-title { font-size: 1.5em; color: #667eea; margin-bottom: 15px; }
+        .description { line-height: 1.8; color: #555; margin-bottom: 20px; font-size: 1.05em; }
+        .feature-list { list-style: none; margin: 20px 0; }
+        .feature-list li { padding: 12px 0 12px 35px; position: relative; color: #555; line-height: 1.6; }
+        .feature-list li:before { content: "✓"; position: absolute; left: 10px; color: #667eea; font-weight: bold; font-size: 1.2em; }
+        .code-block { margin: 20px 0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        .code-header { background: #21252b; color: #abb2bf; padding: 12px 20px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
+        .code-lang { font-weight: bold; color: #61afef; }
+        pre { margin: 0 !important; border-radius: 0 !important; }
+        pre code { display: block; padding: 20px !important; font-size: 14px; line-height: 1.6; font-family: 'Monaco', 'Menlo', 'Consolas', monospace; }
+        .api-table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); border-radius: 10px; overflow: hidden; }
+        .api-table th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .api-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .api-table tr:last-child td { border-bottom: none; }
+        .api-table tr:nth-child(even) { background: #f8f9fa; }
+        .highlight-box { background: #f0f7ff; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .highlight-box-title { font-weight: bold; color: #667eea; margin-bottom: 10px; font-size: 1.1em; }
+        .tag { display: inline-block; background: #667eea; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.85em; margin-right: 10px; margin-bottom: 10px; }
+        @media (max-width: 768px) { .header h1 { font-size: 1.8em; } .content { padding: 20px; } .back-btn { position: static; margin-bottom: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-btn"><span>←</span><span>返回索引</span></a>
+            <h1><span>📝</span><span>日志记录模块</span></h1>
+            <p>简单易用的日志记录工具，支持任意 Encodable 类型</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title">模块概述</h2>
+                <div class="description">
+                    日志记录模块提供了一套简单而强大的日志记录解决方案。它支持记录任意遵循 Encodable 协议的数据，自动创建日志文件，并以 JSON 格式存储，便于后续分析和调试。
+                </div>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">🎯 核心优势</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>支持记录任意 Encodable 类型的数据</li>
+                        <li>按时间自动创建日志文件</li>
+                        <li>可配置相同 key 的写入时间间隔，避免重复记录</li>
+                        <li>异步写入，不阻塞主线程</li>
+                        <li>JSON 格式存储，结构化便于分析</li>
+                        <li>每条日志包含时间戳、索引等元信息</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <span class="tag">iOS 13.0+</span>
+                    <span class="tag">macOS 10.15+</span>
+                    <span class="tag">tvOS 13.0+</span>
+                    <span class="tag">Swift 5.0+</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">安装方式</h2>
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Ruby (Podfile)</span></div>
+                    <pre><code class="language-ruby">pod 'ADKit/Log'</code></pre>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">基础使用</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 记录字符串</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>最简单的使用方式</span></div>
+                        <pre><code class="language-swift">import ADKit
+
+// 使用全局共享实例
+LogRecorder.shared.saveLog(
+    content: "应用启动",
+    key: "app_lifecycle"
+)
+
+LogRecorder.shared.saveLog(
+    content: "用户点击了提交按钮",
+    key: "user_action"
+)</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 记录自定义对象</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>记录复杂的数据结构</span></div>
+                        <pre><code class="language-swift">// 定义日志模型
+struct UserAction: Codable {
+    let action: String
+    let userId: Int
+    let timestamp: Date
+    let metadata: [String: String]?
+}
+
+// 记录日志
+let action = UserAction(
+    action: "登录",
+    userId: 12345,
+    timestamp: Date(),
+    metadata: ["device": "iPhone 14 Pro"]
+)
+
+LogRecorder.shared.saveLog(
+    content: action,
+    key: "user_action"
+)</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📝 使用时间间隔限制</h3>
+                    <div class="description">
+                        可以设置相同 key 的最小写入间隔，避免重复记录相同的日志。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>防止频繁记录</span></div>
+                        <pre><code class="language-swift">// 相同 key 至少间隔 60 秒才会记录
+LogRecorder.shared.saveLog(
+    content: "按钮点击",
+    key: "button_tap",
+    minIntervalBetweenSameKey: 60
+)
+
+// 第一次调用：会记录
+LogRecorder.shared.saveLog(content: "点击", key: "action", minIntervalBetweenSameKey: 10)
+
+// 5 秒后再次调用：不会记录（距离上次不足 10 秒）
+DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+    LogRecorder.shared.saveLog(content: "点击", key: "action", minIntervalBetweenSameKey: 10)
+}
+
+// 15 秒后调用：会记录（距离上次超过 10 秒）
+DispatchQueue.main.asyncAfter(deadline: .now() + 15) {
+    LogRecorder.shared.saveLog(content: "点击", key: "action", minIntervalBetweenSameKey: 10)
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">使用场景</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 应用生命周期追踪</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>追踪应用状态</span></div>
+                        <pre><code class="language-swift">class AppDelegate: UIResponder, UIApplicationDelegate {
+    
+    func application(_ application: UIApplication,
+                    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        
+        LogRecorder.shared.saveLog(
+            content: "应用启动",
+            key: "app_lifecycle"
+        )
+        
+        return true
+    }
+    
+    func applicationWillResignActive(_ application: UIApplication) {
+        LogRecorder.shared.saveLog(
+            content: "应用即将进入后台",
+            key: "app_lifecycle"
+        )
+    }
+    
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        LogRecorder.shared.saveLog(
+            content: "应用已激活",
+            key: "app_lifecycle"
+        )
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 用户行为追踪</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>记录用户操作</span></div>
+                        <pre><code class="language-swift">struct UserInteraction: Codable {
+    let screenName: String
+    let action: String
+    let elementId: String?
+    let duration: TimeInterval?
+    let additionalInfo: [String: String]?
+}
+
+class AnalyticsManager {
+    func trackButtonTap(buttonId: String, screen: String) {
+        let interaction = UserInteraction(
+            screenName: screen,
+            action: "button_tap",
+            elementId: buttonId,
+            duration: nil,
+            additionalInfo: nil
+        )
+        
+        LogRecorder.shared.saveLog(
+            content: interaction,
+            key: "user_interaction"
+        )
+    }
+    
+    func trackScreenView(screen: String, duration: TimeInterval) {
+        let interaction = UserInteraction(
+            screenName: screen,
+            action: "screen_view",
+            elementId: nil,
+            duration: duration,
+            additionalInfo: nil
+        )
+        
+        LogRecorder.shared.saveLog(
+            content: interaction,
+            key: "screen_view"
+        )
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 错误日志记录</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>记录错误信息</span></div>
+                        <pre><code class="language-swift">struct ErrorLog: Codable {
+    let errorType: String
+    let errorMessage: String
+    let stackTrace: String?
+    let context: [String: String]?
+}
+
+func handleError(_ error: Error, context: [String: String]? = nil) {
+    let errorLog = ErrorLog(
+        errorType: "\(type(of: error))",
+        errorMessage: error.localizedDescription,
+        stackTrace: Thread.callStackSymbols.joined(separator: "\n"),
+        context: context
+    )
+    
+    LogRecorder.shared.saveLog(
+        content: errorLog,
+        key: "error",
+        minIntervalBetweenSameKey: 1  // 相同错误至少间隔 1 秒
+    )
+}
+
+// 使用示例
+do {
+    try someOperation()
+} catch {
+    handleError(error, context: [
+        "screen": "ProfileView",
+        "userId": "12345"
+    ])
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 网络请求日志</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>记录 API 请求</span></div>
+                        <pre><code class="language-swift">struct APILog: Codable {
+    let url: String
+    let method: String
+    let statusCode: Int?
+    let duration: TimeInterval
+    let responseSize: Int?
+    let error: String?
+}
+
+class NetworkLogger {
+    func logRequest(
+        url: String,
+        method: String,
+        statusCode: Int?,
+        duration: TimeInterval,
+        responseSize: Int?,
+        error: String?
+    ) {
+        let log = APILog(
+            url: url,
+            method: method,
+            statusCode: statusCode,
+            duration: duration,
+            responseSize: responseSize,
+            error: error
+        )
+        
+        LogRecorder.shared.saveLog(
+            content: log,
+            key: "api_request"
+        )
+    }
+}
+
+// 使用示例
+let startTime = Date()
+URLSession.shared.dataTask(with: request) { data, response, error in
+    let duration = Date().timeIntervalSince(startTime)
+    let statusCode = (response as? HTTPURLResponse)?.statusCode
+    
+    NetworkLogger().logRequest(
+        url: request.url?.absoluteString ?? "",
+        method: request.httpMethod ?? "",
+        statusCode: statusCode,
+        duration: duration,
+        responseSize: data?.count,
+        error: error?.localizedDescription
+    )
+}.resume()</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 性能监控</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>记录性能数据</span></div>
+                        <pre><code class="language-swift">struct PerformanceLog: Codable {
+    let operation: String
+    let duration: TimeInterval
+    let memoryUsage: UInt64?
+    let cpuUsage: Double?
+}
+
+class PerformanceMonitor {
+    func measureOperation(_ name: String, operation: () -> Void) {
+        let startTime = Date()
+        let startMemory = getMemoryUsage()
+        
+        operation()
+        
+        let duration = Date().timeIntervalSince(startTime)
+        let endMemory = getMemoryUsage()
+        
+        let log = PerformanceLog(
+            operation: name,
+            duration: duration,
+            memoryUsage: endMemory - startMemory,
+            cpuUsage: nil
+        )
+        
+        LogRecorder.shared.saveLog(
+            content: log,
+            key: "performance",
+            minIntervalBetweenSameKey: 5
+        )
+    }
+    
+    private func getMemoryUsage() -> UInt64 {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                task_info(mach_task_self_,
+                         task_flavor_t(MACH_TASK_BASIC_INFO),
+                         $0,
+                         &count)
+            }
+        }
+        
+        return result == KERN_SUCCESS ? info.resident_size : 0
+    }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">高级功能</h2>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 自定义日志实例</h3>
+                    <div class="description">
+                        除了使用全局的 shared 实例，你可以创建自己的 LogRecorder 实例，使用不同的文件名前缀。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>创建多个日志实例</span></div>
+                        <pre><code class="language-swift">class LogManager {
+    // 用户行为日志
+    let userLogger = LogRecorder(logNamePrefix: "user_behavior")
+    
+    // 网络请求日志
+    let networkLogger = LogRecorder(logNamePrefix: "network")
+    
+    // 错误日志
+    let errorLogger = LogRecorder(logNamePrefix: "error")
+    
+    func logUserAction(_ action: String) {
+        userLogger.saveLog(
+            content: action,
+            key: "action"
+        )
+    }
+    
+    func logNetworkRequest(_ request: APILog) {
+        networkLogger.saveLog(
+            content: request,
+            key: "request"
+        )
+    }
+    
+    func logError(_ error: ErrorLog) {
+        errorLogger.saveLog(
+            content: error,
+            key: "error"
+        )
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 获取日志文件路径</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>访问日志文件</span></div>
+                        <pre><code class="language-swift">// 获取当前日志文件路径
+if let logPath = LogRecorder.shared.getCurrentLogFilePath() {
+    print("日志文件路径：\(logPath)")
+    
+    // 读取日志内容
+    if let content = try? String(contentsOfFile: logPath) {
+        print("日志内容：\(content)")
+    }
+    
+    // 分享日志文件
+    let activityVC = UIActivityViewController(
+        activityItems: [URL(fileURLWithPath: logPath)],
+        applicationActivities: nil
+    )
+    present(activityVC, animated: true)
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">🔹 重置时间戳</h3>
+                    <div class="description">
+                        清空所有记录的时间戳，用于测试或重置日志限制。
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">Swift</span><span>重置时间戳</span></div>
+                        <pre><code class="language-swift">// 清空所有时间戳记录
+LogRecorder.shared.resetTimestamps()
+
+// 之后的日志不受之前的时间间隔限制</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">日志格式</h2>
+                
+                <div class="description">
+                    日志以 JSON 数组格式存储，每条日志包含以下信息：
+                </div>
+
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">字段</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>key</code></td>
+                            <td>日志的键，用于分类</td>
+                        </tr>
+                        <tr>
+                            <td><code>date</code></td>
+                            <td>可读的日期时间字符串</td>
+                        </tr>
+                        <tr>
+                            <td><code>timestamp</code></td>
+                            <td>Unix 时间戳（秒）</td>
+                        </tr>
+                        <tr>
+                            <td><code>content</code></td>
+                            <td>日志内容（任意 Encodable 类型）</td>
+                        </tr>
+                        <tr>
+                            <td><code>log_index</code></td>
+                            <td>日志序号</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="subsection">
+                    <h3 class="subsection-title">📄 日志文件示例</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span class="code-lang">JSON</span><span>log_global_shared_2025-10-29_14-30-00.json</span></div>
+                        <pre><code class="language-json">[
+{
+  "content" : "应用启动",
+  "date" : "2025-10-29 14:30:05 GMT+8",
+  "key" : "app_lifecycle",
+  "log_index" : 0,
+  "timestamp" : 1730189405
+},
+{
+  "content" : {
+    "action" : "登录",
+    "metadata" : {
+      "device" : "iPhone 14 Pro"
+    },
+    "timestamp" : 1730189410.523,
+    "userId" : 12345
+  },
+  "date" : "2025-10-29 14:30:10 GMT+8",
+  "key" : "user_action",
+  "log_index" : 1,
+  "timestamp" : 1730189410
+},
+{
+  "content" : {
+    "duration" : 0.523,
+    "error" : null,
+    "method" : "POST",
+    "responseSize" : 1024,
+    "statusCode" : 200,
+    "url" : "https://api.example.com/login"
+  },
+  "date" : "2025-10-29 14:30:11 GMT+8",
+  "key" : "api_request",
+  "log_index" : 2,
+  "timestamp" : 1730189411
+},
+]</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">API 参考</h2>
+                
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45%;">方法</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>init(logNamePrefix:)</code></td>
+                            <td>创建 LogRecorder 实例</td>
+                        </tr>
+                        <tr>
+                            <td><code>saveLog(content:key:minIntervalBetweenSameKey:)</code></td>
+                            <td>保存日志</td>
+                        </tr>
+                        <tr>
+                            <td><code>getCurrentLogFilePath()</code></td>
+                            <td>获取当前日志文件路径</td>
+                        </tr>
+                        <tr>
+                            <td><code>resetTimestamps()</code></td>
+                            <td>清空所有时间戳记录</td>
+                        </tr>
+                        <tr>
+                            <td><code>static var shared</code></td>
+                            <td>全局共享实例</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">最佳实践</h2>
+                
+                <div class="highlight-box">
+                    <div class="highlight-box-title">💡 推荐做法</div>
+                    <ul class="feature-list" style="margin: 10px 0;">
+                        <li>使用有意义的 key 来分类不同类型的日志</li>
+                        <li>为频繁触发的事件设置合理的时间间隔</li>
+                        <li>创建专门的日志模型，包含完整的上下文信息</li>
+                        <li>对于不同用途的日志，考虑使用不同的 LogRecorder 实例</li>
+                        <li>定期清理旧的日志文件，避免占用过多空间</li>
+                        <li>在生产环境考虑添加日志加密</li>
+                        <li>不要记录敏感信息（如密码、token 等）</li>
+                        <li>合理使用日志，避免过度记录影响性能</li>
+                    </ul>
+                </div>
+
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Swift</span><span>推荐的封装方式</span></div>
+                    <pre><code class="language-swift">class AppLogger {
+    static let shared = AppLogger()
+    
+    private let userLogger = LogRecorder(logNamePrefix: "user")
+    private let systemLogger = LogRecorder(logNamePrefix: "system")
+    private let errorLogger = LogRecorder(logNamePrefix: "error")
+    
+    // 用户行为日志
+    func logUserAction(_ action: String, details: [String: String]? = nil) {
+        struct UserActionLog: Codable {
+            let action: String
+            let details: [String: String]?
+        }
+        
+        userLogger.saveLog(
+            content: UserActionLog(action: action, details: details),
+            key: "action",
+            minIntervalBetweenSameKey: 1
+        )
+    }
+    
+    // 系统事件日志
+    func logSystemEvent(_ event: String) {
+        systemLogger.saveLog(
+            content: event,
+            key: "system_event"
+        )
+    }
+    
+    // 错误日志
+    func logError(_ error: Error, context: String? = nil) {
+        struct ErrorLog: Codable {
+            let error: String
+            let context: String?
+        }
+        
+        errorLogger.saveLog(
+            content: ErrorLog(
+                error: error.localizedDescription,
+                context: context
+            ),
+            key: "error"
+        )
+    }
+    
+    // 导出所有日志
+    func exportAllLogs() -> [URL] {
+        var logFiles: [URL] = []
+        
+        if let path = userLogger.getCurrentLogFilePath() {
+            logFiles.append(URL(fileURLWithPath: path))
+        }
+        if let path = systemLogger.getCurrentLogFilePath() {
+            logFiles.append(URL(fileURLWithPath: path))
+        }
+        if let path = errorLogger.getCurrentLogFilePath() {
+            logFiles.append(URL(fileURLWithPath: path))
+        }
+        
+        return logFiles
+    }
+}
+
+// 使用示例
+AppLogger.shared.logUserAction("login", details: ["method": "email"])
+AppLogger.shared.logSystemEvent("app_launched")
+AppLogger.shared.logError(someError, context: "ProfileView")</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+</body>
+</html>
