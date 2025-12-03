@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
   s.version          = '2.0.1'
   s.summary          = 'RYKit...'
   s.description      = 'RYKit.....'
-  s.homepage         = 'http://10.23.9.221/rui.mao/adkit'
+  s.homepage         = 'https://github.com/mithyer/RYKit'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author       = {'Ray' => 'http://github.com/mithyer'}
   s.source       = { :git => 'https://github.com/mithyer/RYKit.git', :branch => "master"}
