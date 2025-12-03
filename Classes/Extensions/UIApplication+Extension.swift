@@ -1,6 +1,6 @@
 //
 //  UIApplication+Extension.swift
-//  ADKit
+//  RYKit
 //
 //  Created by ray on 2025/2/14.
 //

@@ -1,4 +1,4 @@
-# ADKit
+# RYKit
 
 一个功能丰富的 Swift 工具库，为 iOS、macOS 和 tvOS 应用提供常用的基础功能模块。
 
@@ -10,7 +10,7 @@
 
 ## 功能概览
 
-ADKit 提供了以下核心模块：
+RYKit 提供了以下核心模块：
 
 ### 📡 HTTP 请求模块 (`Http`)
 功能强大的 HTTP 网络请求封装，提供：
@@ -142,11 +142,11 @@ let id: String? = view.associated("customID", initializer: nil)
 ### 🛠 核心工具
 ```swift
 // 版本比较
-let result = ADKit.compareVersion("1.2.3", "1.2.0")
+let result = RYKit.compareVersion("1.2.3", "1.2.0")
 // 返回: 1 (第一个版本更新), 0 (相同), -1 (第二个版本更新)
 
 // 获取库版本
-let version = ADKit.version
+let version = RYKit.version
 ```
 
 ## 安装
@@ -156,15 +156,15 @@ let version = ADKit.version
 
 ```ruby
 # 安装所有模块
-pod 'ADKit'
+pod 'RYKit'
 
 # 或者只安装需要的子模块
-pod 'ADKit/Http'
-pod 'ADKit/Stomp'
-pod 'ADKit/Log'
-pod 'ADKit/Extensions'
-pod 'ADKit/ValueWrapper'
-pod 'ADKit/Capables'
+pod 'RYKit/Http'
+pod 'RYKit/Stomp'
+pod 'RYKit/Log'
+pod 'RYKit/Extensions'
+pod 'RYKit/ValueWrapper'
+pod 'RYKit/Capables'
 ```
 
 然后运行：

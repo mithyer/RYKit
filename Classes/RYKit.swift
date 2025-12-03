@@ -1,12 +1,12 @@
 //
-//  ADKit.swift
-//  ADKit
+//  RYKit.swift
+//  RYKit
 //
 //  Created by ray on 2025/2/17.
 //
 
 
-public class ADKit {
+public class RYKit {
     
     public static func compareVersion(_ version1: String, _ version2: String) -> Int {
         let v1 = version1.split(separator: ".").map { Int($0) ?? 0 }
@@ -31,7 +31,7 @@ public class ADKit {
     }
     
     public static var version: String {
-        guard let dictionary = Bundle.init(for: ADKit.self).infoDictionary else {
+        guard let dictionary = Bundle.init(for: RYKit.self).infoDictionary else {
             return "unknown"
         }
         let version = dictionary["CFBundleShortVersionString"] as? String

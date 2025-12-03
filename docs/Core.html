@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>核心工具 - ADKit</title>
+    <title>核心工具 - RYKit</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
@@ -46,14 +46,14 @@
         <div class="header">
             <a href="index.html" class="back-btn"><span>←</span><span>返回索引</span></a>
             <h1><span>🛠</span><span>核心工具</span></h1>
-            <p>ADKit 基础功能：版本比较和信息获取</p>
+            <p>RYKit 基础功能：版本比较和信息获取</p>
         </div>
 
         <div class="content">
             <div class="section">
                 <h2 class="section-title">模块概述</h2>
                 <div class="description">
-                    核心工具模块提供了 ADKit 的基础功能，包括版本号比较和获取库版本信息。这些工具方法简单实用，是其他模块的基础。
+                    核心工具模块提供了 RYKit 的基础功能，包括版本号比较和获取库版本信息。这些工具方法简单实用，是其他模块的基础。
                 </div>
                 <div style="margin-top: 20px;">
                     <span class="tag">iOS 13.0+</span>
@@ -66,11 +66,11 @@
             <div class="section">
                 <h2 class="section-title">安装方式</h2>
                 <div class="description">
-                    核心工具包含在 ADKit 主模块中，无需单独安装。
+                    核心工具包含在 RYKit 主模块中，无需单独安装。
                 </div>
                 <div class="code-block">
                     <div class="code-header"><span class="code-lang">Ruby (Podfile)</span></div>
-                    <pre><code class="language-ruby">pod 'ADKit'</code></pre>
+                    <pre><code class="language-ruby">pod 'RYKit'</code></pre>
                 </div>
             </div>
 
@@ -78,34 +78,34 @@
                 <h2 class="section-title">版本比较</h2>
                 
                 <div class="description">
-                    <code>ADKit.compareVersion(_:_:)</code> 方法用于比较两个版本号字符串，遵循语义化版本规范。
+                    <code>RYKit.compareVersion(_:_:)</code> 方法用于比较两个版本号字符串，遵循语义化版本规范。
                 </div>
 
                 <div class="subsection">
                     <h3 class="subsection-title">📝 基础使用</h3>
                     <div class="code-block">
                         <div class="code-header"><span class="code-lang">Swift</span><span>比较版本号</span></div>
-                        <pre><code class="language-swift">import ADKit
+                        <pre><code class="language-swift">import RYKit
 
 // 返回值说明：
 // 1  - 第一个版本更新
 // 0  - 两个版本相同
 // -1 - 第二个版本更新
 
-let result1 = ADKit.compareVersion("1.2.3", "1.2.0")
+let result1 = RYKit.compareVersion("1.2.3", "1.2.0")
 print(result1)  // 1 (1.2.3 > 1.2.0)
 
-let result2 = ADKit.compareVersion("1.0.0", "1.0.0")
+let result2 = RYKit.compareVersion("1.0.0", "1.0.0")
 print(result2)  // 0 (相同版本)
 
-let result3 = ADKit.compareVersion("2.1.0", "2.3.0")
+let result3 = RYKit.compareVersion("2.1.0", "2.3.0")
 print(result3)  // -1 (2.1.0 < 2.3.0)
 
 // 自动补齐版本号
-let result4 = ADKit.compareVersion("1.2", "1.2.0")
+let result4 = RYKit.compareVersion("1.2", "1.2.0")
 print(result4)  // 0 (1.2 等同于 1.2.0)
 
-let result5 = ADKit.compareVersion("2", "2.0.0")
+let result5 = RYKit.compareVersion("2", "2.0.0")
 print(result5)  // 0 (2 等同于 2.0.0)</code></pre>
                     </div>
                 </div>
@@ -117,7 +117,7 @@ print(result5)  // 0 (2 等同于 2.0.0)</code></pre>
                         <div class="code-header"><span class="code-lang">Swift</span><span>检查 App 版本更新</span></div>
                         <pre><code class="language-swift">class UpdateManager {
     func checkForUpdate(currentVersion: String, latestVersion: String) {
-        let result = ADKit.compareVersion(currentVersion, latestVersion)
+        let result = RYKit.compareVersion(currentVersion, latestVersion)
         
         switch result {
         case 1:
@@ -152,7 +152,7 @@ updateManager.checkForUpdate(currentVersion: currentVersion, latestVersion: "2.0
     let minRequiredVersion = "1.5.0"
     
     func checkAPICompatibility(serverVersion: String) -> Bool {
-        let result = ADKit.compareVersion(serverVersion, minRequiredVersion)
+        let result = RYKit.compareVersion(serverVersion, minRequiredVersion)
         
         // serverVersion >= minRequiredVersion
         return result >= 0
@@ -186,7 +186,7 @@ updateManager.checkForUpdate(currentVersion: currentVersion, latestVersion: "2.0
                         <div class="code-header"><span class="code-lang">Swift</span><span>功能开关（Feature Flag）</span></div>
                         <pre><code class="language-swift">class FeatureManager {
     func isFeatureAvailable(_ feature: Feature, appVersion: String) -> Bool {
-        let result = ADKit.compareVersion(appVersion, feature.minVersion)
+        let result = RYKit.compareVersion(appVersion, feature.minVersion)
         return result >= 0
     }
 }
@@ -223,16 +223,16 @@ if featureManager.isFeatureAvailable(newPaymentFeature, appVersion: currentVersi
                         <div class="code-header"><span class="code-lang">Swift</span><span>SDK 版本检查</span></div>
                         <pre><code class="language-swift">class SDKManager {
     func checkSDKVersion() {
-        let adkitVersion = ADKit.version
+        let adkitVersion = RYKit.version
         let requiredVersion = "1.2.0"
         
-        let result = ADKit.compareVersion(adkitVersion, requiredVersion)
+        let result = RYKit.compareVersion(adkitVersion, requiredVersion)
         
         if result >= 0 {
-            print("✅ ADKit 版本满足要求：\(adkitVersion)")
+            print("✅ RYKit 版本满足要求：\(adkitVersion)")
             initializeSDK()
         } else {
-            print("❌ ADKit 版本过低，需要 \(requiredVersion) 或更高版本")
+            print("❌ RYKit 版本过低，需要 \(requiredVersion) 或更高版本")
             print("当前版本：\(adkitVersion)")
             showSDKUpdateWarning()
         }
@@ -299,17 +299,17 @@ if featureManager.isFeatureAvailable(newPaymentFeature, appVersion: currentVersi
                 <h2 class="section-title">获取库版本</h2>
                 
                 <div class="description">
-                    <code>ADKit.version</code> 属性返回当前 ADKit 库的版本号。
+                    <code>RYKit.version</code> 属性返回当前 RYKit 库的版本号。
                 </div>
 
                 <div class="subsection">
                     <h3 class="subsection-title">📝 基础使用</h3>
                     <div class="code-block">
-                        <div class="code-header"><span class="code-lang">Swift</span><span>获取 ADKit 版本</span></div>
-                        <pre><code class="language-swift">import ADKit
+                        <div class="code-header"><span class="code-lang">Swift</span><span>获取 RYKit 版本</span></div>
+                        <pre><code class="language-swift">import RYKit
 
-let version = ADKit.version
-print("ADKit 版本：\(version)")  // 例如："1.2.15"</code></pre>
+let version = RYKit.version
+print("RYKit 版本：\(version)")  // 例如："1.2.15"</code></pre>
                     </div>
                 </div>
 
@@ -321,11 +321,11 @@ print("ADKit 版本：\(version)")  // 例如："1.2.15"</code></pre>
                         <pre><code class="language-swift">class AppLogger {
     func logAppInfo() {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-        let adkitVersion = ADKit.version
+        let adkitVersion = RYKit.version
         
         print("=== App Info ===")
         print("App Version: \(appVersion)")
-        print("ADKit Version: \(adkitVersion)")
+        print("RYKit Version: \(adkitVersion)")
         print("iOS Version: \(UIDevice.current.systemVersion)")
         print("===============")
     }
@@ -350,7 +350,7 @@ class AnalyticsManager {
         
         return DeviceInfo(
             appVersion: appVersion,
-            sdkVersion: ADKit.version,
+            sdkVersion: RYKit.version,
             deviceModel: UIDevice.current.model,
             osVersion: UIDevice.current.systemVersion
         )
@@ -377,12 +377,12 @@ class AnalyticsManager {
     func displayVersionInfo() {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
         let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        let adkitVersion = ADKit.version
+        let adkitVersion = RYKit.version
         
         versionLabel.text = """
         版本信息
         App: \(appVersion) (\(buildNumber))
-        ADKit: \(adkitVersion)
+        RYKit: \(adkitVersion)
         """
     }
 }</code></pre>
@@ -407,7 +407,7 @@ class AnalyticsManager {
                         </tr>
                         <tr>
                             <td><code>static var version: String</code></td>
-                            <td>获取 ADKit 库的版本号</td>
+                            <td>获取 RYKit 库的版本号</td>
                         </tr>
                     </tbody>
                 </table>
@@ -418,7 +418,7 @@ class AnalyticsManager {
                 
                 <div class="code-block">
                     <div class="code-header"><span class="code-lang">Swift</span><span>版本管理工具类</span></div>
-                    <pre><code class="language-swift">import ADKit
+                    <pre><code class="language-swift">import RYKit
 
 class VersionManager {
     static let shared = VersionManager()
@@ -428,24 +428,24 @@ class VersionManager {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
     
-    // ADKit 版本
+    // RYKit 版本
     var adkitVersion: String {
-        ADKit.version
+        RYKit.version
     }
     
     // 检查是否需要更新
     func needsUpdate(latestVersion: String) -> Bool {
-        ADKit.compareVersion(currentAppVersion, latestVersion) < 0
+        RYKit.compareVersion(currentAppVersion, latestVersion) < 0
     }
     
     // 检查是否为最新版本
     func isLatestVersion(latestVersion: String) -> Bool {
-        ADKit.compareVersion(currentAppVersion, latestVersion) == 0
+        RYKit.compareVersion(currentAppVersion, latestVersion) == 0
     }
     
     // 检查功能是否可用
     func isFeatureAvailable(minVersion: String) -> Bool {
-        ADKit.compareVersion(currentAppVersion, minVersion) >= 0
+        RYKit.compareVersion(currentAppVersion, minVersion) >= 0
     }
     
     // 获取完整版本信息
@@ -463,7 +463,7 @@ class VersionManager {
     func printVersionInfo() {
         print("========= 版本信息 =========")
         print("App 版本：\(currentAppVersion)")
-        print("ADKit 版本：\(adkitVersion)")
+        print("RYKit 版本：\(adkitVersion)")
         print("iOS 版本：\(UIDevice.current.systemVersion)")
         print("设备型号：\(UIDevice.current.model)")
         print("===========================")
