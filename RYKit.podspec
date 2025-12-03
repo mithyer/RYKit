@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'RYKit'
-  s.version          = '2.0.0'
+  s.version          = '2.0.1'
   s.summary          = 'RYKit...'
   s.description      = 'RYKit.....'
   s.homepage         = 'http://10.23.9.221/rui.mao/adkit'

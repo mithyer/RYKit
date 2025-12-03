@@ -122,8 +122,8 @@ public class LogRecorder {
         fileNameFormatter.locale = Locale(identifier: "en_US_POSIX")
         fileNameFormatter.timeZone = TimeZone.current
         
-        let fileName = "log_\(logNamePrefix)_\(fileNameFormatter.string(from: Date())).json"
-        let fileURL = documentsDirectory.appendingPathComponent(fileName)
+        let fileName = "\(fileNameFormatter.string(from: Date())).json"
+        let fileURL = documentsDirectory.appendingPathComponent("RYKitLogs\(logNamePrefix)\(fileName)")
         
         // 如果文件不存在，创建文件并写入初始内容
         if !fileManager.fileExists(atPath: fileURL.path) {
