@@ -23,7 +23,7 @@ fileprivate extension Associatable where Self: AnyObject {
 extension AnyCancellable {
     
     // attach to instance
-    func store<T: AnyObject & Associatable>(to obj: T, with key: String? = nil, doNotStoreIfHasSameKey: Bool = false) {
+    public func store<T: AnyObject & Associatable>(to obj: T, with key: String? = nil, doNotStoreIfHasSameKey: Bool = false) {
         if doNotStoreIfHasSameKey, let key, nil != obj.cancellableDic[key] {
             return
         }
@@ -31,10 +31,10 @@ extension AnyCancellable {
         obj.cancellableDic[key] = self
     }
     
-    static var classToCancelationDic = [String: [String: AnyCancellable]]()
+    private static var classToCancelationDic = [String: [String: AnyCancellable]]()
     
     // attach to class
-    func store<T: AnyObject>(to classType: T.Type, with key: String? = nil, doNotStoreIfHasSameKey: Bool = false) {
+    public func store<T: AnyObject>(to classType: T.Type, with key: String? = nil, doNotStoreIfHasSameKey: Bool = false) {
         if doNotStoreIfHasSameKey, let key, nil != Self.classToCancelationDic["\(classType)"]?[key] {
             return
         }
