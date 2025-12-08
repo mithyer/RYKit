@@ -6,6 +6,7 @@
 //
 
 import Combine
+import Foundation
 
 // initialize
 public final class HttpRequest {
@@ -798,7 +799,7 @@ extension Result where Failure == HttpRequest.ResponseError {
     }
 }
 
-extension Result: Codable where Failure == HttpRequest.ResponseError, Success: Codable {
+extension Result: @retroactive Codable where Failure == HttpRequest.ResponseError, Success: Codable {
     
     enum CodingKeys: String, CodingKey {
             case success

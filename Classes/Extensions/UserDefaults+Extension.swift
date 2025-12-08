@@ -5,6 +5,8 @@
 //  Created by ray on 2025/3/14.
 //
 
+import Foundation
+
 public extension UserDefaults {
     
     struct WithKeyExtended {

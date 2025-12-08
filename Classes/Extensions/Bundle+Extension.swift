@@ -5,6 +5,8 @@
 //  Created by ray on 2025/2/14.
 //
 
+import Foundation
+
 public extension Bundle {
     
     @objc var buildDate: Date? {

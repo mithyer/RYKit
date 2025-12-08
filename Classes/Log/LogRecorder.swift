@@ -168,18 +168,13 @@ public class LogRecorder {
     
     /// 写入数据到文件
     private func writeToFile(data: Data, fileURL: URL) -> Bool {
-        do {
-            // 使用文件句柄追加内容
-            if let fileHandle = self.fileHandle {
-                fileHandle.seekToEndOfFile()
-                fileHandle.write(data)
-                return true
-            } else {
-                print("无法打开文件句柄")
-                return false
-            }
-        } catch let error {
-            print("写入文件失败：\(error)")
+        // 使用文件句柄追加内容
+        if let fileHandle = self.fileHandle {
+            fileHandle.seekToEndOfFile()
+            fileHandle.write(data)
+            return true
+        } else {
+            print("无法打开文件句柄")
             return false
         }
     }

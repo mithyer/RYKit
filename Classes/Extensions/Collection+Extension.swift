@@ -6,6 +6,7 @@
 //
 
 import CommonCrypto
+import Foundation
 
 extension Collection {
     public var nilIfEmpty: Self? {
