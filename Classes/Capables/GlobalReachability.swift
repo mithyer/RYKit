@@ -7,9 +7,9 @@
 import Foundation
 import Combine
 
-fileprivate var lock = NSLock()
-fileprivate var _listeningCount = 0
-fileprivate var listeningCount: Int {
+private var lock = NSLock()
+private var _listeningCount = 0
+private var listeningCount: Int {
     set(value) {
         lock.lock()
         _listeningCount = value
@@ -28,6 +28,17 @@ private var reachability: SwiftReachability?
 
 public class GlobalReachability {
     
+    public enum Connection: String {
+        case unavailable, wifi, cellular, unknown
+        init(connection: SwiftReachability.Connection) {
+            if let connection = Connection.init(rawValue: connection.rawValue) {
+                self = connection
+            } else {
+                self = .unknown
+            }
+        }
+    }
+    
     public static let shared = GlobalReachability()
     
     private class Listener {
@@ -36,27 +47,26 @@ public class GlobalReachability {
         
         var reachabilitySubjectCancelation: AnyCancellable?
         
-        init(connection: SwiftReachability.Connection, callback: @escaping (SwiftReachability.Connection) -> Void) {
+        init(connection: SwiftReachability.Connection, callback: @escaping (Connection) -> Void) {
             listeningCount += 1
-            let subject = PassthroughSubject<SwiftReachability.Connection, Never>()
+            let subject = PassthroughSubject<Connection, Never>()
             observer = NotificationCenter.default.addObserver(forName: .reachabilityChanged, object: nil, queue: .main, using: { noti in
                 guard let reachability = noti.object as? SwiftReachability else {
                     return
                 }
-                subject.send(reachability.connection)
+                subject.send(.init(connection: reachability.connection))
             })
             reachabilitySubjectCancelation = subject
                 .receive(on: DispatchQueue.main)
                 .sink { connection in
-                callback(connection)
+                    callback(connection)
             }
         }
         
-        func removeObserver() -> Bool {
-            guard let observer = observer else {
+        private func removeObserver() -> Bool {
+            guard let observer else {
                 return false
             }
-            self.observer = nil
             listeningCount -= 1
             NotificationCenter.default.removeObserver(observer)
             return true
@@ -67,16 +77,20 @@ public class GlobalReachability {
                 return
             }
             if listeningCount <= 0 {
-                reachability?.stopNotifier()
+                DispatchQueue.main.async {
+                    reachability?.stopNotifier()
+                }
             }
         }
     }
     
-    public func listen(_ onChanged: @escaping (SwiftReachability.Connection) -> Void) -> AnyObject? {
+    private init() {}
+    
+    public func listen(_ onChanged: @escaping (Connection) -> Void) -> AnyObject? {
         if nil == reachability {
             reachability = try? SwiftReachability()
         }
-        guard let reachability = reachability else {
+        guard let reachability else {
             return nil
         }
         let listener = Listener(connection: reachability.connection, callback: onChanged)
