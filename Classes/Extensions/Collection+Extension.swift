@@ -16,7 +16,7 @@ extension Collection {
 
 extension String {
     
-    public var sha1: String {
+    var sha1: String {
         let data = Data(self.utf8)
         var digest = [UInt8](repeating: 0, count:Int(CC_SHA1_DIGEST_LENGTH))
         data.withUnsafeBytes {
@@ -27,13 +27,20 @@ extension String {
     }
 }
 
+public extension RYObject<String> {
+    
+    var sha1: String {
+        refer.sha1
+    }
+}
+
 extension Dictionary where Key == String, Value == String {
     
-    public var sha1: String {
+    var sha1: String {
         sortedURLParams.sha1
     }
     
-    public var sortedURLParams: String {
+    var sortedURLParams: String {
         let sortedKeys = self.keys.sorted()
         let str = sortedKeys.map { key in
             let value = self[key] ?? ""
@@ -43,17 +50,38 @@ extension Dictionary where Key == String, Value == String {
     }
 }
 
+public extension RYObject where T == Dictionary<String, String> {
+    
+    var sha1: String {
+        refer.sha1
+    }
+    
+    var sortedURLParams: String {
+        refer.sortedURLParams
+    }
+}
+
 extension Array where Element == String {
     
-    public var sha1: String {
+    var sha1: String {
         sortedJoined(separator: ",").sha1
     }
     
-    private func sortedJoined(separator: String) -> String {
+    func sortedJoined(separator: String) -> String {
         sorted().joined(separator: separator)
     }
 }
 
+public extension RYObject where T == Array<String> {
+    
+    var sha1: String {
+        refer.sha1
+    }
+    
+    func sortedJoined(separator: String) -> String {
+        refer.sortedJoined(separator: separator)
+    }
+}
 
 extension Dictionary {
     

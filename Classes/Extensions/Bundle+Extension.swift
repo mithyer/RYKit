@@ -7,17 +7,17 @@
 
 import Foundation
 
-public extension Bundle {
+extension RYObject where T: Bundle {
     
-    @objc var buildDate: Date? {
-        if let infoPath = self.path(forResource: "Info", ofType: "plist"),
+    public var buildDate: Date? {
+        if let infoPath = refer.path(forResource: "Info", ofType: "plist"),
            let attributes = try? FileManager.default.attributesOfItem(atPath: infoPath) {
             return attributes[.modificationDate] as? Date
         }
         return nil
     }
     
-    @objc var buildDateString: String? {
+    public var buildDateString: String? {
         if let date = buildDate {
             let formatter = DateFormatter()
             formatter.dateFormat = "yyMMddHHmmss"
