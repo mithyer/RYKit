@@ -2,7 +2,7 @@
 //  Combine+More.swift
 //  Device
 //
-//  Created by mao rui on 2025/11/28.
+//  Created by ray on 2025/11/28.
 //
 
 import Foundation

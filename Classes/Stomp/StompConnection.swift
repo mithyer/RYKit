@@ -414,7 +414,7 @@ class StompConnection<CHANNEL: StompChannel> {
 }
 
 /// SwiftStomp 的扩展，使用 Associatable 来存储订阅句柄
-extension SwiftStomp: Associatable {
+extension SwiftStomp {
     
     /// 连接阶段的订阅句柄（使用关联对象存储）
     fileprivate var connectingCancellable: AnyCancellable? {
