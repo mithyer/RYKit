@@ -12,7 +12,7 @@ fileprivate extension Associatable where Self: AnyObject {
     
     var cancellableDic: [String: AnyCancellable] {
         get {
-            associated(#function, initializer: [String: AnyCancellable]())!
+            associated(#function, initializer: [String: AnyCancellable]())
         }
         set {
             setAssociated(#function, value: newValue)
@@ -20,7 +20,7 @@ fileprivate extension Associatable where Self: AnyObject {
     }
 }
 
-extension AnyCancellable {
+fileprivate extension AnyCancellable {
     
     // attach to instance
     func store<T: AnyObject & Associatable>(to obj: T, with key: String? = nil, doNotStoreIfHasSameKey: Bool = false) {
@@ -54,5 +54,13 @@ public extension RYObject<AnyCancellable> {
     
     func store<K: AnyObject>(to classType: K.Type, with key: String? = nil, doNotStoreIfHasSameKey: Bool = false) {
         refer.store(to: classType, with: key, doNotStoreIfHasSameKey: doNotStoreIfHasSameKey)
+    }
+}
+
+public extension RYObject where T: AnyObject & Associatable {
+    
+    func removeCancellable(_ key: String) {
+        refer.cancellableDic[key]?.cancel()
+        refer.cancellableDic.removeValue(forKey: key)
     }
 }

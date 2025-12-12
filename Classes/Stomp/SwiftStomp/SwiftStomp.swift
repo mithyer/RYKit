@@ -96,15 +96,17 @@ class SwiftStomp: NSObject {
 
     private func initReachability(){
         reachabilityListener = GlobalReachability.shared.listen { [weak self] connection in
-            if connection == .unavailable {
-                self?.stompLog(type: .info, message: "Network IS reachable")
-                self?.hostIsReachabile = true
-                if self?.status == .fullyConnected {
-                    self?.disconnect(force: true)
+            self?.callbacksThread.async {
+                if case .connected = connection {
+                    self?.stompLog(type: .info, message: "Network IS reachable")
+                    self?.hostIsReachabile = true
+                    if self?.status == .fullyConnected {
+                        self?.disconnect(force: true)
+                    }
+                } else {
+                    self?.stompLog(type: .info, message: "Network IS NOT reachable")
+                    self?.hostIsReachabile = false
                 }
-            } else {
-                self?.stompLog(type: .info, message: "Network IS NOT reachable")
-                self?.hostIsReachabile = false
             }
         }
     }

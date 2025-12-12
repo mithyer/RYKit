@@ -4,99 +4,102 @@
 //
 //  Created by ray on 2025/2/17.
 //
+
+import Network
 import Foundation
 import Combine
 
-private var lock = NSLock()
-private var _listeningCount = 0
-private var listeningCount: Int {
-    set(value) {
-        lock.lock()
-        _listeningCount = value
-        lock.unlock()
-    }
-    get {
-        defer {
-            lock.unlock()
-        }
-        lock.lock()
-        return _listeningCount
-    }
-}
-
-private var reachability: SwiftReachability?
+private let queue = DispatchQueue(label: "com.rykit.GlobalReachability")
 
 public class GlobalReachability {
     
-    public enum Connection: String {
-        case unavailable, wifi, cellular, unknown
-        init(connection: SwiftReachability.Connection) {
-            if let connection = Connection.init(rawValue: connection.rawValue) {
-                self = connection
-            } else {
-                self = .unknown
-            }
+    // MARK: - 网络状态枚举
+    public enum NetworkStatus: Equatable {
+        
+        public enum ConnectionType {
+            case wifi
+            case cellular
+            case wiredEthernet // 有线以太网
+            case other
         }
+        
+        case connected(ConnectionType)
+        case disconnected
+        case unknown
     }
     
     public static let shared = GlobalReachability()
     
-    private class Listener {
+    private class Listener: Associatable {
         
-        weak var observer: AnyObject?
+        let monitor = NetworkMonitor()
         
-        var reachabilitySubjectCancelation: AnyCancellable?
-        
-        init(connection: SwiftReachability.Connection, callback: @escaping (Connection) -> Void) {
-            listeningCount += 1
-            let subject = PassthroughSubject<Connection, Never>()
-            observer = NotificationCenter.default.addObserver(forName: .reachabilityChanged, object: nil, queue: .main, using: { noti in
-                guard let reachability = noti.object as? SwiftReachability else {
-                    return
-                }
-                subject.send(.init(connection: reachability.connection))
-            })
-            reachabilitySubjectCancelation = subject
-                .receive(on: DispatchQueue.main)
-                .sink { connection in
-                    callback(connection)
-            }
-        }
-        
-        private func removeObserver() -> Bool {
-            guard let observer else {
-                return false
-            }
-            listeningCount -= 1
-            NotificationCenter.default.removeObserver(observer)
-            return true
-        }
-        
-        deinit {
-            guard removeObserver() else {
-                return
-            }
-            if listeningCount <= 0 {
-                DispatchQueue.main.async {
-                    reachability?.stopNotifier()
-                }
-            }
+        init(callback: @escaping (NetworkStatus) -> Void) {
+            monitor.$currentStatus.receive(on: queue).removeDuplicates(by: { l, r in
+                l == r
+            }).sink { status in
+                callback(status)
+            }.ry.store(to: self)
         }
     }
     
     private init() {}
     
-    public func listen(_ onChanged: @escaping (Connection) -> Void) -> AnyObject? {
-        if nil == reachability {
-            reachability = try? SwiftReachability()
+    public func listen(_ onChanged: @escaping (NetworkStatus) -> Void) -> AnyObject? {
+        Listener(callback: onChanged)
+    }
+}
+
+fileprivate extension NWPath {
+    
+    var connectionAndStatus: (GlobalReachability.NetworkStatus.ConnectionType, GlobalReachability.NetworkStatus) {
+        let path = self
+        let connectionType: GlobalReachability.NetworkStatus.ConnectionType
+        let currentStatus: GlobalReachability.NetworkStatus
+        // 判断连接类型
+        if path.usesInterfaceType(.wifi) {
+            connectionType = .wifi
+        } else if path.usesInterfaceType(.cellular) {
+            connectionType = .cellular
+        } else if path.usesInterfaceType(.wiredEthernet) {
+            connectionType = .wiredEthernet
+        } else {
+            connectionType = .other
         }
-        guard let reachability else {
-            return nil
+        // 更新状态
+        let isConnected = path.status == .satisfied && path.availableInterfaces.count > 0
+        if isConnected {
+            currentStatus = .connected(connectionType)
+        } else {
+            currentStatus = .disconnected
         }
-        let listener = Listener(connection: reachability.connection, callback: onChanged)
-        DispatchQueue.main.async {
-            try? reachability.startNotifier()
+        return (connectionType, currentStatus)
+    }
+}
+
+// MARK: - 网络监听管理器
+fileprivate class NetworkMonitor {
+    
+    private let monitor = NWPathMonitor()
+    
+    @CurrentValue private(set) var connectionType: GlobalReachability.NetworkStatus.ConnectionType
+    @CurrentValue private(set) var currentStatus: GlobalReachability.NetworkStatus
+    
+    // 状态变化回调
+    init() {
+        let connectionAndStatus = monitor.currentPath.connectionAndStatus
+        connectionType = connectionAndStatus.0
+        currentStatus = connectionAndStatus.1
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            let connectionAndStatus = monitor.currentPath.connectionAndStatus
+            connectionType = connectionAndStatus.0
+            currentStatus = connectionAndStatus.1
         }
-        return listener
+        monitor.start(queue: queue)
+    }
+    
+    func cancel() {
+        monitor.cancel()
     }
 }

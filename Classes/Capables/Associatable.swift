@@ -1,5 +1,5 @@
 //
-//  Capables.swift
+//  Associatable.swift
 //  RYKit
 //
 //  Created by ray on 2025/2/14.
@@ -10,7 +10,8 @@ fileprivate var associatedDictionaryKey: Int = 0
 
 public protocol Associatable: AnyObject {
     
-    func associated<T>(_ key: String, initializer: @autoclosure () -> T?) -> T?
+    func associated<T>(_ key: String, initializer: @autoclosure () -> T) -> T
+    func associated<T>(_ key: String) -> T?
     func setAssociated<T>(_ key: String, value: T?)
 }
 
@@ -23,7 +24,7 @@ fileprivate class Wrapper<T> {
 
 extension Associatable {
     
-    fileprivate var associatedDictionary: NSMutableDictionary {
+    private var associatedDictionary: NSMutableDictionary {
         get {
             var dic = objc_getAssociatedObject(self, &associatedDictionaryKey) as? NSMutableDictionary
             if nil == dic {
@@ -34,7 +35,7 @@ extension Associatable {
         }
     }
     
-    public func associated<T>(_ key: String = "\(T.self)", initializer: @autoclosure () -> T?) -> T? {
+    private func associated<T>(_ key: String = "\(T.self)", initializer: @autoclosure () -> T?) -> T? {
         let dic = associatedDictionary
         var wrapper = dic[key] as? Wrapper<T>
         if nil == wrapper {
@@ -42,6 +43,15 @@ extension Associatable {
             dic[key] = wrapper!
         }
         return wrapper!.v
+    }
+    
+    public func associated<T>(_ key: String, initializer: @autoclosure () -> T) -> T {
+        let t: T? = associated(key, initializer: initializer())
+        return t!
+    }
+    
+    public func associated<T>(_ key: String) -> T? {
+        associated(key, initializer: nil)
     }
     
     public func setAssociated<T>(_ key: String = "\(T.self)", value: T?) {
@@ -53,3 +63,5 @@ extension Associatable {
         }
     }
 }
+
+extension NSObject: Associatable {}
