@@ -181,7 +181,6 @@ public protocol Initializable {
     init()
 }
 
-extension NSObject: Initializable {}
 extension String: Initializable {}
 extension Int: Initializable {}
 extension Double: Initializable {}
@@ -229,6 +228,10 @@ public struct DefaultValueProviders {
     }
     
     public enum Init<A>: DefaultValueProvider where A: Initializable & Codable {
+        public static var `default`: A  { A() }
+    }
+    
+    public enum InitObject<A>: DefaultValueProvider where A: NSObject & Codable {
         public static var `default`: A  { A() }
     }
 }
