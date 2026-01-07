@@ -82,8 +82,8 @@ fileprivate class NetworkMonitor {
     
     private let monitor = NWPathMonitor()
     
-    @CurrentValue private(set) var connectionType: GlobalReachability.NetworkStatus.ConnectionType
-    @CurrentValue private(set) var currentStatus: GlobalReachability.NetworkStatus
+    @Published private(set) var connectionType: GlobalReachability.NetworkStatus.ConnectionType
+    @Published private(set) var currentStatus: GlobalReachability.NetworkStatus
     
     // 状态变化回调
     init() {
