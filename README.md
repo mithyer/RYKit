@@ -7,7 +7,7 @@
 # HOW TO USE
 
 `
-pod 'RYKit', :git => 'git@github.com:mithyer/RYKit.git', :tag => '2.0.1'
+pod 'RYKit', :git => 'https://github.com/mithyer/RYKit.git', :tag => '2.0.5'
 `
 
 <a name="english"></a>
