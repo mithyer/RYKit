@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'RYKit'
-  s.version          = '2.0.4'
+  s.version          = '2.0.5'
   s.summary          = 'RYKit...'
   s.description      = 'RYKit.....'
   s.homepage         = 'https://github.com/mithyer/RYKit'
@@ -36,6 +36,10 @@ Pod::Spec.new do |s|
 
   s.subspec 'Http' do |ss|
     ss.source_files = 'Classes/Http/**/*'
+  end
+
+  s.subspec 'Lock' do |ss|
+    ss.source_files = 'Classes/Lock/**/*'
   end
 
   s.subspec 'Stomp' do |ss|
