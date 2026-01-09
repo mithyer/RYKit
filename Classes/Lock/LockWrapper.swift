@@ -9,7 +9,7 @@ import Foundation
 import System
 
 @propertyWrapper
-public class LockWrapper<T> {
+public class LockWrapper<T>: @unchecked Sendable {
     
     private var mutex = os_unfair_lock()
     
@@ -37,7 +37,7 @@ public class LockWrapper<T> {
 }
 
 @propertyWrapper
-public class RWLockWrapper<T> {
+public class RWLockWrapper<T>: @unchecked Sendable {
     
     private var mutex = pthread_rwlock_t()
     
