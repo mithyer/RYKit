@@ -10,15 +10,15 @@ import Foundation
 
 public struct TimeoutError: Error {}
 
-extension Publisher where Output: Equatable, Failure == Never {
+extension Publisher where Failure == Never {
     
-    public func waitOnce<T: Scheduler>(_ output: Output,
+    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool,
                                        scheduler: T = DispatchQueue.main,
                                        options: T.SchedulerOptions? = nil,
                                        timeoutSeconds: TimeInterval,
                                        result: @escaping (Result<Output, TimeoutError>) -> Void) -> AnyCancellable {
         setFailureType(to: TimeoutError.self).first(where: {
-            $0 == output
+            until($0)
         }).timeout(.seconds(timeoutSeconds), scheduler: scheduler, options: options)
             .receive(on: scheduler)
             .sink { res in
@@ -33,16 +33,48 @@ extension Publisher where Output: Equatable, Failure == Never {
         }
     }
     
-    public func waitOnce<T: Scheduler>(_ output: Output,
+    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool,
                                        scheduler: T = DispatchQueue.main,
                                        options: T.SchedulerOptions? = nil,
                                        timeoutSeconds: TimeInterval,
                                        setCancelation with: inout AnyCancellable?) async -> Result<Output, TimeoutError> {
         await withCheckedContinuation { continuation in
-            with = waitOnce(output, scheduler: scheduler, options: options, timeoutSeconds: timeoutSeconds) { res in
+            with = waitOnce(until: until, scheduler: scheduler, options: options, timeoutSeconds: timeoutSeconds) { res in
                 continuation.resume(returning: res)
             }
         }
+    }
+    
+    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool,
+                                       scheduler: T = DispatchQueue.main,
+                                       options: T.SchedulerOptions? = nil,
+                                       timeoutSeconds: TimeInterval,
+                                       setCancelation to: Associatable,
+                                       cancelationOptions: (key: String, doNotStoreIfHasSameKey: Bool)? = nil) async -> Result<Output, TimeoutError> {
+        await withCheckedContinuation { continuation in
+            waitOnce(until: until, scheduler: scheduler, options: options, timeoutSeconds: timeoutSeconds) { res in
+                continuation.resume(returning: res)
+            }.ry.store(to: to, with: cancelationOptions?.key, doNotStoreIfHasSameKey: cancelationOptions?.doNotStoreIfHasSameKey ?? false)
+        }
+    }
+}
+
+extension Publisher where Output: Equatable, Failure == Never {
+    
+    public func waitOnce<T: Scheduler>(_ output: Output,
+                                       scheduler: T = DispatchQueue.main,
+                                       options: T.SchedulerOptions? = nil,
+                                       timeoutSeconds: TimeInterval,
+                                       result: @escaping (Result<Output, TimeoutError>) -> Void) -> AnyCancellable {
+        waitOnce(until: { $0 == output }, scheduler: scheduler, options: options, timeoutSeconds: timeoutSeconds, result: result)
+    }
+    
+    public func waitOnce<T: Scheduler>(_ output: Output,
+                                       scheduler: T = DispatchQueue.main,
+                                       options: T.SchedulerOptions? = nil,
+                                       timeoutSeconds: TimeInterval,
+                                       setCancelation with: inout AnyCancellable?) async -> Result<Output, TimeoutError> {
+        await waitOnce(until: { $0 == output }, scheduler: scheduler, options: options, timeoutSeconds: timeoutSeconds, setCancelation: &with)
     }
     
     public func waitOnce<T: Scheduler>(_ output: Output,
@@ -51,10 +83,6 @@ extension Publisher where Output: Equatable, Failure == Never {
                                        timeoutSeconds: TimeInterval,
                                        setCancelation to: Associatable,
                                        cancelationOptions: (key: String, doNotStoreIfHasSameKey: Bool)? = nil) async -> Result<Output, TimeoutError> {
-        await withCheckedContinuation { continuation in
-            waitOnce(output, scheduler: scheduler, options: options, timeoutSeconds: timeoutSeconds) { res in
-                continuation.resume(returning: res)
-            }.ry.store(to: to, with: cancelationOptions?.key, doNotStoreIfHasSameKey: cancelationOptions?.doNotStoreIfHasSameKey ?? false)
-        }
+        await waitOnce(until: { $0 == output }, scheduler: scheduler, options: options, timeoutSeconds: timeoutSeconds, setCancelation: to, cancelationOptions: cancelationOptions)
     }
 }
