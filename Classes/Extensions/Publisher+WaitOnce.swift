@@ -10,9 +10,26 @@ import Foundation
 
 public struct TimeoutError: Error {}
 
+extension Result where Failure == TimeoutError {
+    
+    public var isTimeout: Bool {
+        if case .failure = self {
+            return true
+        }
+        return false
+    }
+    
+    public var output: Success? {
+        if case .success(let output) = self {
+            return output
+        }
+        return nil
+    }
+}
+
 extension Publisher where Failure == Never {
     
-    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool,
+    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool = {_ in true},
                                        scheduler: T = DispatchQueue.main,
                                        options: T.SchedulerOptions? = nil,
                                        timeoutSeconds: TimeInterval,
@@ -33,7 +50,7 @@ extension Publisher where Failure == Never {
         }
     }
     
-    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool,
+    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool = {_ in true},
                                        scheduler: T = DispatchQueue.main,
                                        options: T.SchedulerOptions? = nil,
                                        timeoutSeconds: TimeInterval,
@@ -45,7 +62,7 @@ extension Publisher where Failure == Never {
         }
     }
     
-    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool,
+    public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool = {_ in true},
                                        scheduler: T = DispatchQueue.main,
                                        options: T.SchedulerOptions? = nil,
                                        timeoutSeconds: TimeInterval,
