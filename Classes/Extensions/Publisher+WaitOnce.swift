@@ -12,13 +12,16 @@ public struct TimeoutError: Error {}
 
 extension Publisher where Output: Equatable, Failure == Never {
     
-    public func waitOnce<T: Scheduler>(_ output: Output, scheduler: T = DispatchQueue.main,
+    public func waitOnce<T: Scheduler>(_ output: Output,
+                                       scheduler: T = DispatchQueue.main,
                                        options: T.SchedulerOptions? = nil,
                                        timeoutSeconds: TimeInterval,
                                        result: @escaping (Result<Output, TimeoutError>) -> Void) -> AnyCancellable {
         setFailureType(to: TimeoutError.self).first(where: {
             $0 == output
-        }).timeout(.seconds(timeoutSeconds), scheduler: scheduler, options: options).sink { res in
+        }).timeout(.seconds(timeoutSeconds), scheduler: scheduler, options: options)
+            .receive(on: scheduler)
+            .sink { res in
             switch res {
             case .finished:
                 break
