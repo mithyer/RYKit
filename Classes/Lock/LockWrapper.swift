@@ -41,16 +41,16 @@ public class LockReferWrapper<T, L: AnyMutex>: @unchecked Sendable {
     public var wrappedValue: T {
         set {
             defer {
-                mutex.lock()
+                mutex.unlock()
             }
-            mutex.unlock()
+            mutex.lock()
             _wrappedValue = newValue
         }
         get {
             defer {
-                mutex.lock()
+                mutex.unlock()
             }
-            mutex.unlock()
+            mutex.lock()
             return _wrappedValue
         }
     }
