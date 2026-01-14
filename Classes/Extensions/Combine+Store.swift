@@ -12,10 +12,10 @@ fileprivate extension Associatable where Self: AnyObject {
     
     var cancellableDic: [String: AnyCancellable] {
         get {
-            associated(#function, initializer: [String: AnyCancellable]())
+            associated(initializer: [String: AnyCancellable]())
         }
         set {
-            setAssociated(#function, value: newValue)
+            setAssociated(value: newValue)
         }
     }
 }

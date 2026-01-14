@@ -35,7 +35,7 @@ extension Associatable {
         }
     }
     
-    private func _associated<T>(_ key: String = "\(T.self)", initializer: @autoclosure () -> T?) -> T? {
+    private func _associated<T>(_ key: String, initializer: @autoclosure () -> T?) -> T? {
         let dic = associatedDictionary
         var wrapper = dic[key] as? Wrapper<T>
         if nil == wrapper {
@@ -45,16 +45,16 @@ extension Associatable {
         return wrapper!.v
     }
     
-    public func associated<T>(_ key: String, initializer: @autoclosure () -> T) -> T {
+    public func associated<T>(_ key: String = #function, initializer: @autoclosure () -> T) -> T {
         let t: T? = _associated(key, initializer: initializer())
         return t!
     }
     
-    public func associated<T>(_ key: String) -> T? {
+    public func associated<T>(_ key: String = #function) -> T? {
         _associated(key, initializer: nil)
     }
     
-    public func setAssociated<T>(_ key: String = "\(T.self)", value: T?) {
+    public func setAssociated<T>(_ key: String = #function, value: T?) {
         let dic = associatedDictionary
         if let wrapper = dic[key] as? Wrapper<T> {
             wrapper.v = value
