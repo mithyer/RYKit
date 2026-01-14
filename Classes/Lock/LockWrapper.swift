@@ -8,66 +8,66 @@
 import Foundation
 import System
 
-public protocol AnyMutex {
-    mutating func install()
-    mutating func lock()
-    mutating func unlock()
-    mutating func dispose()
+public protocol AnyLock: AnyObject {
+    init()
+    func lock()
+    func unlock()
 }
 
-extension AnyMutex {
-    public func install() {}
-    public func dispose() {}
-}
+extension NSLock: AnyLock {}
+extension UnfairLock: AnyLock {}
 
-extension NSLock: AnyMutex {}
-
-extension os_unfair_lock: AnyMutex {
-    public mutating func lock() { os_unfair_lock_lock(&self) }
-    public mutating func unlock() { os_unfair_lock_unlock(&self) }
-}
-extension pthread_mutex_t: AnyMutex {
-    public mutating func install() { pthread_mutex_init(&self, nil) }
-    public mutating func lock() { pthread_mutex_lock(&self) }
-    public mutating func unlock() { pthread_mutex_unlock(&self) }
-    public mutating func dispose() { pthread_mutex_destroy(&self) }
-}
-
-public class LockReferWrapper<T, L: AnyMutex>: @unchecked Sendable {
+public class _ThreadSafe<T, L: AnyLock>: @unchecked Sendable {
     
-    private var mutex: L
+    public class Wrapper<K: _ThreadSafe<T, L>> {
+
+        let ts: K
+        init(ts: K) {
+            self.ts = ts
+        }
+        
+        @discardableResult
+        public func lock<R>(_ closure: (inout T) throws -> R) rethrows -> R {
+            try ts.lock(closure)
+        }
+    }
+    
+    fileprivate var _lock: L
     private var _wrappedValue: T
     
     public var wrappedValue: T {
         set {
             defer {
-                mutex.unlock()
+                _lock.unlock()
             }
-            mutex.lock()
+            _lock.lock()
             _wrappedValue = newValue
         }
         get {
             defer {
-                mutex.unlock()
+                _lock.unlock()
             }
-            mutex.lock()
+            _lock.lock()
             return _wrappedValue
         }
     }
-
-    public init(wrappedValue: T, mutex: L) {
+    
+    public init(wrappedValue: T) {
         _wrappedValue = wrappedValue
-        self.mutex = mutex
-        self.mutex.install()
+        _lock = L()
     }
     
-    deinit {
-        mutex.dispose()
+    fileprivate func lock<R>(_ closure: (inout T) throws -> R) rethrows -> R {
+        defer {
+            _lock.unlock()
+        }
+        _lock.lock()
+        return try closure(&_wrappedValue)
     }
 }
 
 @propertyWrapper
-public class LockWrapper<T>: LockReferWrapper<T, os_unfair_lock>, @unchecked Sendable {
+public class ThreadSafe<T>: _ThreadSafe<T, UnfairLock>, @unchecked Sendable {
     
     public override var wrappedValue: T {
         set {
@@ -78,40 +78,69 @@ public class LockWrapper<T>: LockReferWrapper<T, os_unfair_lock>, @unchecked Sen
         }
     }
     
-    public init(wrappedValue: T) {
-        super.init(wrappedValue: wrappedValue, mutex: os_unfair_lock_s())
+    public var projectedValue: Wrapper<ThreadSafe<T>> {
+        Wrapper(ts: self)
     }
 }
 
+
 @propertyWrapper
-public class RWLockWrapper<T> {
+public class RWThreadSafe<T> {
     
-    private var mutex = pthread_rwlock_t()
+    public class Wrapper<K: RWThreadSafe<T>> {
+        let ts: K
+        init(ts: K) {
+            self.ts = ts
+        }
+        
+        @discardableResult
+        func read<R>(_ closure: (inout T) throws -> R) rethrows -> R {
+            try ts.read(closure)
+        }
+        
+        @discardableResult
+        func write<R>(_ closure: (inout T) throws -> R) rethrows -> R {
+            try ts.write(closure)
+        }
+    }
+    
+    private var _lock = ReadWriteLock()
     
     public var _wrappedValue: T
     public var wrappedValue: T {
         set {
             defer {
-                pthread_rwlock_unlock(&mutex)
+                _lock.unlock()
             }
-            pthread_rwlock_wrlock(&mutex)
+            _lock.writeLock()
             _wrappedValue = newValue
         }
         get {
             defer {
-                pthread_rwlock_unlock(&mutex)
+                _lock.unlock()
             }
-            pthread_rwlock_rdlock(&mutex)
+            _lock.readLock()
             return _wrappedValue
         }
     }
 
     public init(wrappedValue: T) {
-        pthread_rwlock_init(&mutex, nil)
         _wrappedValue = wrappedValue
     }
     
-    deinit {
-        pthread_rwlock_destroy(&mutex)
+    fileprivate func read<R>(_ closure: (inout T) throws -> R) rethrows -> R {
+        try _lock.read {
+            try closure(&_wrappedValue)
+        }
+    }
+    
+    fileprivate func write<R>(_ closure: (inout T) throws -> R) rethrows -> R {
+        try _lock.write {
+            try closure(&_wrappedValue)
+        }
+    }
+    
+    public var projectedValue: Wrapper<RWThreadSafe<T>> {
+        return Wrapper(ts: self)
     }
 }
