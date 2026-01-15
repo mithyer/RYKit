@@ -117,6 +117,12 @@ extension Dictionary {
             convert(value: $0, toType: type)
         }
     }
+    
+    @inlinable public mutating func removeAll(where shouldBeRemoved: (Element) throws -> Bool) rethrows {
+        self = try filter { element in
+            !(try shouldBeRemoved(element))
+        }
+    }
 }
 
 
