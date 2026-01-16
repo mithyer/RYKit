@@ -34,20 +34,24 @@ extension Publisher where Failure == Never {
                                        options: T.SchedulerOptions? = nil,
                                        timeout: T.SchedulerTimeType.Stride,
                                        result: @escaping (Result<Output, TimeoutError>) -> Void) -> AnyCancellable {
-        setFailureType(to: TimeoutError.self).first(where: {
-            until($0)
-        }).timeout(timeout, scheduler: scheduler, options: options)
+        let valuePublisher = self
+            .setFailureType(to: TimeoutError.self)
+            .first(where: until)
+            .map { Result<Output, TimeoutError>.success($0) }
+        
+        let timeoutPublisher = Just(Result<Output, TimeoutError>.failure(TimeoutError()))
+            .delay(for: timeout, scheduler: scheduler)
+            .setFailureType(to: TimeoutError.self)
+        
+        return Publishers.Merge(valuePublisher, timeoutPublisher)
+            .first()
             .receive(on: scheduler)
-            .sink { res in
-            switch res {
-            case .finished:
-                break
-            case .failure(let err):
-                result(.failure(err))
-            }
-        } receiveValue: { output in
-            result(.success(output))
-        }
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { res in
+                    result(res)
+                }
+            )
     }
     
     public func waitOnce<T: Scheduler>(until: @escaping (Output) -> Bool = {_ in true},
