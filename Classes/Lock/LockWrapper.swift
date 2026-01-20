@@ -106,7 +106,7 @@ public class RWThreadSafe<T> {
     
     private var _lock = ReadWriteLock()
     
-    public var _wrappedValue: T
+    private var _wrappedValue: T
     public var wrappedValue: T {
         set {
             defer {

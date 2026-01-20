@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class TimeReadWritLock {
+public class TimeReadWriteLock {
     private var r_semaphore = DispatchSemaphore(value: 1)
     private var w_semaphore = DispatchSemaphore(value: 1)
     private var r_count = 0

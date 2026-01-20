@@ -799,7 +799,7 @@ extension Result where Failure == HttpRequest.ResponseError {
     }
 }
 
-extension Result: @retroactive Codable where Failure == HttpRequest.ResponseError, Success: Codable {
+extension Result where Failure == HttpRequest.ResponseError, Success: Codable {
     
     enum CodingKeys: String, CodingKey {
             case success
