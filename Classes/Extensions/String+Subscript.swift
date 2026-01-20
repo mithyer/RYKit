@@ -7,7 +7,7 @@
 
 extension String {
 
-    subscript(_ range: Range<Int>) -> Substring {
+    public subscript(_ range: Range<Int>) -> Substring {
         let lower = max(0, range.lowerBound)
         let upper = min(self.count, range.upperBound)
 
@@ -19,7 +19,7 @@ extension String {
         return self[startIndex..<endIndex]
     }
 
-    subscript(_ range: ClosedRange<Int>) -> Substring {
+    public subscript(_ range: ClosedRange<Int>) -> Substring {
         let lower = max(0, range.lowerBound)
         let upper = min(self.count - 1, range.upperBound)
 
@@ -31,12 +31,12 @@ extension String {
         return self[startIndex...endIndex]
     }
     
-    subscript(_ range: Range<Int>) -> String {
+    public subscript(_ range: Range<Int>) -> String {
         let sub: Substring = self[range]
         return String(sub)
     }
 
-    subscript(_ range: ClosedRange<Int>) -> String {
+    public subscript(_ range: ClosedRange<Int>) -> String {
         let sub: Substring = self[range]
         return String(sub)
     }
