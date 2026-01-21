@@ -19,9 +19,8 @@ public class LinkedList<T>: CustomStringConvertible {
     
     private var headNode: Node<T>?
     private weak var tailNode: Node<T>?
-    public private(set) var count = 0
-    
-    public var isEmpty: Bool {
+    private(set) var count: Int = 0
+    var isEmpty: Bool {
         return headNode == nil
     }
     
@@ -149,67 +148,57 @@ public class LinkedList<T>: CustomStringConvertible {
     }
 }
 
-public class ThreadSafeLinkedList<T>: LinkedList<T> {
+public class ThreadSafeLinkedList<T> {
     
-    public let rwLock = ReadWriteLock()
-    
-    public override var isEmpty: Bool {
-        rwLock.read {
-            super.isEmpty
-        }
-    }
-    
-    public override var head: T? {
-        rwLock.read {
-            super.head
-        }
-    }
-    
-    public override var tail: T? {
-        rwLock.read {
-            super.tail
-        }
-    }
-    
-    public override func prepend(_ value: T) {
-        rwLock.write {
-            super.prepend(value)
-        }
-    }
-    
-    public override func append(_ value: T) {
-        rwLock.write {
-            super.append(value)
-        }
-    }
-    
-    public override func insert(_ value: T, at index: Int) {
-        rwLock.write {
-            super.insert(value, at: index)
-        }
-    }
-    
-    public override func removeHead() -> T? {
-        rwLock.write {
-            super.removeHead()
-        }
-    }
-    
-    public override func removeAll() {
-        rwLock.write {
-            super.removeAll()
-        }
-    }
-    
-    public override func remove(at index: Int) -> T? {
-        rwLock.write {
-            super.remove(at: index)
-        }
-    }
-    
-    public override func value(at index: Int) -> T? {
-        rwLock.read {
-            super.value(at: index)
-        }
-    }
-}
+      private let list = LinkedList<T>()
+      private let rwLock = ReadWriteLock()
+
+      public var isEmpty: Bool {
+          rwLock.read { list.isEmpty }
+      }
+
+      public var count: Int {
+          rwLock.read { list.count }
+      }
+
+      public var head: T? {
+          rwLock.read { list.head }
+      }
+
+      public var tail: T? {
+          rwLock.read { list.tail }
+      }
+
+      public func prepend(_ value: T) {
+          rwLock.write { list.prepend(value) }
+      }
+
+      public func append(_ value: T) {
+          rwLock.write { list.append(value) }
+      }
+
+      public func insert(_ value: T, at index: Int) {
+          rwLock.write { list.insert(value, at: index) }
+      }
+
+      public func removeHead() -> T? {
+          rwLock.write { list.removeHead() }
+      }
+
+      public func removeAll() {
+          rwLock.write { list.removeAll() }
+      }
+
+      public func remove(at index: Int) -> T? {
+          rwLock.write { list.remove(at: index) }
+      }
+
+      public func value(at index: Int) -> T? {
+          rwLock.read { list.value(at: index) }
+      }
+
+      public var description: String {
+          rwLock.read { list.description }
+      }
+  }
+
