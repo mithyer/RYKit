@@ -12,7 +12,7 @@ public struct IgnoreValue<T>: Codable, CustomStringConvertible {
     public var wrappedValue: T?
     
     public var description: String {
-        return "\(String(describing: wrappedValue))"
+        String(describing: wrappedValue)
     }
     
     public init(wrappedValue: T?) {

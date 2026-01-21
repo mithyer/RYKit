@@ -21,7 +21,7 @@ public struct DefaultValue<Provider: DefaultValueProvider>: Codable, CustomStrin
     }
 
     public var description: String {
-        return "\(wrappedValue)"
+        String(describing: wrappedValue)
     }
     
     public init() {

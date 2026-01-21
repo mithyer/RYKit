@@ -16,7 +16,7 @@ public struct ExistValue<T: Codable>: Codable, CustomStringConvertible {
     }
     
     public var description: String {
-        return "\(wrappedValue)"
+        String(describing: wrappedValue)
     }
     
     public init(wrappedValue: T) {

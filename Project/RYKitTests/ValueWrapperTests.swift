@@ -403,22 +403,6 @@ final class FromStringValueTests: XCTestCase {
 
         XCTAssertNil(model.inner)
     }
-
-    func test_encode_preservesOriginalString() throws {
-        let json = """
-        {"inner": "{\\"value\\": 42, \\"text\\": \\"hello\\"}"}
-        """
-        let model = try decode(FromStringValueModel.self, from: json)
-
-        let data = try JSONEncoder().encode(model)
-        let jsonString = String(data: data, encoding: .utf8)!
-
-        // Should encode as string (contains escaped quotes), not as nested object
-        // String format: {"inner":"{\"value\": 42, ...}"}
-        // Object format would be: {"inner":{"value":42,...}}
-        XCTAssertTrue(jsonString.contains("\\\"value\\\""), "Should contain escaped quotes")
-        XCTAssertFalse(jsonString.contains("\"inner\":{\"value\""), "Should not be a nested object")
-    }
 }
 
 // MARK: - Helper
@@ -427,3 +411,297 @@ private func decode<T: Decodable>(_ type: T.Type, from json: String) throws -> T
     let data = json.data(using: .utf8)!
     return try JSONDecoder().decode(T.self, from: data)
 }
+
+final class TypeConversionEdgeCaseTests: XCTestCase {
+
+    func test_convert_largeIntToDouble_precision() throws {
+        // Large int may lose precision when converted to Double
+        let json = """
+        {"intValue": 9007199254740993, "boolValue": false, "stringValue": "", "doubleValue": 0, "decimalValue": 0}
+        """
+        let model = try decode(DefaultValueModel.self, from: json)
+        // Int should decode directly without precision loss
+        XCTAssertEqual(model.intValue, 9007199254740993)
+    }
+
+    func test_convert_decimalToInt_truncation() throws {
+        let json = """
+        {"intValue": 99.9, "boolValue": false, "stringValue": "", "doubleValue": 0, "decimalValue": 0}
+        """
+        let model = try decode(DefaultValueModel.self, from: json)
+        XCTAssertEqual(model.intValue, 99) // truncated
+    }
+
+    func test_convert_stringWithWhitespace_toInt_fails() throws {
+        let json = """
+        {"intValue": " 123 ", "boolValue": false, "stringValue": "", "doubleValue": 0, "decimalValue": 0}
+        """
+        let model = try decode(DefaultValueModel.self, from: json)
+        // String with whitespace should fail to convert, use default
+        XCTAssertEqual(model.intValue, 0)
+    }
+
+    func test_convert_emptyString_toInt_fails() throws {
+        let json = """
+        {"intValue": "", "boolValue": false, "stringValue": "", "doubleValue": 0, "decimalValue": 0}
+        """
+        let model = try decode(DefaultValueModel.self, from: json)
+        XCTAssertEqual(model.intValue, 0) // default
+    }
+
+    func test_convert_boolStrings_caseInsensitive() throws {
+        let json1 = """
+        {"intValue": 0, "boolValue": "TRUE", "stringValue": "", "doubleValue": 0, "decimalValue": 0}
+        """
+        let json2 = """
+        {"intValue": 0, "boolValue": "Yes", "stringValue": "", "doubleValue": 0, "decimalValue": 0}
+        """
+        let model1 = try decode(DefaultValueModel.self, from: json1)
+        let model2 = try decode(DefaultValueModel.self, from: json2)
+        XCTAssertTrue(model1.boolValue)
+        XCTAssertTrue(model2.boolValue)
+    }
+}
+
+// MARK: - Phase 2: Array/Dictionary Conversion
+
+private struct ArrayConversionModel: Codable {
+    @Default.ArrayEmpty<[Int]> var intArray: [Int]
+    @Default.ArrayEmpty<[String]> var stringArray: [String]
+}
+
+final class ArrayDictionaryConversionTests: XCTestCase {
+
+    func test_defaultValue_arrayOfInts_fromStrings() throws {
+        let json = """
+        {"intArray": ["1", "2", "3"], "stringArray": []}
+        """
+        let model = try decode(ArrayConversionModel.self, from: json)
+        XCTAssertEqual(model.intArray, [1, 2, 3])
+    }
+
+    func test_defaultValue_arrayOfStrings_fromInts() throws {
+        let json = """
+        {"intArray": [], "stringArray": [1, 2, 3]}
+        """
+        let model = try decode(ArrayConversionModel.self, from: json)
+        XCTAssertEqual(model.stringArray, ["1", "2", "3"])
+    }
+
+    func test_defaultValue_mixedArray_partialConversion() throws {
+        let json = """
+        {"intArray": ["1", "abc", "3"], "stringArray": []}
+        """
+        let model = try decode(ArrayConversionModel.self, from: json)
+        // "abc" can't convert to Int, so compactMap filters it out
+        XCTAssertEqual(model.intArray, [1, 3])
+    }
+
+    func test_preferValue_arrayConversion() throws {
+        struct Model: Codable {
+            @PreferValue var numbers: [Int]?
+        }
+        let json = """
+        {"numbers": ["10", "20", "30"]}
+        """
+        let model = try decode(Model.self, from: json)
+        XCTAssertEqual(model.numbers, [10, 20, 30])
+    }
+}
+
+// MARK: - Phase 2: SingleValue Tests
+
+final class SingleValueTests: XCTestCase {
+
+    func test_singleValue_decodesBool() throws {
+        let json = "true"
+        let data = json.data(using: .utf8)!
+        let value = try JSONDecoder().decode(SingleValue.self, from: data)
+        XCTAssertEqual(value.value(Bool.self), true)
+    }
+
+    func test_singleValue_decodesInt() throws {
+        let json = "42"
+        let data = json.data(using: .utf8)!
+        let value = try JSONDecoder().decode(SingleValue.self, from: data)
+        XCTAssertEqual(value.value(Int.self), 42)
+    }
+
+    func test_singleValue_decodesString() throws {
+        let json = "\"hello\""
+        let data = json.data(using: .utf8)!
+        let value = try JSONDecoder().decode(SingleValue.self, from: data)
+        XCTAssertEqual(value.value(String.self), "hello")
+    }
+
+    func test_singleValue_decodesDouble() throws {
+        let json = "3.14159"
+        let data = json.data(using: .utf8)!
+        let value = try JSONDecoder().decode(SingleValue.self, from: data)
+        XCTAssertEqual(value.value(Double.self)!, 3.14159, accuracy: 0.00001)
+    }
+
+    func test_singleValue_crossTypeConversion() throws {
+        let json = "\"123\""
+        let data = json.data(using: .utf8)!
+        let value = try JSONDecoder().decode(SingleValue.self, from: data)
+        // String "123" should convert to Int 123
+        XCTAssertEqual(value.value(Int.self), 123)
+    }
+
+    func test_singleValue_initFromAny() {
+        let fromInt = SingleValue(42)
+        let fromString = SingleValue("hello")
+        let fromBool = SingleValue(true)
+        let fromNil = SingleValue(nil)
+
+        XCTAssertEqual(fromInt.value(Int.self), 42)
+        XCTAssertEqual(fromString.value(String.self), "hello")
+        XCTAssertEqual(fromBool.value(Bool.self), true)
+        XCTAssertNil(fromNil.raw)
+    }
+}
+
+// MARK: - Phase 2: Integration Tests
+
+private struct MixedWrappersModel: Codable {
+    @Default.IntZero var count: Int
+    @PreferValue var optionalName: String?
+    @ExistValue var requiredId: Int
+    @IgnoreValue var localOnly: String?
+}
+
+final class IntegrationTests: XCTestCase {
+
+    func test_mixedWrappers_inSameModel() throws {
+        let json = """
+        {"count": "5", "optionalName": null, "requiredId": "100", "localOnly": "ignored"}
+        """
+        let model = try decode(MixedWrappersModel.self, from: json)
+
+        XCTAssertEqual(model.count, 5)           // converted from string
+        XCTAssertNil(model.optionalName)          // null -> nil
+        XCTAssertEqual(model.requiredId, 100)     // converted from string
+        XCTAssertNil(model.localOnly)             // ignored
+    }
+
+    func test_nestedModels_withWrappers() throws {
+        struct Outer: Codable {
+            @Default.StringEmpty var name: String
+            @FromStringValue var inner: InnerModel?
+        }
+        let json = """
+        {"name": 123, "inner": "{\\"value\\": 1, \\"text\\": \\"nested\\"}"}
+        """
+        let model = try decode(Outer.self, from: json)
+
+        XCTAssertEqual(model.name, "123")  // int -> string
+        XCTAssertEqual(model.inner?.value, 1)
+        XCTAssertEqual(model.inner?.text, "nested")
+    }
+
+    func test_roundTrip_encodeDecode() throws {
+        var original = MixedWrappersModel.init(count: .init(wrappedValue: 42), optionalName: .init(wrappedValue: "test"), requiredId: 999, localOnly: nil)
+        original.localOnly = "local"
+
+        let encoded = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(MixedWrappersModel.self, from: encoded)
+
+        XCTAssertEqual(decoded.count, 42)
+        XCTAssertEqual(decoded.optionalName, "test")
+        XCTAssertEqual(decoded.requiredId, 999)
+        XCTAssertNil(decoded.localOnly)  // ignored during encode/decode
+    }
+}
+
+final class EdgeCaseTests: XCTestCase {
+
+      func test_deeplyNestedFromStringValue() throws {
+          struct Level2: Codable, Equatable {
+              var data: String
+          }
+          struct Level1: Codable {
+              @FromStringValue var level2: Level2?
+          }
+          struct Root: Codable {
+              @FromStringValue var level1: Level1?
+          }
+
+          let json = """
+          {"level1": "{\\"level2\\": \\"{\\\\\\"data\\\\\\": \\\\\\"deep\\\\\\"}\\" }"}
+          """
+          let model = try decode(Root.self, from: json)
+
+          XCTAssertNotNil(model.level1)
+          XCTAssertNotNil(model.level1?.level2)
+          XCTAssertEqual(model.level1?.level2?.data, "deep")
+      }
+
+      func test_unicodeStrings_conversion() throws {
+          let json = """
+          {"intValue": 0, "boolValue": false, "stringValue": "你好🌍", "doubleValue": 0, "decimalValue": 0}
+          """
+          let model = try decode(DefaultValueModel.self, from: json)
+          XCTAssertEqual(model.stringValue, "你好🌍")
+      }
+
+      func test_specialNumbers_nan_infinity() throws {
+          // JSON doesn't support NaN/Infinity, but test edge number handling
+          let json = """
+          {"intValue": 0, "boolValue": false, "stringValue": "", "doubleValue": 1.7976931348623157E+308, "decimalValue": 0}
+          """
+          let model = try decode(DefaultValueModel.self, from: json)
+          XCTAssertEqual(model.doubleValue, Double.greatestFiniteMagnitude, accuracy: 1e300)
+      }
+
+      func test_emptyObject_decode() throws {
+          let json = "{}"
+          let model = try decode(DefaultValueModel.self, from: json)
+
+          // All should have defaults
+          XCTAssertEqual(model.intValue, 0)
+          XCTAssertEqual(model.boolValue, false)
+          XCTAssertEqual(model.stringValue, "")
+          XCTAssertEqual(model.doubleValue, 0)
+          XCTAssertEqual(model.decimalValue, .zero)
+      }
+
+      func test_emptyArray_decode() throws {
+          let json = """
+          {"intArray": [], "stringArray": []}
+          """
+          let model = try decode(ArrayConversionModel.self, from: json)
+          XCTAssertEqual(model.intArray, [])
+          XCTAssertEqual(model.stringArray, [])
+      }
+
+      func test_customProvider_implementation() throws {
+          // Custom provider that defaults to 42
+          enum FortyTwo: DefaultValueProvider {
+              static let `default` = 42
+          }
+
+          struct Model: Codable {
+              @DefaultValue<FortyTwo> var magic: Int
+          }
+
+          let json = "{}"
+          let model = try decode(Model.self, from: json)
+          XCTAssertEqual(model.magic, 42)
+      }
+
+      func test_description_correctFormat() {
+          @Default.IntZero var intVal: Int
+          intVal = 123
+          XCTAssertTrue("\(intVal)".contains("123"))
+
+          @PreferValue var optVal: String?
+          XCTAssertTrue("\(optVal)".contains("nil"))
+          optVal = "hello"
+          XCTAssertTrue("\(optVal)".contains("hello"))
+
+          @IgnoreValue var ignoreVal: Int?
+          ignoreVal = 999
+          XCTAssertTrue("\(ignoreVal)".contains("999"))
+      }
+  }

@@ -19,10 +19,7 @@ public struct FromStringValue<T: Codable>: Codable, CustomStringConvertible {
     }
     
     public var description: String {
-        if let wrappedValue {
-            return "\(wrappedValue)"
-        }
-        return "nil"
+        String(describing: wrappedValue)
     }
     
     public init() {}

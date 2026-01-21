@@ -543,3 +543,202 @@ final class TimeReadWriteLockTests: XCTestCase {
         lock.readUnlock()
     }
 }
+
+// MARK: - Edge Cases
+
+  final class LockEdgeCaseTests: XCTestCase {
+
+      func test_readWriteLock_tryReadLock_whenWriteLocked() {
+          let lock = ReadWriteLock()
+          lock.writeLock()
+
+          let expectation = expectation(description: "tryReadLock")
+          var result = true
+
+          DispatchQueue.global().async {
+              result = lock.tryReadLock()
+              expectation.fulfill()
+          }
+
+          wait(for: [expectation], timeout: 1.0)
+          XCTAssertFalse(result)
+          lock.unlock()
+      }
+
+      func test_readWriteLock_tryWriteLock_whenReadLocked() {
+          let lock = ReadWriteLock()
+          lock.readLock()
+
+          let expectation = expectation(description: "tryWriteLock")
+          var result = true
+
+          DispatchQueue.global().async {
+              result = lock.tryWriteLock()
+              expectation.fulfill()
+          }
+
+          wait(for: [expectation], timeout: 1.0)
+          XCTAssertFalse(result)
+          lock.unlock()
+      }
+
+      func test_threadSafe_with_reference_type() {
+          class Counter {
+              var value = 0
+          }
+
+          @ThreadSafe var counter = Counter()
+          let iterations = 1000
+          let threads = 10
+          let expectation = expectation(description: "all done")
+          expectation.expectedFulfillmentCount = threads
+
+          for _ in 0..<threads {
+              DispatchQueue.global().async {
+                  for _ in 0..<iterations {
+                      $counter.lock { $0.value += 1 }
+                  }
+                  expectation.fulfill()
+              }
+          }
+
+          wait(for: [expectation], timeout: 10.0)
+          XCTAssertEqual(counter.value, threads * iterations)
+      }
+
+      func test_rwThreadSafe_read_during_write() {
+          @RWThreadSafe var value = 0
+          let writeStarted = DispatchSemaphore(value: 0)
+          let writeDone = DispatchSemaphore(value: 0)
+
+          // Writer holds lock
+          DispatchQueue.global().async {
+              $value.write { v in
+                  writeStarted.signal()
+                  Thread.sleep(forTimeInterval: 0.2)
+                  v = 42
+              }
+              writeDone.signal()
+          }
+
+          writeStarted.wait()
+
+          // Reader should block until write completes
+          let start = Date()
+          let readValue = $value.read { $0 }
+          let elapsed = Date().timeIntervalSince(start)
+
+          writeDone.wait()
+
+          XCTAssertEqual(readValue, 42)
+          XCTAssertGreaterThan(elapsed, 0.1) // Was blocked
+      }
+  }
+
+  // MARK: - Performance Benchmarks
+
+  final class LockPerformanceTests: XCTestCase {
+
+      func test_performance_unfairLock_vs_nslock() {
+          let unfairLock = UnfairLock()
+          let nsLock = NSLock()
+          let iterations = 100_000
+
+          measure {
+              for _ in 0..<iterations {
+                  unfairLock.lock()
+                  unfairLock.unlock()
+              }
+          }
+
+          // Baseline comparison (not asserted, just for reference)
+          let start = Date()
+          for _ in 0..<iterations {
+              nsLock.lock()
+              nsLock.unlock()
+          }
+          let nsLockTime = Date().timeIntervalSince(start)
+          print("NSLock time: \(nsLockTime)s")
+      }
+
+      func test_performance_readWriteLock_readHeavy() {
+          let lock = ReadWriteLock()
+          var value = 0
+
+          measure {
+              DispatchQueue.concurrentPerform(iterations: 1000) { i in
+                  if i % 10 == 0 {
+                      lock.write { value += 1 }
+                  } else {
+                      _ = lock.read { value }
+                  }
+              }
+          }
+      }
+
+      func test_performance_readWriteLock_writeHeavy() {
+          let lock = ReadWriteLock()
+          var value = 0
+
+          measure {
+              DispatchQueue.concurrentPerform(iterations: 1000) { i in
+                  if i % 10 == 0 {
+                      _ = lock.read { value }
+                  } else {
+                      lock.write { value += 1 }
+                  }
+              }
+          }
+      }
+
+      func test_performance_threadSafe_highContention() {
+          @ThreadSafe var counter = 0
+
+          measure {
+              DispatchQueue.concurrentPerform(iterations: 10000) { _ in
+                  $counter.lock { $0 += 1 }
+              }
+          }
+      }
+  }
+
+  // MARK: - Stress Tests
+
+  final class LockStressTests: XCTestCase {
+
+      func test_stress_100threads_10000iterations() {
+          @ThreadSafe var counter = 0
+          let threads = 100
+          let iterations = 10000
+          let expectation = expectation(description: "stress test")
+          expectation.expectedFulfillmentCount = threads
+
+          for _ in 0..<threads {
+              DispatchQueue.global().async {
+                  for _ in 0..<iterations {
+                      $counter.lock { $0 += 1 }
+                  }
+                  expectation.fulfill()
+              }
+          }
+
+          wait(for: [expectation], timeout: 60.0)
+          XCTAssertEqual(counter, threads * iterations)
+      }
+
+      func test_stress_rapid_lock_unlock() {
+          let lock = UnfairLock()
+          let iterations = 1_000_000
+
+          let start = Date()
+          for _ in 0..<iterations {
+              lock.lock()
+              lock.unlock()
+          }
+          let elapsed = Date().timeIntervalSince(start)
+
+          // Should complete in reasonable time (< 5 seconds)
+          XCTAssertLessThan(elapsed, 5.0)
+          print("Rapid lock/unlock: \(iterations) iterations in \(elapsed)s")
+      }
+  }
