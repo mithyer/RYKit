@@ -8,7 +8,7 @@ import Foundation
 
 fileprivate var associatedDictionaryKey: Int = 0
 
-public protocol Associatable: AnyObject {
+public protocol Associatable: AnyObject, RYProtocol {
     
     func associated<T>(_ key: String, initializer: @autoclosure () -> T) -> T
     func associated<T>(_ key: String) -> T?

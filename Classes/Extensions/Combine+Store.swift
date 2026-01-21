@@ -8,9 +8,9 @@
 import Foundation
 import Combine
 
-fileprivate extension Associatable where Self: AnyObject {
+extension Associatable where Self: AnyObject {
     
-    var cancellableDic: [String: AnyCancellable] {
+    fileprivate var cancellableDic: [String: AnyCancellable] {
         get {
             associated(initializer: [String: AnyCancellable]())
         }
@@ -46,7 +46,7 @@ fileprivate extension AnyCancellable {
 
 extension AnyCancellable: RYProtocol {}
 
-public extension RYObject<AnyCancellable> {
+public extension RYObject where T: AnyCancellable {
     
     func store<K: AnyObject & Associatable>(to obj: K, with key: String? = nil, doNotStoreIfHasSameKey: Bool = false) {
         refer.store(to: obj, with: key, doNotStoreIfHasSameKey: doNotStoreIfHasSameKey)
@@ -57,10 +57,11 @@ public extension RYObject<AnyCancellable> {
     }
 }
 
-public extension RYObject where T: AnyObject & Associatable {
+public extension RYObject where T: Associatable {
     
     func removeCancellable(_ key: String) {
         refer.cancellableDic[key]?.cancel()
         refer.cancellableDic.removeValue(forKey: key)
     }
 }
+
