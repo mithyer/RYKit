@@ -6,7 +6,7 @@
 //
 
 import Foundation
-
+import os
 // MARK: - 使用示例
 /*
  // 示例 1：记录字符串内容
@@ -33,9 +33,10 @@ import Foundation
 /// 日志记录类
 public class LogRecorder {
     
-    // MARK: - 单例
-    public static let shared = LogRecorder(logNamePrefix: "global_shared")
-    
+    public enum LogStyle {
+        case json, plainText
+    }
+        
     // MARK: - 私有属性
     private let logNamePrefix: String
     private let fileManager = FileManager.default
@@ -49,7 +50,7 @@ public class LogRecorder {
     public init(logNamePrefix: String) {
         self.logNamePrefix = logNamePrefix
         dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZ"
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS ZZZZZ"
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.timeZone = TimeZone.current
     }
@@ -61,7 +62,7 @@ public class LogRecorder {
     ///   - content: 需要记录的内容（任何遵循 Encodable 的类型）
     ///   - key: 日志的键
     ///   - minIntervalBetweenSameKey: 相同 key 写入的最小时间间隔，nil 表示不限制
-    public func saveLog<T: Encodable>(content: T, key: String, minIntervalBetweenSameKey: TimeInterval? = nil) {
+    public func printAndSaveLog<T: Encodable>(content: @escaping @autoclosure () -> T, style: LogStyle, key: String, minIntervalBetweenSameKey: TimeInterval? = nil, file: String = #fileID, line: Int = #line, function: String = #function) {
         queue.async { [weak self] in
             guard let self = self else { return }
             
@@ -70,30 +71,36 @@ public class LogRecorder {
                 if let lastWriteTime = self.lastWriteTimestamps[key] {
                     let timeInterval = Date().timeIntervalSince(lastWriteTime)
                     if timeInterval < minInterval {
-                        print("日志写入被跳过：key '\(key)' 距离上次写入时间不足 \(minInterval) 秒")
+                        // 日志写入被跳过：key  距离上次写入时间不足 minInterval 秒
                         return
                     }
                 }
             }
             
-            // 获取或创建日志文件
-            guard let fileURL = self.getOrCreateLogFile() else {
-                print("无法创建日志文件")
-                return
-            }
-            
             // 构建日志条目
             let now = Date()
-            let logEntry = LogEntry(key: key, date: self.dateFormatter.string(from: now), timestamp: Int(now.timeIntervalSince1970), content: content, log_index: logCount)
+            let logEntry = LogEntry(key: key, date: self.dateFormatter.string(from: now), content: content(), log_index: logCount, from: "[\(file):\(line)] \(function)")
             
-            // 将日志条目转换为 JSON
-            guard let jsonData = self.encodeLogEntry(logEntry) else {
-                print("日志编码失败")
+            var data: Data?
+            if style == .json {
+                data = self.encodeLogEntry(logEntry)
+            }
+            if let data {
+                print(String(data: data, encoding: .utf8) ?? "")
+            } else {
+                let str = "\(logEntry)\n"
+                data = str.data(using: .utf8)
+                print(str)
+            }
+            
+            // 获取或创建日志文件
+            guard let fileURL = self.getOrCreateLogFile() else {
+                // 无法创建日志文件
                 return
             }
             
             // 写入文件
-            if self.writeToFile(data: jsonData, fileURL: fileURL) {
+            if self.writeToFile(data: data!, fileURL: fileURL) {
                 // 更新最后写入时间
                 self.lastWriteTimestamps[key] = Date()
                 logCount += 1
@@ -123,7 +130,7 @@ public class LogRecorder {
         fileNameFormatter.timeZone = TimeZone.current
         
         let fileName = "\(fileNameFormatter.string(from: Date())).json"
-        let fileURL = documentsDirectory.appendingPathComponent("RYKitLogs\(logNamePrefix)\(fileName)")
+        let fileURL = documentsDirectory.appendingPathComponent("/RYKitLogs/\(logNamePrefix)_\(fileName)")
         
         // 如果文件不存在，创建文件并写入初始内容
         if !fileManager.fileExists(atPath: fileURL.path) {
@@ -194,12 +201,22 @@ public class LogRecorder {
     }
 }
 
+private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS ZZZZZ"
+    return formatter
+}()
+
 // MARK: - 日志条目模型
-private struct LogEntry<T: Encodable>: Encodable {
+private struct LogEntry<T: Encodable>: Encodable, CustomStringConvertible {
     let key: String
     let date: String
-    let timestamp: Int
     let content: T
     let log_index: Int
+    let from: String
+
+    var description: String {
+        "[\(key)] \(date)<\(log_index)> \(from): \(content)"
+    }
 }
 
