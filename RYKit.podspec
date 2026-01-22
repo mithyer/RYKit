@@ -53,6 +53,10 @@ Pod::Spec.new do |s|
     ss.source_files = 'Classes/ValueWrapper/*'
   end
 
+  s.subspec 'Collections' do |ss|
+    ss.source_files = 'Classes/Collections/*'
+  end
+
   s.subspec 'TimeoutTask' do |ss|
     ss.source_files = 'Classes/TimeoutTask/*'
   end
