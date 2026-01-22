@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'RYKit'
-  s.version          = '2.0.6'
+  s.version          = '2.0.7'
   s.summary          = 'RYKit...'
   s.description      = 'RYKit.....'
   s.homepage         = 'https://github.com/mithyer/RYKit'
@@ -22,42 +22,39 @@ Pod::Spec.new do |s|
   s.swift_version    = '5.0'
   s.source_files = 'Classes/RYKit.swift'
 
-  s.subspec 'Log' do |ss|
-    ss.source_files = 'Classes/Log/**/*'
-  end
-
-  s.subspec 'Capables' do |ss|
-    ss.source_files = 'Classes/Capables/**/*'
-  end
-
-  s.subspec 'Extensions' do |ss|
-    ss.source_files = 'Classes/Extensions/**/*'
-  end
-
-  s.subspec 'Http' do |ss|
-    ss.source_files = 'Classes/Http/**/*'
-  end
-
-  s.subspec 'Lock' do |ss|
-    ss.source_files = 'Classes/Lock/**/*'
-  end
-
-  s.subspec 'Stomp' do |ss|
-    ss.source_files = 'Classes/Stomp/*'
-    ss.subspec 'Vendor' do |vendor|
-      vendor.source_files = 'Classes/Stomp/SwiftStomp/**/*'
+  s.subspec 'Network' do |s1|
+    s1.subspec 'Http' do |ss|
+      ss.source_files = 'Classes/Http/**/*'
+    end
+    s1.subspec 'Stomp' do |ss|
+      ss.source_files = 'Classes/Stomp/*'
+      ss.subspec 'Vendor' do |vendor|
+        vendor.source_files = 'Classes/Stomp/SwiftStomp/**/*'
+      end
     end
   end
 
-  s.subspec 'ValueWrapper' do |ss|
-    ss.source_files = 'Classes/ValueWrapper/*'
-  end
-
-  s.subspec 'Collections' do |ss|
-    ss.source_files = 'Classes/Collections/*'
-  end
-
-  s.subspec 'TimeoutTask' do |ss|
-    ss.source_files = 'Classes/TimeoutTask/*'
+  s.subspec 'Base' do |s1|
+    s1.subspec 'Log' do |ss|
+      ss.source_files = 'Classes/Log/**/*'
+    end
+    s1.subspec 'Capables' do |ss|
+      ss.source_files = 'Classes/Capables/**/*'
+    end
+    s1.subspec 'Extensions' do |ss|
+      ss.source_files = 'Classes/Extensions/**/*'
+    end
+    s1.subspec 'Lock' do |ss|
+      ss.source_files = 'Classes/Lock/**/*'
+    end
+    s1.subspec 'ValueWrapper' do |ss|
+      ss.source_files = 'Classes/ValueWrapper/*'
+    end
+    s1.subspec 'Collections' do |ss|
+      ss.source_files = 'Classes/Collections/*'
+    end
+    s1.subspec 'TimeoutTask' do |ss|
+      ss.source_files = 'Classes/TimeoutTask/*'
+    end
   end
 end
