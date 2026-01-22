@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'RYKit'
-  s.version          = '2.0.5'
+  s.version          = '2.0.6'
   s.summary          = 'RYKit...'
   s.description      = 'RYKit.....'
   s.homepage         = 'https://github.com/mithyer/RYKit'
@@ -51,5 +51,9 @@ Pod::Spec.new do |s|
 
   s.subspec 'ValueWrapper' do |ss|
     ss.source_files = 'Classes/ValueWrapper/*'
+  end
+
+  s.subspec 'TimeoutTask' do |ss|
+    ss.source_files = 'Classes/TimeoutTask/*'
   end
 end
