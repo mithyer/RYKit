@@ -13,6 +13,9 @@ import XCTest
 final class LinkedListTests: XCTestCase {
     
     func test_init_isEmpty() {
+        log_err("err 1")
+        log_err("err 2")
+        log_err("err 3")
         let list = LinkedList<Int>()
         XCTAssertTrue(list.isEmpty)
         XCTAssertEqual(list.count, 0)

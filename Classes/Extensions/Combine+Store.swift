@@ -59,7 +59,7 @@ public extension RYObject where T: AnyCancellable {
 
 public extension RYObject where T: Associatable {
     
-    func removeCancellable(_ key: String) {
+    func cancelSubject(for key: String) {
         refer.cancellableDic[key]?.cancel()
         refer.cancellableDic.removeValue(forKey: key)
     }

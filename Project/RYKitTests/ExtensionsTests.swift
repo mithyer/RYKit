@@ -277,9 +277,9 @@ final class CombineStoreTests: XCTestCase {
             .ry.store(to: holder, with: "removable")
         
         subject.send(1)
-        holder.ry.removeCancellable("removable")
-        subject.send(2)
+        holder.ry.cancelSubject(for: "removable")
         
+        subject.send(2)
         XCTAssertEqual(received, [1])
     }
 }
