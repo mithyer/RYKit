@@ -15,7 +15,7 @@ public class OnceTimeoutTaskQueue<T, E: Error>: Queue<OnceTimeoutTask<T, E>> {
     private var paused: Bool = false
     private let lock = UnfairLock()
     
-    init(executeQueue: DispatchQueue) {
+    public init(executeQueue: DispatchQueue) {
         self.executeQueue = executeQueue
     }
     
