@@ -6,9 +6,9 @@
 
 # HOW TO USE
 
-`
+```ruby
 pod 'RYKit', :git => 'https://github.com/mithyer/RYKit.git', :tag => '2.0.7'
-`
+```
 
 <a name="english"></a>
 ## English
@@ -17,7 +17,7 @@ A feature-rich Swift utility library providing common foundational modules for i
 
 ### Version Information
 
-- **Current Version**: 1.2.15
+- **Current Version**: 2.0.7
 - **Supported Platforms**: iOS 13.0+, macOS 10.15+, tvOS 13.0+
 - **Swift Version**: 5.0+
 
@@ -152,6 +152,155 @@ view.setAssociated("customID", value: "12345")
 let id: String? = view.associated("customID", initializer: nil)
 ```
 
+#### 🔒 Lock Module (`Lock`)
+Thread synchronization primitives and property wrappers:
+
+##### `UnfairLock`
+High-performance lock based on `os_unfair_lock`:
+```swift
+let lock = UnfairLock()
+lock.lock()
+// Critical section
+lock.unlock()
+
+// Or use tryLock
+if lock.tryLock() {
+    // Critical section
+    lock.unlock()
+}
+```
+
+##### `ReadWriteLock`
+Read-write lock allowing multiple readers or single writer:
+```swift
+let rwLock = ReadWriteLock()
+
+// Read operation (multiple readers allowed)
+rwLock.read {
+    // Read shared data
+}
+
+// Write operation (exclusive access)
+rwLock.write {
+    // Modify shared data
+}
+```
+
+##### `@ThreadSafe`
+Property wrapper for thread-safe value access:
+```swift
+class Counter {
+    @ThreadSafe var count: Int = 0
+
+    func increment() {
+        // Atomic access
+        $count.lock { value in
+            value += 1
+        }
+    }
+}
+```
+
+##### `@RWThreadSafe`
+Property wrapper using read-write lock for optimized concurrent reads:
+```swift
+class Cache {
+    @RWThreadSafe var data: [String: Any] = [:]
+
+    func read(key: String) -> Any? {
+        $data.read { dict in
+            dict[key]
+        }
+    }
+
+    func write(key: String, value: Any) {
+        $data.write { dict in
+            dict[key] = value
+        }
+    }
+}
+```
+
+#### 📦 Collections Module (`Collections`)
+Thread-safe and non-thread-safe data structures:
+
+##### `LinkedList` / `ThreadSafeLinkedList`
+Doubly linked list implementation:
+```swift
+let list = LinkedList<Int>()
+list.append(1)
+list.append(2)
+list.prepend(0)
+list.insert(3, at: 2)
+
+print(list.head)  // 0
+print(list.tail)  // 2
+print(list.count) // 4
+
+_ = list.removeHead()
+_ = list.remove(at: 1)
+```
+
+##### `Queue` / `ThreadSafeQueue`
+FIFO queue based on linked list:
+```swift
+let queue = Queue<String>()
+queue.enqueue("first")
+queue.enqueue("second")
+
+print(queue.front)  // "first"
+print(queue.back)   // "second"
+
+let item = queue.dequeue()  // "first"
+```
+
+#### ⏱ Timeout Task Module (`TimeoutTask`)
+Task execution with timeout support:
+
+##### `OnceTimeoutTask`
+Single execution task with timeout:
+```swift
+let task = OnceTimeoutTask<String, Error>(
+    timeoutInterval: .seconds(5),
+    execute: { completed in
+        // Perform async operation
+        someAsyncOperation { result in
+            completed(.success(result))
+        }
+    },
+    done: { doneType in
+        switch doneType {
+        case .timeout:
+            print("Task timed out")
+        case .completed(let result):
+            switch result {
+            case .success(let value):
+                print("Success: \(value)")
+            case .failure(let error):
+                print("Error: \(error)")
+            }
+        }
+    }
+)
+
+task.perform(by: .main, timeoutQueue: .global())
+```
+
+##### `OnceTimeoutTaskQueue`
+Queue for sequential timeout task execution:
+```swift
+let taskQueue = OnceTimeoutTaskQueue<Data, Error>(executeQueue: .main)
+
+// Tasks execute sequentially, each with its own timeout
+taskQueue.addTask(task1)
+taskQueue.addTask(task2)
+taskQueue.addTask(task3)
+
+// Control queue execution
+taskQueue.pause()
+taskQueue.resume()
+```
+
 #### 🛠 Core Utilities
 ```swift
 // Version comparison
@@ -172,12 +321,11 @@ Add to your `Podfile`:
 pod 'RYKit'
 
 # Or install only needed submodules
-pod 'RYKit/Http'
-pod 'RYKit/Stomp'
-pod 'RYKit/Log'
-pod 'RYKit/Extensions'
-pod 'RYKit/ValueWrapper'
-pod 'RYKit/Capables'
+# Network modules
+pod 'RYKit/Network'
+
+# Base modules
+pod 'RYKit/Base'
 ```
 
 Then run:
@@ -271,12 +419,15 @@ Each submodule can be used independently, choose based on project needs:
 
 | Module | Functionality | Dependencies |
 |--------|---------------|--------------|
-| `Http` | HTTP network requests | None |
-| `Stomp` | WebSocket/STOMP messaging | Built-in SwiftStomp |
-| `Log` | Logging | None |
-| `Extensions` | Swift extensions | None |
-| `ValueWrapper` | Property wrappers | None |
-| `Capables` | Capability extensions | None |
+| `Network/Http` | HTTP network requests | None |
+| `Network/Stomp` | WebSocket/STOMP messaging | Built-in SwiftStomp |
+| `Base/Log` | Logging | None |
+| `Base/Extensions` | Swift extensions | None |
+| `Base/ValueWrapper` | Property wrappers | None |
+| `Base/Capables` | Capability extensions | None |
+| `Base/Lock` | Thread synchronization | None |
+| `Base/Collections` | Data structures | Lock |
+| `Base/TimeoutTask` | Timeout task management | Lock |
 
 ### License
 
@@ -295,7 +446,7 @@ Ray - [GitHub](http://github.com/mithyer)
 
 ### 版本信息
 
-- **当前版本**: 1.2.15
+- **当前版本**: 2.0.7
 - **支持平台**: iOS 13.0+, macOS 10.15+, tvOS 13.0+
 - **Swift 版本**: 5.0+
 
@@ -430,6 +581,155 @@ view.setAssociated("customID", value: "12345")
 let id: String? = view.associated("customID", initializer: nil)
 ```
 
+#### 🔒 锁模块 (`Lock`)
+线程同步原语和属性包装器:
+
+##### `UnfairLock`
+基于 `os_unfair_lock` 的高性能锁:
+```swift
+let lock = UnfairLock()
+lock.lock()
+// 临界区
+lock.unlock()
+
+// 或使用 tryLock
+if lock.tryLock() {
+    // 临界区
+    lock.unlock()
+}
+```
+
+##### `ReadWriteLock`
+读写锁，允许多个读取者或单个写入者:
+```swift
+let rwLock = ReadWriteLock()
+
+// 读操作（允许多个读取者）
+rwLock.read {
+    // 读取共享数据
+}
+
+// 写操作（独占访问）
+rwLock.write {
+    // 修改共享数据
+}
+```
+
+##### `@ThreadSafe`
+线程安全值访问的属性包装器:
+```swift
+class Counter {
+    @ThreadSafe var count: Int = 0
+
+    func increment() {
+        // 原子访问
+        $count.lock { value in
+            value += 1
+        }
+    }
+}
+```
+
+##### `@RWThreadSafe`
+使用读写锁优化并发读取的属性包装器:
+```swift
+class Cache {
+    @RWThreadSafe var data: [String: Any] = [:]
+
+    func read(key: String) -> Any? {
+        $data.read { dict in
+            dict[key]
+        }
+    }
+
+    func write(key: String, value: Any) {
+        $data.write { dict in
+            dict[key] = value
+        }
+    }
+}
+```
+
+#### 📦 集合模块 (`Collections`)
+线程安全和非线程安全的数据结构:
+
+##### `LinkedList` / `ThreadSafeLinkedList`
+双向链表实现:
+```swift
+let list = LinkedList<Int>()
+list.append(1)
+list.append(2)
+list.prepend(0)
+list.insert(3, at: 2)
+
+print(list.head)  // 0
+print(list.tail)  // 2
+print(list.count) // 4
+
+_ = list.removeHead()
+_ = list.remove(at: 1)
+```
+
+##### `Queue` / `ThreadSafeQueue`
+基于链表的 FIFO 队列:
+```swift
+let queue = Queue<String>()
+queue.enqueue("first")
+queue.enqueue("second")
+
+print(queue.front)  // "first"
+print(queue.back)   // "second"
+
+let item = queue.dequeue()  // "first"
+```
+
+#### ⏱ 超时任务模块 (`TimeoutTask`)
+支持超时的任务执行:
+
+##### `OnceTimeoutTask`
+带超时的单次执行任务:
+```swift
+let task = OnceTimeoutTask<String, Error>(
+    timeoutInterval: .seconds(5),
+    execute: { completed in
+        // 执行异步操作
+        someAsyncOperation { result in
+            completed(.success(result))
+        }
+    },
+    done: { doneType in
+        switch doneType {
+        case .timeout:
+            print("任务超时")
+        case .completed(let result):
+            switch result {
+            case .success(let value):
+                print("成功: \(value)")
+            case .failure(let error):
+                print("错误: \(error)")
+            }
+        }
+    }
+)
+
+task.perform(by: .main, timeoutQueue: .global())
+```
+
+##### `OnceTimeoutTaskQueue`
+顺序执行超时任务的队列:
+```swift
+let taskQueue = OnceTimeoutTaskQueue<Data, Error>(executeQueue: .main)
+
+// 任务顺序执行，每个任务有独立的超时
+taskQueue.addTask(task1)
+taskQueue.addTask(task2)
+taskQueue.addTask(task3)
+
+// 控制队列执行
+taskQueue.pause()
+taskQueue.resume()
+```
+
 #### 🛠 核心工具
 ```swift
 // 版本比较
@@ -450,12 +750,18 @@ let version = RYKit.version
 pod 'RYKit'
 
 # 或者只安装需要的子模块
-pod 'RYKit/Http'
-pod 'RYKit/Stomp'
-pod 'RYKit/Log'
-pod 'RYKit/Extensions'
-pod 'RYKit/ValueWrapper'
-pod 'RYKit/Capables'
+# 网络模块
+pod 'RYKit/Network/Http'
+pod 'RYKit/Network/Stomp'
+
+# 基础模块
+pod 'RYKit/Base/Log'
+pod 'RYKit/Base/Extensions'
+pod 'RYKit/Base/ValueWrapper'
+pod 'RYKit/Base/Capables'
+pod 'RYKit/Base/Lock'
+pod 'RYKit/Base/Collections'
+pod 'RYKit/Base/TimeoutTask'
 ```
 
 然后运行:
@@ -549,12 +855,15 @@ if let path = LogRecorder.shared.getCurrentLogFilePath() {
 
 | 模块 | 功能 | 依赖 |
 |------|------|------|
-| `Http` | HTTP 网络请求 | 无 |
-| `Stomp` | WebSocket/STOMP 消息 | 内置 SwiftStomp |
-| `Log` | 日志记录 | 无 |
-| `Extensions` | Swift 扩展 | 无 |
-| `ValueWrapper` | 属性包装器 | 无 |
-| `Capables` | 能力扩展 | 无 |
+| `Network/Http` | HTTP 网络请求 | 无 |
+| `Network/Stomp` | WebSocket/STOMP 消息 | 内置 SwiftStomp |
+| `Base/Log` | 日志记录 | 无 |
+| `Base/Extensions` | Swift 扩展 | 无 |
+| `Base/ValueWrapper` | 属性包装器 | 无 |
+| `Base/Capables` | 能力扩展 | 无 |
+| `Base/Lock` | 线程同步 | 无 |
+| `Base/Collections` | 数据结构 | Lock |
+| `Base/TimeoutTask` | 超时任务管理 | Lock |
 
 ### 许可证
 
