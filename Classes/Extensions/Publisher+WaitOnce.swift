@@ -70,7 +70,7 @@ extension Publisher where Failure == Never {
                                        scheduler: T = DispatchQueue.main,
                                        options: T.SchedulerOptions? = nil,
                                        timeout: T.SchedulerTimeType.Stride,
-                                       setCancelation to: Associatable,
+                                       setCancelation to: any Associatable,
                                        cancelationOptions: (key: String, doNotStoreIfHasSameKey: Bool)? = nil) async -> Result<Output, TimeoutError> {
         await withCheckedContinuation { continuation in
             waitOnce(until: until, scheduler: scheduler, options: options, timeout: timeout) { res in
@@ -102,7 +102,7 @@ extension Publisher where Output: Equatable, Failure == Never {
                                        scheduler: T = DispatchQueue.main,
                                        options: T.SchedulerOptions? = nil,
                                        timeout: T.SchedulerTimeType.Stride,
-                                       setCancelation to: Associatable,
+                                       setCancelation to: any Associatable,
                                        cancelationOptions: (key: String, doNotStoreIfHasSameKey: Bool)? = nil) async -> Result<Output, TimeoutError> {
         await waitOnce(until: { $0 == output }, scheduler: scheduler, options: options, timeout: timeout, setCancelation: to, cancelationOptions: cancelationOptions)
     }
