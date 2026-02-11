@@ -25,6 +25,7 @@ public class OnceTimeoutTask<T, E: Error> {
     
     public enum DoneType {
         case timeout
+        case cancel
         case completed(Result<T, E>)
     }
     
@@ -56,7 +57,7 @@ public class OnceTimeoutTask<T, E: Error> {
         }
     }
     
-    public func perform(by executeQueue: DispatchQueue, timeoutQueue: DispatchQueue) {
+    func perform(by executeQueue: DispatchQueue, timeoutQueue: DispatchQueue) {
         guard case .unstart = state, let timeoutItem else {
             return
         }
@@ -66,5 +67,11 @@ public class OnceTimeoutTask<T, E: Error> {
             guard let self, let completed else { return }
             execute(completed)
         }
+    }
+    
+    public func cancel() {
+        guard case .executing = state else { return }
+        state = .done(.cancel)
+        timeoutItem?.cancel()
     }
 }

@@ -62,4 +62,14 @@ public class OnceTimeoutTaskQueue<T, E: Error>: Queue<OnceTimeoutTask<T, E>> {
         paused = false
         check()
     }
+    
+    public func cancelAll() {
+        lock.lock()
+        defer {
+            lock.unlock()
+        }
+        while let task = dequeue() {
+            task.cancel()
+        }
+    }
 }
