@@ -33,6 +33,7 @@ public class WeakBoxOfMap<Key: Hashable & Equatable, Element: AnyObject>: WeakBo
 
 public class WeakMap<Key: Hashable & Equatable, Element: AnyObject>: _WeakMap<WeakBoxOfMap<Key, Element>> {}
 
+/// 注意：非线程安全。多线程场景请在外部加锁或包装为线程安全版本。
 public class _WeakMap<WeakBox: WeakBoxProtocol> {
     // MARK: - Properties
     
@@ -72,7 +73,7 @@ public class _WeakMap<WeakBox: WeakBoxProtocol> {
         var boxes = buckets[index]
         // 检查是否已存在
         for box in boxes {
-            if box.key == key {
+            if box.key == key, box.value != nil {
                 return
             }
         }
@@ -101,14 +102,34 @@ public class _WeakMap<WeakBox: WeakBoxProtocol> {
             }
             return false
         }
+        shrinkIfNeeded()
         return removed
+    }
+
+    public subscript(key: Key) -> Element? {
+        get {
+            let index = bucketIndex(for: key)
+            for box in buckets[index] {
+                if box.key == key {
+                    return box.value
+                }
+            }
+            return nil
+        }
+        set {
+            if let value = newValue {
+                insert(key: key, value)
+            } else {
+                remove(key)
+            }
+        }
     }
 
     public func contains(_ key: Key) -> Bool {
         let index = bucketIndex(for: key)
 
         for box in buckets[index] {
-            if box.key == key {
+            if box.key == key, box.value != nil {
                 return true
             }
         }
@@ -143,7 +164,7 @@ public class _WeakMap<WeakBox: WeakBoxProtocol> {
 
         for i in 0..<buckets.count {
             buckets[i].removeAll { box in
-                if let key = box.key {
+                if let key = box.key, box.value != nil {
                     result.append(key)
                     return false
                 }
@@ -170,14 +191,23 @@ public class _WeakMap<WeakBox: WeakBoxProtocol> {
     }
     
     private func bucketIndex(for key: Key) -> Int {
-        return abs(key.hashValue) & (buckets.count - 1)
+        // buckets.count 始终是 2 的幂，掩码自动清除符号位，无需 abs()
+        return key.hashValue & (buckets.count - 1)
     }
     
     private var loadFactor: Double {
-        let totalCount = buckets.reduce(0) { $0 + $1.count }
-        return Double(totalCount) / Double(buckets.count)
+        let aliveCount = buckets.reduce(0) { count, bucket in
+            count + bucket.count { $0.value != nil }
+        }
+        return Double(aliveCount) / Double(buckets.count)
     }
     
+    private func shrinkIfNeeded() {
+        let newCapacity = buckets.count / 2
+        guard newCapacity >= minCapacity, loadFactor < 0.1 else { return }
+        resize(to: newCapacity)
+    }
+
     private func resize(to newCapacity: Int) {
         let oldBuckets = buckets
         buckets = Array(repeating: [], count: newCapacity)
@@ -223,8 +253,12 @@ extension _WeakMap: Collection {
     }
 
     public var endIndex: Index {
-        let snapshot = allValues()
-        return Index(snapshot: snapshot, position: snapshot.count)
+        // for-in 先调 startIndex 再调 endIndex。
+        // startIndex 的 allValues() 已清理了死引用，
+        // 此处只需数存活数量（不再分配 snapshot），保证 position 一致。
+        // subscript 和 index(after:) 都基于 startIndex 的 snapshot 驱动。
+        let aliveCount = buckets.reduce(0) { $0 + $1.count }
+        return Index(snapshot: [], position: aliveCount)
     }
 
     public subscript(position: Index) -> Element {
