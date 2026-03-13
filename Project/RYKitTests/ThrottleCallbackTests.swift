@@ -13,21 +13,16 @@ final class ThrottleCallbackTests: XCTestCase {
 
     // MARK: - Basic Behavior
 
-    func test_noSend_callbackNotCalled() {
-        var callCount = 0
-        let _ = ThrottleCallback(interval: .seconds(1), scheduler: DispatchQueue.main) {
-            callCount += 1
-        }
-        XCTAssertEqual(callCount, 0)
+    func test_noSend_noExecution() {
+        // Verify creating an instance without sending doesn't crash or produce side effects
+        let _ = ThrottleCallback(interval: .seconds(1))
     }
 
     func test_firstSend_executesImmediately() {
         var callCount = 0
-        let tc = ThrottleCallback(interval: .seconds(10), scheduler: DispatchQueue.main) {
-            callCount += 1
-        }
+        let tc = ThrottleCallback(interval: .seconds(10))
 
-        tc.send()
+        tc.send { callCount += 1 }
 
         // .first().sink fires synchronously on PassthroughSubject
         XCTAssertEqual(callCount, 1)
@@ -35,11 +30,9 @@ final class ThrottleCallbackTests: XCTestCase {
 
     func test_singleSend_executesCallbackOnce() {
         var callCount = 0
-        let tc = ThrottleCallback(interval: .milliseconds(100), scheduler: DispatchQueue.main) {
-            callCount += 1
-        }
+        let tc = ThrottleCallback(interval: .milliseconds(100))
 
-        tc.send()
+        tc.send { callCount += 1 }
 
         let exp = expectation(description: "wait past throttle interval")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -54,17 +47,15 @@ final class ThrottleCallbackTests: XCTestCase {
 
     func test_rapidSends_areThrottled() {
         var callCount = 0
-        let tc = ThrottleCallback(interval: .milliseconds(300), scheduler: DispatchQueue.main) {
-            callCount += 1
-        }
+        let tc = ThrottleCallback(interval: .milliseconds(300))
 
         // First send - immediate via .first()
-        tc.send()
+        tc.send { callCount += 1 }
         XCTAssertEqual(callCount, 1)
 
         // 10 rapid subsequent sends
         for _ in 0..<10 {
-            tc.send()
+            tc.send { callCount += 1 }
         }
 
         let exp = expectation(description: "throttle interval elapsed")
@@ -79,18 +70,16 @@ final class ThrottleCallbackTests: XCTestCase {
 
     func test_sendsSpacedBeyondInterval_allExecute() {
         var callCount = 0
-        let tc = ThrottleCallback(interval: .milliseconds(50), scheduler: DispatchQueue.main) {
-            callCount += 1
-        }
+        let tc = ThrottleCallback(interval: .milliseconds(50))
 
-        tc.send() // immediate via .first()
+        tc.send { callCount += 1 } // immediate via .first()
 
         // Send with gaps larger than the throttle interval
         var exps: [XCTestExpectation] = []
         for i in 1...3 {
             let exp = expectation(description: "spaced send \(i)")
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.15) {
-                tc.send()
+                tc.send { callCount += 1 }
                 exp.fulfill()
             }
             exps.append(exp)
@@ -110,12 +99,13 @@ final class ThrottleCallbackTests: XCTestCase {
 
     func test_deinit_stopsProcessing() {
         var callCount = 0
-        var tc: ThrottleCallback? = ThrottleCallback(interval: .milliseconds(50), scheduler: DispatchQueue.main) {
-            callCount += 1
-        }
+        var tc: ThrottleCallback? = ThrottleCallback(interval: .milliseconds(50))
 
-        tc?.send()
+        tc?.send { callCount += 1 }
         XCTAssertEqual(callCount, 1)
+
+        // Send more (will be throttled, pending in pipeline)
+        tc?.send { callCount += 1 }
 
         // Release instance — cancellables deallocated
         tc = nil
@@ -126,7 +116,7 @@ final class ThrottleCallbackTests: XCTestCase {
         }
         wait(for: [exp], timeout: 0.5)
 
-        XCTAssertEqual(callCount, 1, "No callbacks after dealloc")
+        XCTAssertEqual(callCount, 1, "Throttled sends should not fire after dealloc")
     }
 
     // MARK: - Custom Scheduler
@@ -136,13 +126,13 @@ final class ThrottleCallbackTests: XCTestCase {
         var callCount = 0
         let lock = NSLock()
 
-        let tc = ThrottleCallback(interval: .milliseconds(200), scheduler: queue) {
+        let tc = ThrottleCallback(interval: .milliseconds(200), scheduler: queue)
+
+        tc.send {
             lock.lock()
             callCount += 1
             lock.unlock()
         }
-
-        tc.send()
 
         // .first() sink is synchronous even on custom scheduler
         Thread.sleep(forTimeInterval: 0.05)
@@ -153,7 +143,11 @@ final class ThrottleCallbackTests: XCTestCase {
 
         // Rapid sends
         for _ in 0..<5 {
-            tc.send()
+            tc.send {
+                lock.lock()
+                callCount += 1
+                lock.unlock()
+            }
         }
 
         let exp = expectation(description: "throttle on custom queue")
@@ -173,14 +167,12 @@ final class ThrottleCallbackTests: XCTestCase {
 
     func test_burstPauseBurst_throttlesEachBurst() {
         var callCount = 0
-        let tc = ThrottleCallback(interval: .milliseconds(100), scheduler: DispatchQueue.main) {
-            callCount += 1
-        }
+        let tc = ThrottleCallback(interval: .milliseconds(100))
 
         // First burst
-        tc.send() // immediate
-        tc.send()
-        tc.send()
+        tc.send { callCount += 1 } // immediate
+        tc.send { callCount += 1 }
+        tc.send { callCount += 1 }
 
         // Wait for throttle to settle
         let exp1 = expectation(description: "first burst settled")
@@ -191,9 +183,9 @@ final class ThrottleCallbackTests: XCTestCase {
         let countAfterFirstBurst = callCount
 
         // Second burst
-        tc.send()
-        tc.send()
-        tc.send()
+        tc.send { callCount += 1 }
+        tc.send { callCount += 1 }
+        tc.send { callCount += 1 }
 
         let exp2 = expectation(description: "second burst settled")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {

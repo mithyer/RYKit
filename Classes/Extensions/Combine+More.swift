@@ -8,37 +8,32 @@
 import Combine
 import Foundation
 
-/// A callback wrapper that executes immediately on the first call,
+/// A throttle wrapper that executes the first `send()` immediately,
 /// then throttles subsequent calls at a specified interval.
 ///
-/// Uses two Combine pipelines internally:
-/// - `.first()` ensures the very first `send()` fires the callback synchronously.
+/// Each `send()` carries its own closure. Internally uses two Combine pipelines:
+/// - `.first()` ensures the very first `send()` fires its closure synchronously.
 /// - `.dropFirst().throttle(latest: true)` coalesces rapid subsequent calls,
-///   emitting only the latest within each time window.
+///   emitting only the latest closure within each time window.
 ///
 /// Example:
 /// ```swift
-/// let throttle = ThrottleCallback(interval: .milliseconds(300)) {
-///     print("fired")
-/// }
-/// throttle.send() // fires immediately
-/// throttle.send() // throttled
-/// throttle.send() // throttled — latest one fires after 300ms
+/// let throttle = ThrottleCallback(interval: .milliseconds(300))
+/// throttle.send { print("fired") } // fires immediately
+/// throttle.send { print("fired") } // throttled
+/// throttle.send { print("fired") } // throttled — latest one fires after 300ms
 /// ```
 public class ThrottleCallback {
 
     private let subject: PassthroughSubject<() -> Void, Never>
-    private let callback: () -> Void
     private var cancellables = Set<AnyCancellable>()
 
-    /// Creates a new throttled callback.
+    /// Creates a new throttle wrapper.
     /// - Parameters:
     ///   - interval: The minimum time between subsequent callback invocations.
     ///   - scheduler: The scheduler on which throttled callbacks are dispatched. Defaults to `RunLoop.main`.
-    ///   - callback: The closure to execute on each non-throttled `send()`.
-    public init<S: Scheduler>(interval: S.SchedulerTimeType.Stride, scheduler: S = RunLoop.main, callback: @escaping () -> Void) {
+    public init<S: Scheduler>(interval: S.SchedulerTimeType.Stride, scheduler: S = RunLoop.main) {
 
-        self.callback = callback
         subject = PassthroughSubject<() -> Void, Never>()
 
         // Immediate execution for the first call
@@ -53,7 +48,7 @@ public class ThrottleCallback {
     }
 
     /// Triggers the callback, subject to throttling rules.
-    public func send() {
-        subject.send(callback)
+    public func send(_ closure: @escaping () -> Void) {
+        subject.send(closure)
     }
 }
