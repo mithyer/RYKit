@@ -31,7 +31,7 @@ final class TinyBufferedKVTests: XCTestCase {
         TinyKV(dbName: dbName, tableName: tableName)
     }
 
-    private func assertRawValueMissing(_ kv: TinyKV, key: TinyKV.Key) async throws {
+    private func assertRawValueMissing(_ kv: TinyKV, key: KVKey) async throws {
         do {
             _ = try await kv.getData(for: key)
             XCTFail("Expected TinyKV not to contain a value for \(key) yet")
@@ -111,7 +111,7 @@ final class TinyBufferedKVTests: XCTestCase {
         let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
 
         let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
-        let pattern: TinyKV.RangeKey = .string(like: "range-%")
+        let pattern: KVRangeKey = .string(like: "range-%")
 
         try await kv.set(value: SampleValue(value: "pending"), for: .string("range-1"))
         let before: [SampleValue] = try await rawKV.getValues(for: pattern)
@@ -155,5 +155,45 @@ final class TinyBufferedKVTests: XCTestCase {
 
         XCTAssertEqual(persisted.count, total)
         XCTAssertEqual(Set(persisted.map(\.value)).count, total)
+    }
+
+    func test_debounceFlush_onlyAfterInterval() async throws {
+        let dbName = randomDBName(prefix: "debounce")
+        let tableName = "debounce"
+        let config = TinyBufferedKV.Config(maxBufferedItems: 100, maxBufferedBytes: 1_048_576, flushInterval: 0.2)
+        let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
+
+        try await kv.set(value: SampleValue(value: "v1"), for: .string("debounce-1"))
+
+        try await assertRawValueMissing(rawKV, key: .string("debounce-1"))
+
+        try await Task.sleep(nanoseconds: 350_000_000)
+
+        let persisted: SampleValue = try await rawKV.getValue(for: .string("debounce-1"))
+        XCTAssertEqual(persisted.value, "v1")
+    }
+
+    func test_debounceFlush_isResetBySubsequentSet() async throws {
+        let dbName = randomDBName(prefix: "debounce-reset")
+        let tableName = "debounce-reset"
+        let config = TinyBufferedKV.Config(maxBufferedItems: 100, maxBufferedBytes: 1_048_576, flushInterval: 0.2)
+        let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
+
+        try await kv.set(value: SampleValue(value: "first"), for: .string("debounce-reset-1"))
+        try await Task.sleep(nanoseconds: 120_000_000)
+        try await kv.set(value: SampleValue(value: "second"), for: .string("debounce-reset-2"))
+
+        try await Task.sleep(nanoseconds: 120_000_000)
+        try await assertRawValueMissing(rawKV, key: .string("debounce-reset-1"))
+        try await assertRawValueMissing(rawKV, key: .string("debounce-reset-2"))
+
+        try await Task.sleep(nanoseconds: 180_000_000)
+
+        let first: SampleValue = try await rawKV.getValue(for: .string("debounce-reset-1"))
+        let second: SampleValue = try await rawKV.getValue(for: .string("debounce-reset-2"))
+        XCTAssertEqual(first.value, "first")
+        XCTAssertEqual(second.value, "second")
     }
 }
