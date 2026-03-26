@@ -47,7 +47,7 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
 
     private enum BufferKey: Hashable {
         case string(String)
-        case int(UInt)
+        case int(Int)
     }
 
     private typealias BufferEntry = (key: BufferKey, data: Data)

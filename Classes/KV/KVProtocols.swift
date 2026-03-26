@@ -14,8 +14,8 @@ import Foundation
 public enum TinyKVKey {
     /// String key, suitable for business IDs or namespaced keys (for example: `"user:1001"`).
     case string(String)
-    /// Unsigned integer key, suitable for numeric IDs.
-    case int(UInt)
+    /// Signed integer key, suitable for numeric IDs.
+    case int(Int)
 }
 
 /// Selector type for range queries.
@@ -28,9 +28,12 @@ public enum TinyKVQueryKey {
     /// SQL condition template for integer keys; `$` is replaced by the concrete integer key column in storage.
     /// Example: `"$ >= 100 AND $ < 200"`.
     case int(condition: String)
-    ///
+    /// Exact-match query over a set of string keys using SQL `IN`.
+    /// Example: `["user:1", "user:7"]`.
     case strings(in: [String])
-    case ints(in: [UInt])
+    /// Exact-match query over a set of integer keys using SQL `IN`.
+    /// Example: `[1, 7]`.
+    case ints(in: [Int])
 }
 
 public protocol TinyKVReadWritable {

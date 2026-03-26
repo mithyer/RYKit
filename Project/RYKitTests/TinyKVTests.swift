@@ -166,13 +166,13 @@ final class TinyKVTests: XCTestCase {
         let operations = 2_000
 
         for i in 0..<keyCount {
-            try await kv.set(value: SampleValue(id: i, name: "seed-\(i)"), for: .int(UInt(i)))
+            try await kv.set(value: SampleValue(id: i, name: "seed-\(i)"), for: .int(i))
         }
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             for i in 0..<operations {
                 group.addTask {
-                    let key = UInt(i % keyCount)
+                    let key = i % keyCount
                     if i % 3 == 0 {
                         try await kv.set(value: SampleValue(id: i, name: "write-\(i)"), for: .int(key))
                     } else {
@@ -193,7 +193,7 @@ final class TinyKVTests: XCTestCase {
     func test_extremeConcurrentUpserts_onSameIntKey_valueRemainsValid() async throws {
         let kv = makeKV()
         let writes = 1_000
-        let key: UInt = 7
+        let key: Int = 7
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             for i in 0..<writes {
@@ -215,14 +215,14 @@ final class TinyKVTests: XCTestCase {
         let operations = 800
 
         for i in 0..<keyCount {
-            try await kv.set(value: SampleValue(id: i, name: "seed-int-\(i)"), for: .int(UInt(i)))
+            try await kv.set(value: SampleValue(id: i, name: "seed-int-\(i)"), for: .int(i))
             try await kv.set(value: SampleValue(id: i, name: "seed-str-\(i)"), for: .string("seed-\(i)"))
         }
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             for i in 0..<operations {
                 group.addTask {
-                    let key = UInt(i % keyCount)
+                    let key = i % keyCount
                     if i % 4 == 0 {
                         try await kv.set(value: SampleValue(id: 10_000 + i, name: "mut-int-\(i)"), for: .int(key))
                     } else if i % 4 == 1 {
@@ -282,8 +282,8 @@ final class TinyKVTests: XCTestCase {
                 let kv = makeKV(tableName: "records_\(i)")
                 weakKV = kv
 
-                try await kv.set(value: SampleValue(id: i, name: "stress-\(i)"), for: .int(UInt(i)))
-                _ = try await kv.getData(for: .int(UInt(i)))
+                try await kv.set(value: SampleValue(id: i, name: "stress-\(i)"), for: .int(i))
+                _ = try await kv.getData(for: .int(i))
             }
 
             let released = await waitUntilReleased { weakKV }

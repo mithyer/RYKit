@@ -25,7 +25,7 @@ public class TinyKV: TinyKVReadWritable {
         case notFound
         /// Decoding stored data into the requested type failed.
         case decodeFailed
-        /// The provided unsigned integer key cannot fit into SQLite `INTEGER`.
+        /// The provided integer key cannot fit into SQLite `INTEGER`.
         case intKeyOutOfRange
         /// The range expression for integer-key query is invalid.
         case invalidRangeExpression
@@ -265,7 +265,7 @@ public class TinyKV: TinyKVReadWritable {
         }
     }
 
-    private func upsert(data: Data, intKey: UInt) throws {
+    private func upsert(data: Data, intKey: Int) throws {
         let int64Key = try toInt64(intKey)
         let sql = """
         INSERT INTO \(quotedTableName) (str_key, int_key, value)
@@ -358,8 +358,9 @@ public class TinyKV: TinyKVReadWritable {
         }
     }
 
-    private func toInt64(_ value: UInt) throws -> Int64 {
-        guard let int64Value = Int64(exactly: value) else {
+    private func toInt64(_ value: Int) throws -> Int64 {
+        let int64Value = Int64(value)
+        if Int(int64Value) != value {
             throw TinyKVError.intKeyOutOfRange
         }
         return int64Value
