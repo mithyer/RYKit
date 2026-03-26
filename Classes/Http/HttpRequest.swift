@@ -110,18 +110,8 @@ public final class HttpRequest {
     private var processers = [Processer]()
     private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
     private var debounceTaskSubjectCancelation: AnyCancellable?
-    public private(set) var defaultHttpResponseBusinessSuccessCodes: [Int]
-    private lazy var businessCodeValidator: ((Int?) -> Bool) = { value in
-        self.defaultHttpResponseBusinessSuccessCodes.contains(where: {
-            $0 == value
-        })
-    }
+    private var businessCodeValidator: (Int?) -> Bool
     public private(set) var lastResponseCode: ResponseCode?
-    
-    public func setHttpResponseBusinessSuccessCodes(_ codes: [Int]) -> Self {
-        self.defaultHttpResponseBusinessSuccessCodes = codes
-        return self
-    }
     
     public func setEncryptAndDecryptEnabled(_ enable: Bool) -> Self {
         self.isEncryptAndDecryptEnabled = enable
@@ -150,7 +140,7 @@ public final class HttpRequest {
          requestStrategy: RequestStrategy?,
          baseHeaders: [String: String],
          handlers: Handlers,
-         defaultHttpResponseBusinessSuccessCodes: [Int] = [200]) {
+         businessCodeValidator: ((Int?) -> Bool)?) {
         self.queue = queue
         self.session = session
         self.baseURL = baseURL
@@ -167,7 +157,9 @@ public final class HttpRequest {
         }
         self.headers = headers
         self.handlers = handlers
-        self.defaultHttpResponseBusinessSuccessCodes = defaultHttpResponseBusinessSuccessCodes
+        self.businessCodeValidator = businessCodeValidator ?? {
+            return $0 == 200
+        }
     }
 }
 
