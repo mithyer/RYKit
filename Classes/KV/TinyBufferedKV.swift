@@ -17,9 +17,55 @@ public final class TinyBufferedKV {
         }
     }
 
+    private struct BufferedKey: Hashable {
+        let key: TinyKV.Key
+
+        init(_ key: TinyKV.Key) {
+            self.key = key
+        }
+
+        static func == (lhs: BufferedKey, rhs: BufferedKey) -> Bool {
+            switch (lhs.key, rhs.key) {
+            case let (.string(lhsValue), .string(rhsValue)):
+                return lhsValue == rhsValue
+            case let (.int(lhsValue), .int(rhsValue)):
+                return lhsValue == rhsValue
+            default:
+                return false
+            }
+        }
+
+        func hash(into hasher: inout Hasher) {
+            switch key {
+            case .string(let value):
+                hasher.combine(0)
+                hasher.combine(value)
+            case .int(let value):
+                hasher.combine(1)
+                hasher.combine(value)
+            }
+        }
+
+        var matchesRangeKey: ((TinyKV.RangeKey) -> Bool)? {
+            { rangeKey in
+                switch rangeKey {
+                case .string(let pattern):
+                    switch self.key {
+                    case .string(let value):
+                        return TinyBufferedKV.matchesLikePattern(pattern, value)
+                    default:
+                        return false
+                    }
+                case .int:
+                    return false
+                }
+            }
+        }
+    }
+
     private let config: Config
     private let tinyKV: TinyKV
-    private var buffer = [TinyKV.Key: Data]()
+    private var buffer = [BufferedKey: Data]()
 
     public init(dbName: String, tableName: String, config: Config = .init()) {
         self.config = config
@@ -31,19 +77,28 @@ public final class TinyBufferedKV {
     }
 
     public func set(data: Data, for key: TinyKV.Key) async throws {
-        fatalError("TinyBufferedKV.set(data:for:) is not implemented")
+        buffer[BufferedKey(key)] = data
     }
 
     public func flush() async throws {
-        fatalError("TinyBufferedKV.flush() is not implemented")
+        buffer.removeAll()
     }
 
     public func getData(for key: TinyKV.Key) async throws -> Data {
-        fatalError("TinyBufferedKV.getData(for:) is not implemented")
+        if let data = buffer[BufferedKey(key)] {
+            return data
+        }
+        return try await tinyKV.getData(for: key)
     }
 
     public func getDatas(for rangeKey: TinyKV.RangeKey, acend: Bool = true) async throws -> [Data] {
-        fatalError("TinyBufferedKV.getDatas(for:acend:) is not implemented")
+        let bufferedMatches = buffer
+            .filter { $0.key.matchesRangeKey?(rangeKey) == true }
+            .map { $0.value }
+
+        // Persisted data should be consulted after buffered matches so the tests can assert flush semantics later.
+        let persisted = try await tinyKV.getDatas(for: rangeKey, acend: acend)
+        return bufferedMatches + persisted
     }
 
     public func getValue<T: Decodable>(for key: TinyKV.Key) async throws -> T {
@@ -55,5 +110,18 @@ public final class TinyBufferedKV {
         let datas = try await getDatas(for: rangeKey, acend: acend)
         let decoder = JSONDecoder()
         return try datas.map { try decoder.decode(T.self, from: $0) }
+    }
+
+    private static func matchesLikePattern(_ pattern: String, _ value: String) -> Bool {
+        if pattern == "%" {
+            return true
+        }
+        if pattern.hasSuffix("%") && value.hasPrefix(String(pattern.dropLast())) {
+            return true
+        }
+        if pattern.hasPrefix("%") && value.hasSuffix(String(pattern.dropFirst())) {
+            return true
+        }
+        return value == pattern
     }
 }

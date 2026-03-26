@@ -31,11 +31,23 @@ final class TinyBufferedKVTests: XCTestCase {
         TinyKV(dbName: dbName, tableName: tableName)
     }
 
+    private func assertRawValueMissing<KeyPayload>(_ kv: TinyKV, key: TinyKV.Key) async throws {
+        do {
+            _ = try await kv.getData(for: key)
+            XCTFail("Expected TinyKV not to contain a value for \(key) yet")
+        } catch let error as TinyKV.TinyKVError {
+            XCTAssertEqual(error, .notFound)
+        }
+    }
+
     func test_setThenGet_withoutFlush_readsFromBuffer() async throws {
         let kv = makeBufferedKV()
         let payload = SampleValue(value: "in-buffer")
+        let rawKV = makeTinyKV(dbName: "buffered-", tableName: "buffered")
 
         try await kv.set(value: payload, for: .string("buffered"))
+        try await assertRawValueMissing(rawKV, key: .string("buffered"))
+
         let actual: SampleValue = try await kv.getValue(for: .string("buffered"))
 
         XCTAssertEqual(actual, payload)
@@ -74,12 +86,18 @@ final class TinyBufferedKVTests: XCTestCase {
         let tableName = "range"
         let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: .init(bufferLimit: 10))
 
+        let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
+        let pattern: TinyKV.RangeKey = .string(like: "range-%")
+
         try await kv.set(value: SampleValue(value: "pending"), for: .string("range-1"))
+        let before: [SampleValue] = try await rawKV.getValues(for: pattern)
+        XCTAssertTrue(before.isEmpty, "Expected no persisted rows before range query flush")
+
         let results: [SampleValue] = try await kv.getValues(for: .string(like: "range-%"))
 
         XCTAssertEqual(results, [SampleValue(value: "pending")])
 
-        let persisted: [SampleValue] = try await makeTinyKV(dbName: dbName, tableName: tableName).getValues(for: .string(like: "range-%"))
+        let persisted: [SampleValue] = try await rawKV.getValues(for: pattern)
         XCTAssertEqual(persisted, results)
     }
 }
