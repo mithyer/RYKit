@@ -108,7 +108,8 @@ final class TinyBufferedKVTests: XCTestCase {
         XCTExpectFailure("Pending Task 3/4")
         let dbName = randomDBName(prefix: "range-flush")
         let tableName = "range"
-        let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: .init(bufferLimit: 10))
+        let config = TinyBufferedKV.Config(maxBufferedItems: 10, maxBufferedBytes: 1_048_576, flushInterval: 0)
+        let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
 
         let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
         let pattern: TinyKV.RangeKey = .string(like: "range-%")
