@@ -129,6 +129,44 @@ final class TinyKVTests: XCTestCase {
         XCTAssertEqual(desc.map(\.id), [30, 10])
     }
 
+    func test_invalidIntConditionExpression_throwsOnQueryAndDelete() async throws {
+        let kv = makeKV()
+        try await kv.set(value: SampleValue(id: 1, name: "safe"), for: .int(1))
+
+        do {
+            let _: [SampleValue] = try await kv.getValues(for: .int(condition: "$ >= 0; DROP TABLE records; --"), acend: true)
+            XCTFail("Expected TinyKVError.invalidRangeExpression")
+        } catch let error as TinyKV.TinyKVError {
+            XCTAssertEqual(error, .invalidRangeExpression)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        do {
+            try await kv.remove(for: .int(condition: "$ >= 0 /* delete all */"))
+            XCTFail("Expected TinyKVError.invalidRangeExpression")
+        } catch let error as TinyKV.TinyKVError {
+            XCTAssertEqual(error, .invalidRangeExpression)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func test_allKeys_includesEmptyStringKey() async throws {
+        let kv = makeKV()
+
+        try await kv.set(value: SampleValue(id: 99, name: "empty"), for: .string(""))
+
+        let keys = try await kv.allKeys()
+        let hasEmptyStringKey = keys.contains { key in
+            if case .string("") = key {
+                return true
+            }
+            return false
+        }
+        XCTAssertTrue(hasEmptyStringKey)
+    }
+
     func test_getData_whenKeyMissing_throwsNotFound() async {
         let kv = makeKV()
 

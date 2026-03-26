@@ -148,11 +148,8 @@ public class TinyKV: TinyKVReadWritable {
                     }
                 })
             case TinyKVQueryKey.int(condition: let condition):
-                guard condition.contains("$") else {
-                    throw TinyKVError.invalidRangeExpression
-                }
-                let sqlCondition = condition.replacingOccurrences(of: "$", with: "int_key")
-                let sql = "SELECT value FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(sqlCondition)) ORDER BY int_key \(order);"
+                let validatedCondition = try validatedIntRangeCondition(from: condition)
+                let sql = "SELECT value FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(validatedCondition)) ORDER BY int_key \(order);"
                 return try queryDatas(sql: sql)
             case TinyKVQueryKey.ints(in: let keys):
                 guard !keys.isEmpty else {
@@ -254,10 +251,7 @@ public class TinyKV: TinyKVReadWritable {
                     }
                 }
             case .int(let range):
-                guard range.contains("$") else {
-                    throw TinyKVError.invalidRangeExpression
-                }
-                let condition = range.replacingOccurrences(of: "$", with: "int_key")
+                let condition = try validatedIntRangeCondition(from: range)
                 let sql = "DELETE FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(condition));"
                 try execute(sql: sql)
             case .ints(let keys):
@@ -458,10 +452,8 @@ public class TinyKV: TinyKVReadWritable {
                 if sqlite3_column_type(statement, 0) != SQLITE_NULL,
                    let cString = sqlite3_column_text(statement, 0) {
                     let str = String(cString: cString)
-                    if !str.isEmpty {
-                        keys.append(.string(str))
-                        continue
-                    }
+                    keys.append(.string(str))
+                    continue
                 }
 
                 if sqlite3_column_type(statement, 1) != SQLITE_NULL {
@@ -477,6 +469,29 @@ public class TinyKV: TinyKVReadWritable {
             }
             throw TinyKVError.statementExecuteFailed
         }
+    }
+
+    private func validatedIntRangeCondition(from raw: String) throws -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.contains("$") else {
+            throw TinyKVError.invalidRangeExpression
+        }
+
+        let forbiddenTokens = [";", "--", "/*", "*/"]
+        guard !forbiddenTokens.contains(where: { trimmed.contains($0) }) else {
+            throw TinyKVError.invalidRangeExpression
+        }
+
+        let condition = trimmed.replacingOccurrences(of: "$", with: "int_key")
+        let compact = condition.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "\n", with: "")
+            .replacingOccurrences(of: "\t", with: "")
+            .replacingOccurrences(of: "\r", with: "")
+        guard !compact.isEmpty else {
+            throw TinyKVError.invalidRangeExpression
+        }
+
+        return condition
     }
 
     private func execute(sql: String) throws {
