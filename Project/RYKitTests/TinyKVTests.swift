@@ -191,6 +191,60 @@ final class TinyKVTests: XCTestCase {
         }
     }
 
+    func test_getValue_whenDecodeTypeMismatch_throwsDecodeFailed() async throws {
+        let kv = makeKV()
+        try await kv.set(value: SampleValue(id: 7, name: "type-mismatch"), for: .string("decode-mismatch"))
+
+        do {
+            let _: Int = try await kv.getValue(for: .string("decode-mismatch"))
+            XCTFail("Expected TinyKVError.decodeFailed")
+        } catch let error as TinyKV.TinyKVError {
+            XCTAssertEqual(error, .decodeFailed)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func test_getValues_withStringIn_whenKeysEmpty_returnsEmpty() async throws {
+        let kv = makeKV()
+        try await kv.set(value: SampleValue(id: 1, name: "seed"), for: .string("k1"))
+
+        let values: [SampleValue] = try await kv.getValues(for: .strings(in: []), acend: true)
+
+        XCTAssertTrue(values.isEmpty)
+    }
+
+    func test_getValues_withIntIn_whenKeysEmpty_returnsEmpty() async throws {
+        let kv = makeKV()
+        try await kv.set(value: SampleValue(id: 1, name: "seed"), for: .int(1))
+
+        let values: [SampleValue] = try await kv.getValues(for: .ints(in: []), acend: true)
+
+        XCTAssertTrue(values.isEmpty)
+    }
+
+    func test_getValues_withStringIn_whenKeysDuplicate_doesNotReturnDuplicates() async throws {
+        let kv = makeKV()
+        try await kv.set(value: SampleValue(id: 1, name: "k1"), for: .string("ab-1"))
+        try await kv.set(value: SampleValue(id: 2, name: "k2"), for: .string("ab-2"))
+
+        let values: [SampleValue] = try await kv.getValues(for: .strings(in: ["ab-1", "ab-1", "ab-2"]), acend: true)
+
+        XCTAssertEqual(values.map(\.id), [1, 2])
+        XCTAssertEqual(values.count, 2)
+    }
+
+    func test_getValues_withIntIn_whenKeysDuplicate_doesNotReturnDuplicates() async throws {
+        let kv = makeKV()
+        try await kv.set(value: SampleValue(id: 10, name: "n10"), for: .int(10))
+        try await kv.set(value: SampleValue(id: 20, name: "n20"), for: .int(20))
+
+        let values: [SampleValue] = try await kv.getValues(for: .ints(in: [20, 20, 10]), acend: true)
+
+        XCTAssertEqual(values.map(\.id), [10, 20])
+        XCTAssertEqual(values.count, 2)
+    }
+
     func test_removeAll_clearsCountAndAllKeys() async throws {
         let kv = makeKV()
 
