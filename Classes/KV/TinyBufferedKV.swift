@@ -21,44 +21,19 @@ public final class TinyBufferedKV {
         case notImplemented
     }
 
-    private struct BufferedKey: Hashable {
-        let key: TinyKV.Key
-
-        init(_ key: TinyKV.Key) {
-            self.key = key
-        }
-
-        static func == (lhs: BufferedKey, rhs: BufferedKey) -> Bool {
-            switch (lhs.key, rhs.key) {
-            case let (.string(lhsValue), .string(rhsValue)):
-                return lhsValue == rhsValue
-            case let (.int(lhsValue), .int(rhsValue)):
-                return lhsValue == rhsValue
-            default:
-                return false
-            }
-        }
-
-        func hash(into hasher: inout Hasher) {
-            switch key {
-            case .string(let value):
-                hasher.combine(0)
-                hasher.combine(value)
-            case .int(let value):
-                hasher.combine(1)
-                hasher.combine(value)
-            }
-        }
+    private enum BufferKey: Hashable {
+        case string(String)
+        case int(UInt)
     }
 
     private let config: Config
-    private let tinyKV: TinyKV
-    private var buffer = [BufferedKey: Data]()
-    private let bufferQueue = DispatchQueue(label: "com.rykit.tinybufferedkv.buffer", attributes: .concurrent)
+    private let storage: TinyKV
+    private var buffer = [BufferKey: Data]()
+    private let queue = DispatchQueue(label: "com.rykit.tinybufferedkv")
 
     public init(dbName: String, tableName: String, config: Config = .init()) {
         self.config = config
-        self.tinyKV = TinyKV(dbName: dbName, tableName: tableName)
+        self.storage = TinyKV(dbName: dbName, tableName: tableName)
     }
 
     public func set<T: Encodable>(value: T, for key: TinyKV.Key) async throws {
@@ -66,8 +41,9 @@ public final class TinyBufferedKV {
     }
 
     public func set(data: Data, for key: TinyKV.Key) async throws {
-        bufferQueue.sync(flags: .barrier) {
-            self.buffer[BufferedKey(key)] = data
+        let bufferKey = canonicalKey(for: key)
+        queue.sync {
+            buffer[bufferKey] = data
         }
     }
 
@@ -76,14 +52,15 @@ public final class TinyBufferedKV {
     }
 
     public func getData(for key: TinyKV.Key) async throws -> Data {
-        if let data = bufferQueue.sync(execute: { self.buffer[BufferedKey(key)] }) {
+        let bufferKey = canonicalKey(for: key)
+        if let data = queue.sync(execute: { buffer[bufferKey] }) {
             return data
         }
-        return try await tinyKV.getData(for: key)
+        return try await storage.getData(for: key)
     }
 
     public func getDatas(for rangeKey: TinyKV.RangeKey, acend: Bool = true) async throws -> [Data] {
-        return try await tinyKV.getDatas(for: rangeKey, acend: acend)
+        return try await storage.getDatas(for: rangeKey, acend: acend)
     }
 
     public func getValue<T: Decodable>(for key: TinyKV.Key) async throws -> T {
@@ -95,6 +72,15 @@ public final class TinyBufferedKV {
         let datas = try await getDatas(for: rangeKey, acend: acend)
         let decoder = JSONDecoder()
         return try datas.map { try decoder.decode(T.self, from: $0) }
+    }
+
+    private func canonicalKey(for key: TinyKV.Key) -> BufferKey {
+        switch key {
+        case .string(let value):
+            return .string(value)
+        case .int(let value):
+            return .int(value)
+        }
     }
 
 }
