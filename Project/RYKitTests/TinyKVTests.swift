@@ -142,6 +142,32 @@ final class TinyKVTests: XCTestCase {
         }
     }
 
+    func test_removeAll_clearsCountAndAllKeys() async throws {
+        let kv = makeKV()
+
+        try await kv.set(value: SampleValue(id: 1, name: "s"), for: .string("k1"))
+        try await kv.set(value: SampleValue(id: 2, name: "i"), for: .int(2))
+
+        let initialCount = try await kv.count()
+        let initialKeys = try await kv.allKeys()
+        let normalized = Set(initialKeys.map { key in
+            switch key {
+            case .string(let value): return "s:\(value)"
+            case .int(let value): return "i:\(value)"
+            }
+        })
+
+        XCTAssertEqual(initialCount, 2)
+        XCTAssertEqual(normalized, Set(["s:k1", "i:2"]))
+
+        try await kv.removeAll()
+
+        let count = try await kv.count()
+        let keys = try await kv.allKeys()
+        XCTAssertEqual(count, 0)
+        XCTAssertTrue(keys.isEmpty)
+    }
+
     func test_extremeConcurrentWrites_withUniqueStringKeys_allValuesPersisted() async throws {
         let kv = makeKV()
         let total = 600

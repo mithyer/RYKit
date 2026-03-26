@@ -43,6 +43,11 @@ public protocol TinyKVReadWritable {
     func getDatas(for rangeKey: TinyKVQueryKey, acend: Bool) async throws -> [Data]
     func getValue<T: Decodable>(for key: TinyKVKey) async throws -> T
     func getValues<T: Decodable>(for rangeKey: TinyKVQueryKey, acend: Bool) async throws -> [T]
+    func remove(for key: TinyKVKey) async throws
+    func remove(for rangeKey: TinyKVQueryKey) async throws
+    func removeAll() async throws
+    func count() async throws -> Int
+    func allKeys() async throws -> [TinyKVKey]
 }
 
 public protocol TinyKVFlushable {

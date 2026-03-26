@@ -203,6 +203,106 @@ public class TinyKV: TinyKVReadWritable {
         }
     }
 
+    /// Removes one record matching the given key.
+    /// - Parameter key: String or integer key.
+    /// - Throws: `TinyKVError` when deletion fails.
+    public func remove(for key: TinyKVKey) async throws {
+        try await runInQueue { [self] in
+            try openDatabaseIfNeeded()
+            switch key {
+            case .string(let strKey):
+                try executePrepared(sql: "DELETE FROM \(quotedTableName) WHERE str_key = ?;") { stmt in
+                    if sqlite3_bind_text(stmt, 1, strKey, -1, self.sqliteTransient) != SQLITE_OK {
+                        throw TinyKVError.statementBindFailed
+                    }
+                }
+            case .int(let intKey):
+                let int64Key = try toInt64(intKey)
+                try executePrepared(sql: "DELETE FROM \(quotedTableName) WHERE int_key = ?;") { stmt in
+                    if sqlite3_bind_int64(stmt, 1, int64Key) != SQLITE_OK {
+                        throw TinyKVError.statementBindFailed
+                    }
+                }
+            }
+        }
+    }
+
+    /// Removes all records matching the given range selector.
+    /// - Parameter rangeKey: String LIKE pattern / string IN-set / integer condition / integer IN-set.
+    /// - Throws: `TinyKVError` when deletion fails.
+    public func remove(for rangeKey: TinyKVQueryKey) async throws {
+        try await runInQueue { [self] in
+            try openDatabaseIfNeeded()
+            switch rangeKey {
+            case .string(let like):
+                try executePrepared(sql: "DELETE FROM \(quotedTableName) WHERE str_key LIKE ?;") { stmt in
+                    if sqlite3_bind_text(stmt, 1, like, -1, self.sqliteTransient) != SQLITE_OK {
+                        throw TinyKVError.statementBindFailed
+                    }
+                }
+            case .strings(let keys):
+                guard !keys.isEmpty else {
+                    return
+                }
+                let placeholders = Array(repeating: "?", count: keys.count).joined(separator: ",")
+                let sql = "DELETE FROM \(quotedTableName) WHERE str_key IN (\(placeholders));"
+                try executePrepared(sql: sql) { stmt in
+                    for (index, key) in keys.enumerated() {
+                        if sqlite3_bind_text(stmt, Int32(index + 1), key, -1, self.sqliteTransient) != SQLITE_OK {
+                            throw TinyKVError.statementBindFailed
+                        }
+                    }
+                }
+            case .int(let range):
+                guard range.contains("$") else {
+                    throw TinyKVError.invalidRangeExpression
+                }
+                let condition = range.replacingOccurrences(of: "$", with: "int_key")
+                let sql = "DELETE FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(condition));"
+                try execute(sql: sql)
+            case .ints(let keys):
+                guard !keys.isEmpty else {
+                    return
+                }
+                let int64Keys = try keys.map { try toInt64($0) }
+                let placeholders = Array(repeating: "?", count: int64Keys.count).joined(separator: ",")
+                let sql = "DELETE FROM \(quotedTableName) WHERE int_key IN (\(placeholders));"
+                try executePrepared(sql: sql) { stmt in
+                    for (index, key) in int64Keys.enumerated() {
+                        if sqlite3_bind_int64(stmt, Int32(index + 1), key) != SQLITE_OK {
+                            throw TinyKVError.statementBindFailed
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Removes all records in this table.
+    public func removeAll() async throws {
+        try await runInQueue { [self] in
+            try openDatabaseIfNeeded()
+            try execute(sql: "DELETE FROM \(quotedTableName);")
+        }
+    }
+
+    /// Returns total record count in this table.
+    public func count() async throws -> Int {
+        try await runInQueue { [self] in
+            try openDatabaseIfNeeded()
+            return try queryCount(sql: "SELECT COUNT(*) FROM \(quotedTableName);")
+        }
+    }
+
+    /// Returns all stored keys.
+    /// - Note: Non-empty `str_key` maps to `.string`; otherwise non-NULL `int_key` maps to `.int`.
+    public func allKeys() async throws -> [TinyKVKey] {
+        try await runInQueue { [self] in
+            try openDatabaseIfNeeded()
+            return try queryAllKeys()
+        }
+    }
+
     private func runInQueue<T>(_ block: @escaping () throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
@@ -323,6 +423,57 @@ public class TinyKV: TinyKVReadWritable {
             }
             if stepResult == SQLITE_DONE {
                 return values
+            }
+            throw TinyKVError.statementExecuteFailed
+        }
+    }
+
+    private func queryCount(sql: String) throws -> Int {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+            throw TinyKVError.statementPrepareFailed
+        }
+        defer { sqlite3_finalize(statement) }
+
+        let stepResult = sqlite3_step(statement)
+        guard stepResult == SQLITE_ROW else {
+            throw TinyKVError.statementExecuteFailed
+        }
+
+        return Int(sqlite3_column_int64(statement, 0))
+    }
+
+    private func queryAllKeys() throws -> [TinyKVKey] {
+        let sql = "SELECT str_key, int_key FROM \(quotedTableName);"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+            throw TinyKVError.statementPrepareFailed
+        }
+        defer { sqlite3_finalize(statement) }
+
+        var keys: [TinyKVKey] = []
+        while true {
+            let stepResult = sqlite3_step(statement)
+            if stepResult == SQLITE_ROW {
+                if sqlite3_column_type(statement, 0) != SQLITE_NULL,
+                   let cString = sqlite3_column_text(statement, 0) {
+                    let str = String(cString: cString)
+                    if !str.isEmpty {
+                        keys.append(.string(str))
+                        continue
+                    }
+                }
+
+                if sqlite3_column_type(statement, 1) != SQLITE_NULL {
+                    let intValue = sqlite3_column_int64(statement, 1)
+                    if let intKey = Int(exactly: intValue) {
+                        keys.append(.int(intKey))
+                    }
+                }
+                continue
+            }
+            if stepResult == SQLITE_DONE {
+                return keys
             }
             throw TinyKVError.statementExecuteFailed
         }
