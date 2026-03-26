@@ -491,8 +491,14 @@ public class TinyKV: TinyKVReadWritable {
             throw TinyKVError.invalidRangeExpression
         }
 
+        let whitelistPattern = #"^\s*\(?\s*int_key\s*(?:<=|>=|!=|=|<|>)\s*-?\d+\s*\)?(?:\s+AND\s+\(?\s*int_key\s*(?:<=|>=|!=|=|<|>)\s*-?\d+\s*\)?)*\s*$"#
+        guard condition.range(of: whitelistPattern, options: .regularExpression) != nil else {
+            throw TinyKVError.invalidRangeExpression
+        }
+
         return condition
     }
+
 
     private func execute(sql: String) throws {
         guard sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK else {

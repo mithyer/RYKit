@@ -135,6 +135,7 @@ final class TinyKVTests: XCTestCase {
 
         let invalidCases: [(String, String)] = [
             ("", "empty expression"),
+            ("$ >= 0 OR 1=1", "boolean bypass injection"),
             ("$ >= 0; DROP TABLE records", "semicolon injection"),
             ("$ >= 0 -- comment", "line comment token"),
             ("$ >= 0 /* comment */", "block comment token")
