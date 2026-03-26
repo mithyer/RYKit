@@ -178,6 +178,109 @@ final class TinyBufferedKVTests: XCTestCase {
         XCTAssertEqual(Set(persisted.map(\.value)).count, total)
     }
 
+    func test_concurrentSetWithInterleavedManualFlush_keepsAllLatestWrites() async throws {
+        let dbName = randomDBName(prefix: "concurrent-manual-flush")
+        let tableName = "concurrent-manual-flush"
+        let totalKeys = 120
+        let kv = makeBufferedKV(
+            dbName: dbName,
+            tableName: tableName,
+            config: .init(maxBufferedItems: 10_000, maxBufferedBytes: 20_000_000, flushInterval: 0)
+        )
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for index in 0..<totalKeys {
+                group.addTask {
+                    try await kv.set(value: SampleValue(value: "v-\(index)"), for: .string("manual-\(index)"))
+                }
+            }
+
+            group.addTask {
+                for _ in 0..<40 {
+                    try await kv.flush()
+                }
+            }
+
+            try await group.waitForAll()
+        }
+
+        try await kv.flush()
+
+        let persisted: [SampleValue] = try await makeTinyKV(dbName: dbName, tableName: tableName)
+            .getValues(for: .string(like: "manual-%"))
+        XCTAssertEqual(persisted.count, totalKeys)
+        XCTAssertEqual(Set(persisted.map(\.value)).count, totalKeys)
+    }
+
+    func test_timerFlushInterleavedWithManualFlush_keepsDataValid() async throws {
+        let dbName = randomDBName(prefix: "timer-manual-interleave")
+        let tableName = "timer-manual-interleave"
+        let total = 50
+        let kv = makeBufferedKV(
+            dbName: dbName,
+            tableName: tableName,
+            config: .init(maxBufferedItems: 10_000, maxBufferedBytes: 20_000_000, flushInterval: 0.03)
+        )
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for index in 0..<total {
+                    try await kv.set(value: SampleValue(value: "timer-\(index)"), for: .string("timer-\(index)"))
+                    try await Task.sleep(nanoseconds: 1_000_000)
+                }
+            }
+
+            group.addTask {
+                for _ in 0..<20 {
+                    try await kv.flush()
+                    try await Task.sleep(nanoseconds: 2_000_000)
+                }
+            }
+
+            try await group.waitForAll()
+        }
+
+        try await Task.sleep(nanoseconds: 120_000_000)
+        try await kv.flush()
+
+        let persisted: [SampleValue] = try await makeTinyKV(dbName: dbName, tableName: tableName)
+            .getValues(for: .string(like: "timer-%"))
+        XCTAssertEqual(persisted.count, total)
+        XCTAssertEqual(Set(persisted.map(\.value)).count, total)
+    }
+
+    func test_rangeReadDuringConcurrentWrites_returnsDecodableValuesWithoutThrowing() async throws {
+        let dbName = randomDBName(prefix: "range-read-concurrent")
+        let tableName = "range-read-concurrent"
+        let total = 120
+        let kv = makeBufferedKV(
+            dbName: dbName,
+            tableName: tableName,
+            config: .init(maxBufferedItems: 10_000, maxBufferedBytes: 20_000_000, flushInterval: 0.01)
+        )
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for index in 0..<total {
+                    try await kv.set(value: SampleValue(value: "rv-\(index)"), for: .string("range-\(index)"))
+                }
+            }
+
+            group.addTask {
+                for _ in 0..<40 {
+                    let values: [SampleValue] = try await kv.getValues(for: .string(like: "range-%"))
+                    XCTAssertTrue(values.allSatisfy { $0.value.hasPrefix("rv-") })
+                }
+            }
+
+            try await group.waitForAll()
+        }
+
+        try await kv.flush()
+        let finalValues: [SampleValue] = try await kv.getValues(for: .string(like: "range-%"))
+        XCTAssertEqual(finalValues.count, total)
+    }
+
     func test_debounceFlush_onlyAfterInterval() async throws {
         let dbName = randomDBName(prefix: "debounce")
         let tableName = "debounce"
