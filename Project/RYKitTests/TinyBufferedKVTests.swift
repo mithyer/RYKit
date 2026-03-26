@@ -19,12 +19,12 @@ final class TinyBufferedKVTests: XCTestCase {
         "\(prefix)-\(UUID().uuidString)"
     }
 
-    private func makeBufferedKV(dbName: String = UUID().uuidString, tableName: String = "buffered", bufferLimit: Int = 2) -> TinyBufferedKV {
-        TinyBufferedKV(
-            dbName: dbName,
-            tableName: tableName,
-            config: .init(bufferLimit: bufferLimit)
-        )
+    private func makeBufferedKV(
+        dbName: String = UUID().uuidString,
+        tableName: String = "buffered",
+        config: TinyBufferedKV.Config = .init()
+    ) -> TinyBufferedKV {
+        TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
     }
 
     private func makeTinyKV(dbName: String, tableName: String) -> TinyKV {
@@ -56,7 +56,6 @@ final class TinyBufferedKVTests: XCTestCase {
     }
 
     func test_flush_persistsBufferedData_forNewInstance() async throws {
-        XCTExpectFailure("Pending Task 3/4")
         let dbName = randomDBName(prefix: "flush")
         let writer = TinyBufferedKV(dbName: dbName, tableName: "shared", config: .init())
         let payload = SampleValue(value: "persisted")
@@ -71,9 +70,9 @@ final class TinyBufferedKVTests: XCTestCase {
     }
 
     func test_bufferLimitReached_triggersAutoFlush() async throws {
-        XCTExpectFailure("Pending Task 3/4")
         let dbName = randomDBName(prefix: "autoflush")
-        let kv = TinyBufferedKV(dbName: dbName, tableName: "auto", config: .init(bufferLimit: 1))
+        let config = TinyBufferedKV.Config(maxBufferedItems: 1, maxBufferedBytes: 1_048_576, flushInterval: 0)
+        let kv = makeBufferedKV(dbName: dbName, tableName: "auto", config: config)
 
         try await kv.set(value: SampleValue(value: "first"), for: .string("k1"))
         try await kv.set(value: SampleValue(value: "second"), for: .string("k2"))
@@ -83,6 +82,26 @@ final class TinyBufferedKVTests: XCTestCase {
 
         XCTAssertEqual(persistedFirst.value, "first")
         XCTAssertEqual(persistedSecond.value, "second")
+    }
+
+    func test_bufferBytesLimitReached_triggersAutoFlush() async throws {
+        let dbName = randomDBName(prefix: "autoflush-bytes")
+        let config = TinyBufferedKV.Config(maxBufferedItems: 10, maxBufferedBytes: 128, flushInterval: 0)
+        let kv = makeBufferedKV(dbName: dbName, tableName: "auto-bytes", config: config)
+
+        let largeValue = SampleValue(value: String(repeating: "x", count: 90))
+        let anotherLargeValue = SampleValue(value: String(repeating: "y", count: 90))
+
+        try await kv.set(value: largeValue, for: .string("big-1"))
+        try await kv.set(value: anotherLargeValue, for: .string("big-2"))
+
+        let persistedFirst: SampleValue = try await makeTinyKV(dbName: dbName, tableName: "auto-bytes")
+            .getValue(for: .string("big-1"))
+        let persistedSecond: SampleValue = try await makeTinyKV(dbName: dbName, tableName: "auto-bytes")
+            .getValue(for: .string("big-2"))
+
+        XCTAssertEqual(persistedFirst, largeValue)
+        XCTAssertEqual(persistedSecond, anotherLargeValue)
     }
 
     func test_getValues_flushesBeforeRangeQuery() async throws {
