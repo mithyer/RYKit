@@ -31,7 +31,7 @@ final class TinyBufferedKVTests: XCTestCase {
         TinyKV(dbName: dbName, tableName: tableName)
     }
 
-    private func assertRawValueMissing(_ kv: TinyKV, key: KVKey) async throws {
+    private func assertRawValueMissing(_ kv: TinyKV, key: TinyKVKey) async throws {
         do {
             _ = try await kv.getData(for: key)
             XCTFail("Expected TinyKV not to contain a value for \(key) yet")
@@ -111,7 +111,7 @@ final class TinyBufferedKVTests: XCTestCase {
         let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
 
         let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
-        let pattern: KVRangeKey = .string(like: "range-%")
+        let pattern: TinyKVRangeKey = .string(like: "range-%")
 
         try await kv.set(value: SampleValue(value: "pending"), for: .string("range-1"))
         let before: [SampleValue] = try await rawKV.getValues(for: pattern)

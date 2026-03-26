@@ -10,7 +10,7 @@ import Foundation
 /// A buffered key-value store that batches writes in memory and flushes to `TinyKV`.
 ///
 /// Flush is triggered either by buffer limits or by a debounced timer after writes.
-public final class TinyBufferedKV: KVReadableWritableStore, KVFlushableStore {
+public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
 
     /// Runtime limits and flush behavior for `TinyBufferedKV`.
     public struct Config {
@@ -78,14 +78,14 @@ public final class TinyBufferedKV: KVReadableWritableStore, KVFlushableStore {
     /// Encodes and buffers a value for the given key.
     ///
     /// The write is persisted later on `flush()`, on debounce timeout, or when limits are exceeded.
-    public func set<T: Encodable>(value: T, for key: KVKey) async throws {
+    public func set<T: Encodable>(value: T, for key: TinyKVKey) async throws {
         try await set(data: JSONEncoder().encode(value), for: key)
     }
 
     /// Buffers raw payload data for the given key.
     ///
     /// If buffer limits are exceeded, this call triggers an immediate flush.
-    public func set(data: Data, for key: KVKey) async throws {
+    public func set(data: Data, for key: TinyKVKey) async throws {
         let bufferKey = canonicalKey(for: key)
         let shouldFlush = queue.sync { () -> Bool in
             let previousSize = buffer[bufferKey]?.count ?? 0
@@ -126,7 +126,7 @@ public final class TinyBufferedKV: KVReadableWritableStore, KVFlushableStore {
         }
 
         for entry in entries {
-            let persistenceKey = tinyKVKey(for: entry.key)
+            let persistenceKey = tinyTinyKVKey(for: entry.key)
             try await storage.set(data: entry.data, for: persistenceKey)
         }
     }
@@ -134,7 +134,7 @@ public final class TinyBufferedKV: KVReadableWritableStore, KVFlushableStore {
     /// Returns raw data for a key.
     ///
     /// Reads from in-memory buffer first, then falls back to `TinyKV` storage.
-    public func getData(for key: KVKey) async throws -> Data {
+    public func getData(for key: TinyKVKey) async throws -> Data {
         let bufferKey = canonicalKey(for: key)
         if let data = queue.sync(execute: { buffer[bufferKey] }) {
             return data
@@ -143,25 +143,25 @@ public final class TinyBufferedKV: KVReadableWritableStore, KVFlushableStore {
     }
 
     /// Flushes pending writes and returns raw data for a range query.
-    public func getDatas(for rangeKey: KVRangeKey, acend: Bool = true) async throws -> [Data] {
+    public func getDatas(for rangeKey: TinyKVRangeKey, acend: Bool = true) async throws -> [Data] {
         try await flush()
         return try await storage.getDatas(for: rangeKey, acend: acend)
     }
 
     /// Returns a decoded value for a single key.
-    public func getValue<T: Decodable>(for key: KVKey) async throws -> T {
+    public func getValue<T: Decodable>(for key: TinyKVKey) async throws -> T {
         let data = try await getData(for: key)
         return try JSONDecoder().decode(T.self, from: data)
     }
 
     /// Flushes pending writes and returns decoded values for a range query.
-    public func getValues<T: Decodable>(for rangeKey: KVRangeKey, acend: Bool = true) async throws -> [T] {
+    public func getValues<T: Decodable>(for rangeKey: TinyKVRangeKey, acend: Bool = true) async throws -> [T] {
         let datas = try await getDatas(for: rangeKey, acend: acend)
         let decoder = JSONDecoder()
         return try datas.map { try decoder.decode(T.self, from: $0) }
     }
 
-    private func canonicalKey(for key: KVKey) -> BufferKey {
+    private func canonicalKey(for key: TinyKVKey) -> BufferKey {
         switch key {
         case .string(let value):
             return .string(value)
@@ -170,7 +170,7 @@ public final class TinyBufferedKV: KVReadableWritableStore, KVFlushableStore {
         }
     }
 
-    private func tinyKVKey(for bufferKey: BufferKey) -> KVKey {
+    private func tinyTinyKVKey(for bufferKey: BufferKey) -> TinyKVKey {
         switch bufferKey {
         case .string(let value):
             return .string(value)

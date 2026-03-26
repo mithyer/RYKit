@@ -9,7 +9,7 @@ import Foundation
 import SQLite3
 
 /// A lightweight SQLite-backed key-value store that persists `Codable` values as BLOB data.
-public class TinyKV: KVReadableWritableStore {
+public class TinyKV: TinyKVReadWritable {
 
     /// Errors that can be thrown by `TinyKV` read/query operations.
     public enum TinyKVError: Error, Equatable {
@@ -68,7 +68,7 @@ public class TinyKV: KVReadableWritableStore {
     /// - Parameters:
     ///   - value: Value to persist.
     ///   - key: String or integer key.
-    public func set<T: Encodable>(value: T, for key: KVKey) async throws {
+    public func set<T: Encodable>(value: T, for key: TinyKVKey) async throws {
         let data = try JSONEncoder().encode(value)
         try await set(data: data, for: key)
     }
@@ -78,7 +78,7 @@ public class TinyKV: KVReadableWritableStore {
     ///   - data: Raw payload to persist.
     ///   - key: String or integer key.
     /// - Throws: `TinyKVError` when write fails.
-    public func set(data: Data, for key: KVKey) async throws {
+    public func set(data: Data, for key: TinyKVKey) async throws {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
             switch key {
@@ -94,7 +94,7 @@ public class TinyKV: KVReadableWritableStore {
     /// - Parameter key: String or integer key.
     /// - Returns: Stored raw `Data`.
     /// - Throws: `TinyKVError` when query fails or key is missing.
-    public func getData(for key: KVKey) async throws -> Data {
+    public func getData(for key: TinyKVKey) async throws -> Data {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
             switch key {
@@ -121,7 +121,7 @@ public class TinyKV: KVReadableWritableStore {
     ///   - acend: Whether to sort ascending (`true`) or descending (`false`).
     /// - Returns: Ordered raw `Data` array.
     /// - Throws: `TinyKVError` when query fails.
-    public func getDatas(for rangeKey: KVRangeKey, acend: Bool = true) async throws -> [Data] {
+    public func getDatas(for rangeKey: TinyKVRangeKey, acend: Bool = true) async throws -> [Data] {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
             let order = acend ? "ASC" : "DESC"
@@ -135,10 +135,10 @@ public class TinyKV: KVReadableWritableStore {
                     }
                 })
             case .int(let range):
-                guard range.contains("%") else {
+                guard range.contains("$") else {
                     throw TinyKVError.invalidRangeExpression
                 }
-                let condition = range.replacingOccurrences(of: "%", with: "int_key")
+                let condition = range.replacingOccurrences(of: "$", with: "int_key")
                 let sql = "SELECT value FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(condition)) ORDER BY int_key \(order);"
                 return try queryDatas(sql: sql)
             }
@@ -149,7 +149,7 @@ public class TinyKV: KVReadableWritableStore {
     /// - Parameter key: String or integer key.
     /// - Returns: Decoded value of type `T`.
     /// - Throws: `TinyKVError.notFound` when key is missing, or `TinyKVError.decodeFailed` when decoding fails.
-    public func getValue<T: Decodable>(for key: KVKey) async throws -> T {
+    public func getValue<T: Decodable>(for key: TinyKVKey) async throws -> T {
         let data = try await getData(for: key)
         do {
             return try JSONDecoder().decode(T.self, from: data)
@@ -164,7 +164,7 @@ public class TinyKV: KVReadableWritableStore {
     ///   - acend: Whether to sort ascending (`true`) or descending (`false`).
     /// - Returns: Ordered decoded values of type `T`.
     /// - Throws: `TinyKVError` when query or decoding fails.
-    public func getValues<T: Decodable>(for rangeKey: KVRangeKey, acend: Bool = true) async throws -> [T] {
+    public func getValues<T: Decodable>(for rangeKey: TinyKVRangeKey, acend: Bool = true) async throws -> [T] {
         let datas = try await getDatas(for: rangeKey, acend: acend)
         let decoder = JSONDecoder()
         return try datas.map { data in
