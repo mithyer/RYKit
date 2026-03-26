@@ -133,24 +133,34 @@ final class TinyKVTests: XCTestCase {
         let kv = makeKV()
         try await kv.set(value: SampleValue(id: 1, name: "safe"), for: .int(1))
 
-        do {
-            let _: [SampleValue] = try await kv.getValues(for: .int(condition: "$ >= 0; DROP TABLE records; --"), acend: true)
-            XCTFail("Expected TinyKVError.invalidRangeExpression")
-        } catch let error as TinyKV.TinyKVError {
-            XCTAssertEqual(error, .invalidRangeExpression)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
+        let invalidCases: [(String, String)] = [
+            ("", "empty expression"),
+            ("$ >= 0; DROP TABLE records", "semicolon injection"),
+            ("$ >= 0 -- comment", "line comment token"),
+            ("$ >= 0 /* comment */", "block comment token")
+        ]
 
-        do {
-            try await kv.remove(for: .int(condition: "$ >= 0 /* delete all */"))
-            XCTFail("Expected TinyKVError.invalidRangeExpression")
-        } catch let error as TinyKV.TinyKVError {
-            XCTAssertEqual(error, .invalidRangeExpression)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        for (condition, label) in invalidCases {
+            do {
+                let _: [SampleValue] = try await kv.getValues(for: .int(condition: condition), acend: true)
+                XCTFail("Expected TinyKVError.invalidRangeExpression for query case: \(label)")
+            } catch let error as TinyKV.TinyKVError {
+                XCTAssertEqual(error, .invalidRangeExpression)
+            } catch {
+                XCTFail("Unexpected error in query case \(label): \(error)")
+            }
+
+            do {
+                try await kv.remove(for: .int(condition: condition))
+                XCTFail("Expected TinyKVError.invalidRangeExpression for delete case: \(label)")
+            } catch let error as TinyKV.TinyKVError {
+                XCTAssertEqual(error, .invalidRangeExpression)
+            } catch {
+                XCTFail("Unexpected error in delete case \(label): \(error)")
+            }
         }
     }
+
 
     func test_allKeys_includesEmptyStringKey() async throws {
         let kv = makeKV()
