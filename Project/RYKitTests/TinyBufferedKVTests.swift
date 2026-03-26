@@ -31,7 +31,7 @@ final class TinyBufferedKVTests: XCTestCase {
         TinyKV(dbName: dbName, tableName: tableName)
     }
 
-    private func assertRawValueMissing<KeyPayload>(_ kv: TinyKV, key: TinyKV.Key) async throws {
+    private func assertRawValueMissing(_ kv: TinyKV, key: TinyKV.Key) async throws {
         do {
             _ = try await kv.getData(for: key)
             XCTFail("Expected TinyKV not to contain a value for \(key) yet")
