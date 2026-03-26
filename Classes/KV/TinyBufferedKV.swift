@@ -161,6 +161,48 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
         return try datas.map { try decoder.decode(T.self, from: $0) }
     }
 
+    /// Removes a single key from both in-memory buffer and persistent storage.
+    public func remove(for key: TinyKVKey) async throws {
+        let bufferKey = canonicalKey(for: key)
+        queue.sync {
+            if let existing = buffer.removeValue(forKey: bufferKey) {
+                bufferedBytes -= existing.count
+            }
+            if bufferedBytes < 0 {
+                bufferedBytes = 0
+            }
+        }
+        try await storage.remove(for: key)
+    }
+
+    /// Flushes pending writes and removes records matching the range query.
+    public func remove(for rangeKey: TinyKVQueryKey) async throws {
+        try await flush()
+        try await storage.remove(for: rangeKey)
+    }
+
+    /// Clears buffered and persisted records.
+    public func removeAll() async throws {
+        cancelFlushTimer()
+        queue.sync {
+            buffer.removeAll()
+            bufferedBytes = 0
+        }
+        try await storage.removeAll()
+    }
+
+    /// Returns persisted record count after flushing pending writes.
+    public func count() async throws -> Int {
+        try await flush()
+        return try await storage.count()
+    }
+
+    /// Returns all keys after flushing pending writes.
+    public func allKeys() async throws -> [TinyKVKey] {
+        try await flush()
+        return try await storage.allKeys()
+    }
+
     private func canonicalKey(for key: TinyKVKey) -> BufferKey {
         switch key {
         case .string(let value):

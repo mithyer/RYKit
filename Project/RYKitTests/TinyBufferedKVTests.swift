@@ -196,4 +196,57 @@ final class TinyBufferedKVTests: XCTestCase {
         XCTAssertEqual(first.value, "first")
         XCTAssertEqual(second.value, "second")
     }
+
+    func test_removeAll_clearsBufferedAndPersistedData() async throws {
+        let dbName = randomDBName(prefix: "remove-all")
+        let tableName = "remove-all"
+        let config = TinyBufferedKV.Config(maxBufferedItems: 100, maxBufferedBytes: 1_048_576, flushInterval: 0)
+        let kv = makeBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
+
+        try await kv.set(value: SampleValue(value: "persisted"), for: .string("k-persisted"))
+        try await kv.flush()
+        try await kv.set(value: SampleValue(value: "buffered"), for: .string("k-buffered"))
+
+        let persistedBefore: [SampleValue] = try await rawKV.getValues(for: .string(like: "k-%"))
+        XCTAssertEqual(persistedBefore.count, 1)
+
+        try await kv.removeAll()
+
+        let persistedAfter: [SampleValue] = try await rawKV.getValues(for: .string(like: "k-%"))
+        XCTAssertTrue(persistedAfter.isEmpty)
+        let kvCountAfterRemoveAll = try await kv.count()
+        XCTAssertEqual(kvCountAfterRemoveAll, 0)
+    }
+
+    func test_countAndAllKeys_flushPendingWritesBeforeReadingStorage() async throws {
+        let dbName = randomDBName(prefix: "count-allkeys")
+        let tableName = "count-allkeys"
+        let config = TinyBufferedKV.Config(maxBufferedItems: 100, maxBufferedBytes: 1_048_576, flushInterval: 0)
+        let kv = makeBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
+
+        try await kv.set(value: SampleValue(value: "v1"), for: .string("u-1"))
+        try await kv.set(value: SampleValue(value: "v2"), for: .string("u-2"))
+
+        let rawCountBeforeFlush = try await rawKV.count()
+        XCTAssertEqual(rawCountBeforeFlush, 0)
+
+        let count = try await kv.count()
+        XCTAssertEqual(count, 2)
+
+        let rawCountAfterFlush = try await rawKV.count()
+        XCTAssertEqual(rawCountAfterFlush, 2)
+
+        let keys = try await kv.allKeys()
+        let keyDescriptions = Set(keys.map { key in
+            switch key {
+            case .string(let value):
+                return "s:\(value)"
+            case .int(let value):
+                return "i:\(value)"
+            }
+        })
+        XCTAssertEqual(keyDescriptions, Set(["s:u-1", "s:u-2"]))
+    }
 }
