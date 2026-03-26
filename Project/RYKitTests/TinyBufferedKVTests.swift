@@ -260,6 +260,70 @@ final class TinyBufferedKVTests: XCTestCase {
         }
     }
 
+    func test_countAndRemoveAll_areLinearized_removeAllWinsAfterCountCompletes() async throws {
+        actor FlushGate {
+            private var startedContinuation: CheckedContinuation<Void, Never>?
+            private var releaseContinuation: CheckedContinuation<Void, Never>?
+            private var started = false
+            private var released = false
+
+            func markStarted() {
+                started = true
+                startedContinuation?.resume()
+                startedContinuation = nil
+            }
+
+            func waitUntilStarted() async {
+                if started { return }
+                await withCheckedContinuation { continuation in
+                    startedContinuation = continuation
+                }
+            }
+
+            func waitForRelease() async {
+                if released { return }
+                await withCheckedContinuation { continuation in
+                    releaseContinuation = continuation
+                }
+            }
+
+            func release() {
+                released = true
+                releaseContinuation?.resume()
+                releaseContinuation = nil
+            }
+        }
+
+        let dbName = randomDBName(prefix: "count-removeall")
+        let tableName = "count-removeall"
+        let config = TinyBufferedKV.Config(maxBufferedItems: 100, maxBufferedBytes: 1_048_576, flushInterval: 0)
+        let kv = makeBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
+        let gate = FlushGate()
+
+        try await kv.set(value: SampleValue(value: "v1"), for: .string("k-1"))
+        try await kv.set(value: SampleValue(value: "v2"), for: .string("k-2"))
+
+        kv.flushWriteHook = { key, data, storage in
+            await gate.markStarted()
+            await gate.waitForRelease()
+            try await storage.set(data: data, for: key)
+        }
+
+        async let counted: Int = kv.count()
+        await gate.waitUntilStarted()
+
+        async let removed: Void = kv.removeAll()
+        await gate.release()
+
+        let count = try await counted
+        try await removed
+
+        XCTAssertEqual(count, 2)
+        let rawCountAfterRemoveAll = try await rawKV.count()
+        XCTAssertEqual(rawCountAfterRemoveAll, 0)
+    }
+
     func test_flushFailure_keepsBufferedData_andCanRetry() async throws {
         let dbName = randomDBName(prefix: "flush-failure")
         let tableName = "flush-failure"

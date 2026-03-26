@@ -185,20 +185,26 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
 
     /// Returns persisted record count after flushing pending writes.
     public func count() async throws -> Int {
-        try await flush()
-        return try await storage.count()
+        try await runMutation {
+            try await self.flushLocked()
+            return try await self.storage.count()
+        }
     }
 
     /// Returns all keys after flushing pending writes.
     public func allKeys() async throws -> [TinyKVKey] {
-        try await flush()
-        return try await storage.allKeys()
+        try await runMutation {
+            try await self.flushLocked()
+            return try await self.storage.allKeys()
+        }
     }
 
     private func runMutation<T>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             mutationQueue.async {
+                let semaphore = DispatchSemaphore(value: 0)
                 Task {
+                    defer { semaphore.signal() }
                     do {
                         let value = try await operation()
                         continuation.resume(returning: value)
@@ -206,9 +212,11 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
                         continuation.resume(throwing: error)
                     }
                 }
+                semaphore.wait()
             }
         }
     }
+
 
     private func flushLocked() async throws {
         cancelFlushTimer()
