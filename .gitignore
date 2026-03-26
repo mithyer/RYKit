@@ -2,3 +2,4 @@
 *.xcuserdatad
 *.xcworkspacedata
 CLAUDE.md
+.worktrees/
