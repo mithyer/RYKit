@@ -110,7 +110,8 @@ public final class TinyBufferedKV {
     }
 
     public func getDatas(for rangeKey: TinyKV.RangeKey, acend: Bool = true) async throws -> [Data] {
-        throw TinyBufferedKVError.notImplemented
+        try await flush()
+        return try await storage.getDatas(for: rangeKey, acend: acend)
     }
 
     public func getValue<T: Decodable>(for key: TinyKV.Key) async throws -> T {

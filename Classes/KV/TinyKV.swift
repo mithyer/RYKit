@@ -9,7 +9,7 @@ import Foundation
 import SQLite3
 
 /// A lightweight SQLite-backed key-value store that persists `Codable` values as BLOB data.
-public final class TinyKV {
+public class TinyKV {
 
     /// Errors that can be thrown by `TinyKV` read/query operations.
     public enum TinyKVError: Error, Equatable {

@@ -105,7 +105,6 @@ final class TinyBufferedKVTests: XCTestCase {
     }
 
     func test_getValues_flushesBeforeRangeQuery() async throws {
-        XCTExpectFailure("Pending Task 3/4")
         let dbName = randomDBName(prefix: "range-flush")
         let tableName = "range"
         let config = TinyBufferedKV.Config(maxBufferedItems: 10, maxBufferedBytes: 1_048_576, flushInterval: 0)
@@ -124,5 +123,37 @@ final class TinyBufferedKVTests: XCTestCase {
 
         let persisted: [SampleValue] = try await rawKV.getValues(for: pattern)
         XCTAssertEqual(persisted, results)
+    }
+
+    func test_concurrent_setFlushGet_hasNoLostUpdates() async throws {
+        let dbName = randomDBName(prefix: "concurrent")
+        let tableName = "concurrent"
+        let config = TinyBufferedKV.Config(maxBufferedItems: 1_000, maxBufferedBytes: 10_000_000, flushInterval: 0)
+        let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let total = 80
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for index in 0..<total {
+                group.addTask {
+                    try await kv.set(value: SampleValue(value: "v-\(index)"), for: .string("concurrent-\(index)"))
+                }
+            }
+
+            group.addTask {
+                for _ in 0..<20 {
+                    try await kv.flush()
+                }
+            }
+
+            try await group.waitForAll()
+        }
+
+        try await kv.flush()
+
+        let persisted: [SampleValue] = try await makeTinyKV(dbName: dbName, tableName: tableName)
+            .getValues(for: .string(like: "concurrent-%"))
+
+        XCTAssertEqual(persisted.count, total)
+        XCTAssertEqual(Set(persisted.map(\.value)).count, total)
     }
 }
