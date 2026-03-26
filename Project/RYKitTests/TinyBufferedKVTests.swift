@@ -11,8 +11,29 @@ import XCTest
 @MainActor
 final class TinyBufferedKVTests: XCTestCase {
 
+    private enum InjectedFlushError: Error {
+        case forced
+    }
+
+
     private struct SampleValue: Codable, Equatable {
         let value: String
+    }
+
+    private actor FailureCounter {
+        private var remaining: Int
+
+        init(_ remaining: Int) {
+            self.remaining = remaining
+        }
+
+        func consumeOneIfAvailable() -> Bool {
+            if remaining > 0 {
+                remaining -= 1
+                return true
+            }
+            return false
+        }
     }
 
     private func randomDBName(prefix: String) -> String {
@@ -217,6 +238,62 @@ final class TinyBufferedKVTests: XCTestCase {
         XCTAssertTrue(persistedAfter.isEmpty)
         let kvCountAfterRemoveAll = try await kv.count()
         XCTAssertEqual(kvCountAfterRemoveAll, 0)
+    }
+
+    func test_flushAndRemove_areLinearized_noZombieValueAfterRemove() async throws {
+        let dbName = randomDBName(prefix: "flush-remove")
+        let tableName = "flush-remove"
+        let config = TinyBufferedKV.Config(maxBufferedItems: 100, maxBufferedBytes: 1_048_576, flushInterval: 0)
+        let kv = makeBufferedKV(dbName: dbName, tableName: tableName, config: config)
+
+        try await kv.set(value: SampleValue(value: "to-remove"), for: .string("race-key"))
+
+        async let flushing: Void = kv.flush()
+        async let removing: Void = kv.remove(for: .string("race-key"))
+        _ = try await (flushing, removing)
+
+        do {
+            let _: SampleValue = try await kv.getValue(for: .string("race-key"))
+            XCTFail("Expected key to be removed and not resurrected")
+        } catch let error as TinyKV.TinyKVError {
+            XCTAssertEqual(error, .notFound)
+        }
+    }
+
+    func test_flushFailure_keepsBufferedData_andCanRetry() async throws {
+        let dbName = randomDBName(prefix: "flush-failure")
+        let tableName = "flush-failure"
+        let config = TinyBufferedKV.Config(maxBufferedItems: 100, maxBufferedBytes: 1_048_576, flushInterval: 0)
+        let kv = makeBufferedKV(dbName: dbName, tableName: tableName, config: config)
+
+        try await kv.set(value: SampleValue(value: "v1"), for: .string("f-1"))
+        try await kv.set(value: SampleValue(value: "v2"), for: .string("f-2"))
+
+        let failureCounter = FailureCounter(1)
+        kv.flushWriteHook = { _, _, _ in
+            if await failureCounter.consumeOneIfAvailable() {
+                throw InjectedFlushError.forced
+            }
+        }
+
+        do {
+            try await kv.flush()
+            XCTFail("Expected flush to throw injected error")
+        } catch let error as InjectedFlushError {
+            XCTAssertEqual(error, .forced)
+        }
+
+        let buffered1: SampleValue = try await kv.getValue(for: .string("f-1"))
+        let buffered2: SampleValue = try await kv.getValue(for: .string("f-2"))
+        XCTAssertEqual(buffered1.value, "v1")
+        XCTAssertEqual(buffered2.value, "v2")
+
+        kv.flushWriteHook = nil
+        try await kv.flush()
+
+        let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
+        let persisted: [SampleValue] = try await rawKV.getValues(for: .string(like: "f-%"))
+        XCTAssertEqual(Set(persisted.map(\.value)), Set(["v1", "v2"]))
     }
 
     func test_countAndAllKeys_flushPendingWritesBeforeReadingStorage() async throws {

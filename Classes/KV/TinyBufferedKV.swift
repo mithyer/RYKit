@@ -57,8 +57,11 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
     private var buffer = [BufferKey: Data]()
     private var bufferedBytes = 0
     private let queue = DispatchQueue(label: "com.rykit.tinybufferedkv")
+    private let mutationQueue = DispatchQueue(label: "com.rykit.tinybufferedkv.mutation")
     private let timerQueue = DispatchQueue(label: "com.rykit.tinybufferedkv.timer")
     private var flushTimer: DispatchSourceTimer?
+
+    internal var flushWriteHook: ((_ key: TinyKVKey, _ data: Data, _ storage: TinyKV) async throws -> Void)?
 
     /// Creates a buffered store on top of `TinyKV`.
     /// - Parameters:
@@ -109,25 +112,8 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
     ///
     /// This is an explicit flush and propagates write errors to the caller.
     public func flush() async throws {
-        cancelFlushTimer()
-
-        let entries = queue.sync { () -> [BufferEntry] in
-            guard !buffer.isEmpty else {
-                return []
-            }
-            let snapshot = buffer.map { (key: $0.key, data: $0.value) }
-            buffer.removeAll()
-            bufferedBytes = 0
-            return snapshot
-        }
-
-        guard !entries.isEmpty else {
-            return
-        }
-
-        for entry in entries {
-            let persistenceKey = tinyTinyKVKey(for: entry.key)
-            try await storage.set(data: entry.data, for: persistenceKey)
+        try await runMutation {
+            try await self.flushLocked()
         }
     }
 
@@ -163,32 +149,38 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
 
     /// Removes a single key from both in-memory buffer and persistent storage.
     public func remove(for key: TinyKVKey) async throws {
-        let bufferKey = canonicalKey(for: key)
-        queue.sync {
-            if let existing = buffer.removeValue(forKey: bufferKey) {
-                bufferedBytes -= existing.count
+        try await runMutation {
+            let bufferKey = self.canonicalKey(for: key)
+            self.queue.sync {
+                if let existing = self.buffer.removeValue(forKey: bufferKey) {
+                    self.bufferedBytes -= existing.count
+                }
+                if self.bufferedBytes < 0 {
+                    self.bufferedBytes = 0
+                }
             }
-            if bufferedBytes < 0 {
-                bufferedBytes = 0
-            }
+            try await self.storage.remove(for: key)
         }
-        try await storage.remove(for: key)
     }
 
     /// Flushes pending writes and removes records matching the range query.
     public func remove(for rangeKey: TinyKVQueryKey) async throws {
-        try await flush()
-        try await storage.remove(for: rangeKey)
+        try await runMutation {
+            try await self.flushLocked()
+            try await self.storage.remove(for: rangeKey)
+        }
     }
 
     /// Clears buffered and persisted records.
     public func removeAll() async throws {
-        cancelFlushTimer()
-        queue.sync {
-            buffer.removeAll()
-            bufferedBytes = 0
+        try await runMutation {
+            self.cancelFlushTimer()
+            self.queue.sync {
+                self.buffer.removeAll()
+                self.bufferedBytes = 0
+            }
+            try await self.storage.removeAll()
         }
-        try await storage.removeAll()
     }
 
     /// Returns persisted record count after flushing pending writes.
@@ -201,6 +193,57 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
     public func allKeys() async throws -> [TinyKVKey] {
         try await flush()
         return try await storage.allKeys()
+    }
+
+    private func runMutation<T>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            mutationQueue.async {
+                Task {
+                    do {
+                        let value = try await operation()
+                        continuation.resume(returning: value)
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
+        }
+    }
+
+    private func flushLocked() async throws {
+        cancelFlushTimer()
+
+        let entries = queue.sync { () -> [BufferEntry] in
+            guard !buffer.isEmpty else {
+                return []
+            }
+            return buffer.map { (key: $0.key, data: $0.value) }
+        }
+
+        guard !entries.isEmpty else {
+            return
+        }
+
+        for entry in entries {
+            let persistenceKey = tinyTinyKVKey(for: entry.key)
+            if let flushWriteHook {
+                try await flushWriteHook(persistenceKey, entry.data, storage)
+            } else {
+                try await storage.set(data: entry.data, for: persistenceKey)
+            }
+        }
+
+        queue.sync {
+            for entry in entries {
+                if let current = buffer[entry.key], current == entry.data {
+                    bufferedBytes -= current.count
+                    buffer.removeValue(forKey: entry.key)
+                }
+            }
+            if bufferedBytes < 0 {
+                bufferedBytes = 0
+            }
+        }
     }
 
     private func canonicalKey(for key: TinyKVKey) -> BufferKey {
