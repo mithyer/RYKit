@@ -41,9 +41,11 @@ final class TinyBufferedKVTests: XCTestCase {
     }
 
     func test_setThenGet_withoutFlush_readsFromBuffer() async throws {
-        let kv = makeBufferedKV()
+        let dbName = randomDBName(prefix: "buffered")
+        let tableName = "buffered"
+        let kv = makeBufferedKV(dbName: dbName, tableName: tableName)
         let payload = SampleValue(value: "in-buffer")
-        let rawKV = makeTinyKV(dbName: "buffered-", tableName: "buffered")
+        let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
 
         try await kv.set(value: payload, for: .string("buffered"))
         try await assertRawValueMissing(rawKV, key: .string("buffered"))
