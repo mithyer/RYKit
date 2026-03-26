@@ -9,7 +9,7 @@ import Foundation
 import SQLite3
 
 /// A lightweight SQLite-backed key-value store that persists `Codable` values as BLOB data.
-public final class TinyKV {
+public class TinyKV: KVReadableWritableStore {
 
     /// Errors that can be thrown by `TinyKV` read/query operations.
     public enum TinyKVError: Error, Equatable {
@@ -29,22 +29,6 @@ public final class TinyKV {
         case intKeyOutOfRange
         /// The range expression for integer-key query is invalid.
         case invalidRangeExpression
-    }
-
-    /// Supported key types for single-record operations.
-    public enum Key {
-        /// String key mapped to `str_key`.
-        case string(String)
-        /// Unsigned integer key mapped to `int_key`.
-        case int(UInt)
-    }
-
-    /// Key selector for range-record queries.
-    public enum RangeKey {
-        /// SQL LIKE pattern for `str_key` (for example: `"user-%"`).
-        case string(like: String)
-        /// SQL condition template for `int_key`; `%` is replaced with `int_key` (for example: `"% > 10 AND % < 20"`).
-        case int(range: String)
     }
 
     private let queue: DispatchQueue
@@ -84,7 +68,7 @@ public final class TinyKV {
     /// - Parameters:
     ///   - value: Value to persist.
     ///   - key: String or integer key.
-    public func set<T: Encodable>(value: T, for key: Key) async throws {
+    public func set<T: Encodable>(value: T, for key: KVKey) async throws {
         let data = try JSONEncoder().encode(value)
         try await set(data: data, for: key)
     }
@@ -94,7 +78,7 @@ public final class TinyKV {
     ///   - data: Raw payload to persist.
     ///   - key: String or integer key.
     /// - Throws: `TinyKVError` when write fails.
-    public func set(data: Data, for key: Key) async throws {
+    public func set(data: Data, for key: KVKey) async throws {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
             switch key {
@@ -110,7 +94,7 @@ public final class TinyKV {
     /// - Parameter key: String or integer key.
     /// - Returns: Stored raw `Data`.
     /// - Throws: `TinyKVError` when query fails or key is missing.
-    public func getData(for key: Key) async throws -> Data {
+    public func getData(for key: KVKey) async throws -> Data {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
             switch key {
@@ -137,7 +121,7 @@ public final class TinyKV {
     ///   - acend: Whether to sort ascending (`true`) or descending (`false`).
     /// - Returns: Ordered raw `Data` array.
     /// - Throws: `TinyKVError` when query fails.
-    public func getDatas(for rangeKey: RangeKey, acend: Bool = true) async throws -> [Data] {
+    public func getDatas(for rangeKey: KVRangeKey, acend: Bool = true) async throws -> [Data] {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
             let order = acend ? "ASC" : "DESC"
@@ -165,7 +149,7 @@ public final class TinyKV {
     /// - Parameter key: String or integer key.
     /// - Returns: Decoded value of type `T`.
     /// - Throws: `TinyKVError.notFound` when key is missing, or `TinyKVError.decodeFailed` when decoding fails.
-    public func getValue<T: Decodable>(for key: Key) async throws -> T {
+    public func getValue<T: Decodable>(for key: KVKey) async throws -> T {
         let data = try await getData(for: key)
         do {
             return try JSONDecoder().decode(T.self, from: data)
@@ -180,7 +164,7 @@ public final class TinyKV {
     ///   - acend: Whether to sort ascending (`true`) or descending (`false`).
     /// - Returns: Ordered decoded values of type `T`.
     /// - Throws: `TinyKVError` when query or decoding fails.
-    public func getValues<T: Decodable>(for rangeKey: RangeKey, acend: Bool = true) async throws -> [T] {
+    public func getValues<T: Decodable>(for rangeKey: KVRangeKey, acend: Bool = true) async throws -> [T] {
         let datas = try await getDatas(for: rangeKey, acend: acend)
         let decoder = JSONDecoder()
         return try datas.map { data in
