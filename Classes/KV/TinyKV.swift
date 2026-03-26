@@ -121,26 +121,53 @@ public class TinyKV: TinyKVReadWritable {
     ///   - acend: Whether to sort ascending (`true`) or descending (`false`).
     /// - Returns: Ordered raw `Data` array.
     /// - Throws: `TinyKVError` when query fails.
-    public func getDatas(for rangeKey: TinyKVRangeKey, acend: Bool = true) async throws -> [Data] {
+    public func getDatas(for rangeKey: TinyKVQueryKey, acend: Bool = true) async throws -> [Data] {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
             let order = acend ? "ASC" : "DESC"
 
             switch rangeKey {
-            case .string(let like):
+            case TinyKVQueryKey.string(like: let like):
                 let sql = "SELECT value FROM \(quotedTableName) WHERE str_key LIKE ? ORDER BY str_key \(order);"
                 return try queryDatas(sql: sql, bind: { stmt in
                     if sqlite3_bind_text(stmt, 1, like, -1, self.sqliteTransient) != SQLITE_OK {
                         throw TinyKVError.statementBindFailed
                     }
                 })
-            case .int(let range):
-                guard range.contains("$") else {
+            case TinyKVQueryKey.strings(in: let keys):
+                guard !keys.isEmpty else {
+                    return []
+                }
+                let placeholders = Array(repeating: "?", count: keys.count).joined(separator: ",")
+                let sql = "SELECT value FROM \(quotedTableName) WHERE str_key IN (\(placeholders)) ORDER BY str_key \(order);"
+                return try queryDatas(sql: sql, bind: { stmt in
+                    for (index, key) in keys.enumerated() {
+                        if sqlite3_bind_text(stmt, Int32(index + 1), key, -1, self.sqliteTransient) != SQLITE_OK {
+                            throw TinyKVError.statementBindFailed
+                        }
+                    }
+                })
+            case TinyKVQueryKey.int(condition: let condition):
+                guard condition.contains("$") else {
                     throw TinyKVError.invalidRangeExpression
                 }
-                let condition = range.replacingOccurrences(of: "$", with: "int_key")
-                let sql = "SELECT value FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(condition)) ORDER BY int_key \(order);"
+                let sqlCondition = condition.replacingOccurrences(of: "$", with: "int_key")
+                let sql = "SELECT value FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(sqlCondition)) ORDER BY int_key \(order);"
                 return try queryDatas(sql: sql)
+            case TinyKVQueryKey.ints(in: let keys):
+                guard !keys.isEmpty else {
+                    return []
+                }
+                let int64Keys = try keys.map { try toInt64($0) }
+                let placeholders = Array(repeating: "?", count: int64Keys.count).joined(separator: ",")
+                let sql = "SELECT value FROM \(quotedTableName) WHERE int_key IN (\(placeholders)) ORDER BY int_key \(order);"
+                return try queryDatas(sql: sql, bind: { stmt in
+                    for (index, key) in int64Keys.enumerated() {
+                        if sqlite3_bind_int64(stmt, Int32(index + 1), key) != SQLITE_OK {
+                            throw TinyKVError.statementBindFailed
+                        }
+                    }
+                })
             }
         }
     }
@@ -164,7 +191,7 @@ public class TinyKV: TinyKVReadWritable {
     ///   - acend: Whether to sort ascending (`true`) or descending (`false`).
     /// - Returns: Ordered decoded values of type `T`.
     /// - Throws: `TinyKVError` when query or decoding fails.
-    public func getValues<T: Decodable>(for rangeKey: TinyKVRangeKey, acend: Bool = true) async throws -> [T] {
+    public func getValues<T: Decodable>(for rangeKey: TinyKVQueryKey, acend: Bool = true) async throws -> [T] {
         let datas = try await getDatas(for: rangeKey, acend: acend)
         let decoder = JSONDecoder()
         return try datas.map { data in

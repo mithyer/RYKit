@@ -111,7 +111,7 @@ final class TinyBufferedKVTests: XCTestCase {
         let kv = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
 
         let rawKV = makeTinyKV(dbName: dbName, tableName: tableName)
-        let pattern: TinyKVRangeKey = .string(like: "range-%")
+        let pattern: TinyKVQueryKey = .string(like: "range-%")
 
         try await kv.set(value: SampleValue(value: "pending"), for: .string("range-1"))
         let before: [SampleValue] = try await rawKV.getValues(for: pattern)

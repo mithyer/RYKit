@@ -143,7 +143,7 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
     }
 
     /// Flushes pending writes and returns raw data for a range query.
-    public func getDatas(for rangeKey: TinyKVRangeKey, acend: Bool = true) async throws -> [Data] {
+    public func getDatas(for rangeKey: TinyKVQueryKey, acend: Bool = true) async throws -> [Data] {
         try await flush()
         return try await storage.getDatas(for: rangeKey, acend: acend)
     }
@@ -155,7 +155,7 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
     }
 
     /// Flushes pending writes and returns decoded values for a range query.
-    public func getValues<T: Decodable>(for rangeKey: TinyKVRangeKey, acend: Bool = true) async throws -> [T] {
+    public func getValues<T: Decodable>(for rangeKey: TinyKVQueryKey, acend: Bool = true) async throws -> [T] {
         let datas = try await getDatas(for: rangeKey, acend: acend)
         let decoder = JSONDecoder()
         return try datas.map { try decoder.decode(T.self, from: $0) }

@@ -21,22 +21,25 @@ public enum TinyKVKey {
 /// Selector type for range queries.
 ///
 /// - `string(like:)`: SQL `LIKE` pattern match on string keys.
-/// - `int(range:)`: SQL condition template for integer keys.
-public enum TinyKVRangeKey {
+/// - `int(condition:)`: SQL condition template for integer keys.
+public enum TinyKVQueryKey {
     /// SQL `LIKE` pattern for string keys (for example: `"user:%"`).
     case string(like: String)
     /// SQL condition template for integer keys; `$` is replaced by the concrete integer key column in storage.
     /// Example: `"$ >= 100 AND $ < 200"`.
-    case int(range: String)
+    case int(condition: String)
+    ///
+    case strings(in: [String])
+    case ints(in: [UInt])
 }
 
 public protocol TinyKVReadWritable {
     func set<T: Encodable>(value: T, for key: TinyKVKey) async throws
     func set(data: Data, for key: TinyKVKey) async throws
     func getData(for key: TinyKVKey) async throws -> Data
-    func getDatas(for rangeKey: TinyKVRangeKey, acend: Bool) async throws -> [Data]
+    func getDatas(for rangeKey: TinyKVQueryKey, acend: Bool) async throws -> [Data]
     func getValue<T: Decodable>(for key: TinyKVKey) async throws -> T
-    func getValues<T: Decodable>(for rangeKey: TinyKVRangeKey, acend: Bool) async throws -> [T]
+    func getValues<T: Decodable>(for rangeKey: TinyKVQueryKey, acend: Bool) async throws -> [T]
 }
 
 public protocol TinyKVFlushable {

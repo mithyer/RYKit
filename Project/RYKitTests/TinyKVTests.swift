@@ -87,6 +87,20 @@ final class TinyKVTests: XCTestCase {
         XCTAssertEqual(desc.map(\.id), [2, 1])
     }
 
+    func test_getValues_withStringIn_returnsAscendingAndDescending() async throws {
+        let kv = makeKV()
+
+        try await kv.set(value: SampleValue(id: 1, name: "k1"), for: .string("ab-1"))
+        try await kv.set(value: SampleValue(id: 2, name: "k2"), for: .string("ab-2"))
+        try await kv.set(value: SampleValue(id: 3, name: "k3"), for: .string("zz-3"))
+
+        let asc: [SampleValue] = try await kv.getValues(for: .strings(in: ["zz-3", "ab-1"]), acend: true)
+        let desc: [SampleValue] = try await kv.getValues(for: .strings(in: ["zz-3", "ab-1"]), acend: false)
+
+        XCTAssertEqual(asc.map(\.id), [1, 3])
+        XCTAssertEqual(desc.map(\.id), [3, 1])
+    }
+
     func test_getValues_withIntRange_returnsAscendingAndDescending() async throws {
         let kv = makeKV()
 
@@ -94,11 +108,25 @@ final class TinyKVTests: XCTestCase {
         try await kv.set(value: SampleValue(id: 20, name: "n20"), for: .int(20))
         try await kv.set(value: SampleValue(id: 30, name: "n30"), for: .int(30))
 
-        let asc: [SampleValue] = try await kv.getValues(for: .int(range: "$ >= 15 AND $ <= 30"), acend: true)
-        let desc: [SampleValue] = try await kv.getValues(for: .int(range: "$ >= 15 AND $ <= 30"), acend: false)
+        let asc: [SampleValue] = try await kv.getValues(for: .int(condition: "$ >= 15 AND $ <= 30"), acend: true)
+        let desc: [SampleValue] = try await kv.getValues(for: .int(condition: "$ >= 15 AND $ <= 30"), acend: false)
 
         XCTAssertEqual(asc.map(\.id), [20, 30])
         XCTAssertEqual(desc.map(\.id), [30, 20])
+    }
+
+    func test_getValues_withIntIn_returnsAscendingAndDescending() async throws {
+        let kv = makeKV()
+
+        try await kv.set(value: SampleValue(id: 10, name: "n10"), for: .int(10))
+        try await kv.set(value: SampleValue(id: 20, name: "n20"), for: .int(20))
+        try await kv.set(value: SampleValue(id: 30, name: "n30"), for: .int(30))
+
+        let asc: [SampleValue] = try await kv.getValues(for: .ints(in: [30, 10]), acend: true)
+        let desc: [SampleValue] = try await kv.getValues(for: .ints(in: [30, 10]), acend: false)
+
+        XCTAssertEqual(asc.map(\.id), [10, 30])
+        XCTAssertEqual(desc.map(\.id), [30, 10])
     }
 
     func test_getData_whenKeyMissing_throwsNotFound() async {
@@ -158,7 +186,7 @@ final class TinyKVTests: XCTestCase {
             try await group.waitForAll()
         }
 
-        let finalValues: [SampleValue] = try await kv.getValues(for: .int(range: "$ >= 0 AND $ < \(keyCount)"), acend: true)
+        let finalValues: [SampleValue] = try await kv.getValues(for: .int(condition: "$ >= 0 AND $ < \(keyCount)"), acend: true)
         XCTAssertEqual(finalValues.count, keyCount)
     }
 
@@ -201,7 +229,7 @@ final class TinyKVTests: XCTestCase {
                         try await kv.set(value: SampleValue(id: 20_000 + i, name: "mut-str-\(i)"), for: .string("seed-\(Int(key))"))
                     } else if i % 4 == 2 {
                         let values: [SampleValue] = try await kv.getValues(
-                            for: .int(range: "$ >= 0 AND $ < \(keyCount)"),
+                            for: .int(condition: "$ >= 0 AND $ < \(keyCount)"),
                             acend: (i % 8 == 2)
                         )
                         guard !values.isEmpty else {
@@ -221,7 +249,7 @@ final class TinyKVTests: XCTestCase {
             try await group.waitForAll()
         }
 
-        let intValues: [SampleValue] = try await kv.getValues(for: .int(range: "$ >= 0 AND $ < \(keyCount)"), acend: true)
+        let intValues: [SampleValue] = try await kv.getValues(for: .int(condition: "$ >= 0 AND $ < \(keyCount)"), acend: true)
         let strValues: [SampleValue] = try await kv.getValues(for: .string(like: "seed-%"), acend: true)
         XCTAssertEqual(intValues.count, keyCount)
         XCTAssertEqual(strValues.count, keyCount)
