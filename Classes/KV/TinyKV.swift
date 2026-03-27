@@ -473,25 +473,13 @@ public class TinyKV: TinyKVReadWritable {
 
     private func validatedIntRangeCondition(from raw: String) throws -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.contains("$") else {
+        if trimmed.isEmpty {
             throw TinyKVError.invalidRangeExpression
         }
-
-        let forbiddenTokens = [";", "--", "/*", "*/"]
-        guard !forbiddenTokens.contains(where: { trimmed.contains($0) }) else {
-            throw TinyKVError.invalidRangeExpression
-        }
-
         let condition = trimmed.replacingOccurrences(of: "$", with: "int_key")
-        let compact = condition.replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "\n", with: "")
-            .replacingOccurrences(of: "\t", with: "")
-            .replacingOccurrences(of: "\r", with: "")
-        guard !compact.isEmpty else {
-            throw TinyKVError.invalidRangeExpression
-        }
 
-        let whitelistPattern = #"^\s*\(?\s*int_key\s*(?:<=|>=|!=|=|<|>)\s*-?\d+\s*\)?(?:\s+AND\s+\(?\s*int_key\s*(?:<=|>=|!=|=|<|>)\s*-?\d+\s*\)?)*\s*$"#
+        let term = #"\(?\s*int_key\s*(?:<=|>=|!=|=|<|>)\s*-?\d+\s*\)?"#
+        let whitelistPattern = #"^\s*"# + term + #"(?:\s+(?:AND|OR)\s+"# + term + #")*\s*$"#
         guard condition.range(of: whitelistPattern, options: .regularExpression) != nil else {
             throw TinyKVError.invalidRangeExpression
         }

@@ -129,6 +129,44 @@ final class TinyKVTests: XCTestCase {
         XCTAssertEqual(desc.map(\.id), [30, 10])
     }
 
+    func test_getValues_withIntConditionOr_returnsMatches() async throws {
+        let kv = makeKV()
+
+        try await kv.set(value: SampleValue(id: 1, name: "n1"), for: .int(1))
+        try await kv.set(value: SampleValue(id: 2, name: "n2"), for: .int(2))
+        try await kv.set(value: SampleValue(id: 3, name: "n3"), for: .int(3))
+
+        let values: [SampleValue] = try await kv.getValues(for: .int(condition: "$ = 1 OR $ = 2"), acend: true)
+        XCTAssertEqual(values.map(\.id), [1, 2])
+    }
+
+    func test_getValues_withIntConditionOrAndParentheses_respectsGrouping() async throws {
+        let kv = makeKV()
+
+        try await kv.set(value: SampleValue(id: 1, name: "n1"), for: .int(1))
+        try await kv.set(value: SampleValue(id: 2, name: "n2"), for: .int(2))
+        try await kv.set(value: SampleValue(id: 3, name: "n3"), for: .int(3))
+
+        let values: [SampleValue] = try await kv.getValues(
+            for: .int(condition: "$ = 1 OR ($ = 2 AND $ >= 2)"),
+            acend: true
+        )
+        XCTAssertEqual(values.map(\.id), [1, 2])
+    }
+
+    func test_remove_withIntConditionOr_removesMatches() async throws {
+        let kv = makeKV()
+
+        try await kv.set(value: SampleValue(id: 1, name: "n1"), for: .int(1))
+        try await kv.set(value: SampleValue(id: 2, name: "n2"), for: .int(2))
+        try await kv.set(value: SampleValue(id: 3, name: "n3"), for: .int(3))
+
+        try await kv.remove(for: .int(condition: "$ = 1 OR $ = 2"))
+
+        let values: [SampleValue] = try await kv.getValues(for: .int(condition: "$ >= 0"), acend: true)
+        XCTAssertEqual(values.map(\.id), [3])
+    }
+
     func test_invalidIntConditionExpression_throwsOnQueryAndDelete() async throws {
         let kv = makeKV()
         try await kv.set(value: SampleValue(id: 1, name: "safe"), for: .int(1))
@@ -136,6 +174,7 @@ final class TinyKVTests: XCTestCase {
         let invalidCases: [(String, String)] = [
             ("", "empty expression"),
             ("$ >= 0 OR 1=1", "boolean bypass injection"),
+            ("($ >= 0) OR (1=1)", "boolean bypass injection with parentheses"),
             ("$ >= 0; DROP TABLE records", "semicolon injection"),
             ("$ >= 0 -- comment", "line comment token"),
             ("$ >= 0 /* comment */", "block comment token")
@@ -146,7 +185,7 @@ final class TinyKVTests: XCTestCase {
                 let _: [SampleValue] = try await kv.getValues(for: .int(condition: condition), acend: true)
                 XCTFail("Expected TinyKVError.invalidRangeExpression for query case: \(label)")
             } catch let error as TinyKV.TinyKVError {
-                XCTAssertEqual(error, .invalidRangeExpression)
+                XCTAssertEqual(error, .invalidRangeExpression, label)
             } catch {
                 XCTFail("Unexpected error in query case \(label): \(error)")
             }
@@ -155,13 +194,41 @@ final class TinyKVTests: XCTestCase {
                 try await kv.remove(for: .int(condition: condition))
                 XCTFail("Expected TinyKVError.invalidRangeExpression for delete case: \(label)")
             } catch let error as TinyKV.TinyKVError {
-                XCTAssertEqual(error, .invalidRangeExpression)
+                XCTAssertEqual(error, .invalidRangeExpression, label)
             } catch {
                 XCTFail("Unexpected error in delete case \(label): \(error)")
             }
         }
     }
 
+
+    func test_validIntConditionExpression_throwsOnQueryAndDelete() async throws {
+        let queryKV = makeKV()
+        try await queryKV.set(value: SampleValue(id: 1, name: "n1"), for: .int(1))
+        try await queryKV.set(value: SampleValue(id: 2, name: "n2"), for: .int(2))
+        try await queryKV.set(value: SampleValue(id: 3, name: "n3"), for: .int(3))
+
+        let validCases = [
+            "$ >= 1",
+            "$ = 1 OR $ = 2",
+            "($ = 1) OR ($ = 2)",
+            "$ >= 1 AND $ <= 3"
+        ]
+
+        for condition in validCases {
+            let values: [SampleValue] = try await queryKV.getValues(for: .int(condition: condition), acend: true)
+            XCTAssertFalse(values.isEmpty, "Expected non-empty query result for condition: \(condition)")
+        }
+
+        let deleteKV = makeKV()
+        try await deleteKV.set(value: SampleValue(id: 1, name: "n1"), for: .int(1))
+        try await deleteKV.set(value: SampleValue(id: 2, name: "n2"), for: .int(2))
+        try await deleteKV.set(value: SampleValue(id: 3, name: "n3"), for: .int(3))
+
+        try await deleteKV.remove(for: .int(condition: "$ = 1 OR $ = 2"))
+        let remainValues: [SampleValue] = try await deleteKV.getValues(for: .int(condition: "$ >= 0"), acend: true)
+        XCTAssertEqual(remainValues.map(\.id), [3])
+    }
 
     func test_allKeys_includesEmptyStringKey() async throws {
         let kv = makeKV()
