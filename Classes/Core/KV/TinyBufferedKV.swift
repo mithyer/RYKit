@@ -10,7 +10,7 @@ import Foundation
 /// A buffered key-value store that batches writes in memory and flushes to `TinyKV`.
 ///
 /// Flush is triggered either by buffer limits or by a debounced timer after writes.
-public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
+public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable, @unchecked Sendable {
 
     /// Runtime limits and flush behavior for `TinyBufferedKV`.
     public struct Config {
@@ -57,7 +57,8 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
     private var buffer = [BufferKey: Data]()
     private var bufferedBytes = 0
     private let queue = DispatchQueue(label: "com.rykit.tinybufferedkv")
-    private let mutationQueue = DispatchQueue(label: "com.rykit.tinybufferedkv.mutation")
+    private let mutationExecutor = AsyncSerialExecutor()
+    
     private let timerQueue = DispatchQueue(label: "com.rykit.tinybufferedkv.timer")
     private var flushTimer: DispatchSourceTimer?
 
@@ -200,21 +201,7 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable {
     }
 
     private func runMutation<T>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
-        try await withCheckedThrowingContinuation { continuation in
-            mutationQueue.async {
-                let semaphore = DispatchSemaphore(value: 0)
-                Task {
-                    defer { semaphore.signal() }
-                    do {
-                        let value = try await operation()
-                        continuation.resume(returning: value)
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-                semaphore.wait()
-            }
-        }
+        try await mutationExecutor.run(operation)
     }
 
 

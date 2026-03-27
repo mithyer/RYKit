@@ -3,3 +3,4 @@
 *.xcworkspacedata
 CLAUDE.md
 .worktrees/
+.claude/

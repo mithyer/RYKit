@@ -31,8 +31,8 @@
 		715614872F63DD580002830A /* Exceptions for "Classes" folder in "RYKit" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Collections/CLAUDE.md,
-				Extensions/CLAUDE.md,
+				Core/Collections/CLAUDE.md,
+				Core/Extensions/CLAUDE.md,
 			);
 			target = 71201B452EE6635700D856CC /* RYKit */;
 		};
@@ -46,8 +46,8 @@
 		715614892F63DD700002830A /* Exceptions for "Classes" folder in "RYKitTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Collections/CLAUDE.md,
-				Extensions/CLAUDE.md,
+				Core/Collections/CLAUDE.md,
+				Core/Extensions/CLAUDE.md,
 			);
 			target = 71201B502EE6635700D856CC /* RYKitTests */;
 		};
