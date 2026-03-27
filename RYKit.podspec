@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'RYKit'
-  s.version          = '2.0.7'
+  s.version          = '2.0.8'
   s.summary          = 'RYKit...'
   s.description      = 'RYKit.....'
   s.homepage         = 'https://github.com/mithyer/RYKit'
@@ -34,27 +34,7 @@ Pod::Spec.new do |s|
     end
   end
 
-  s.subspec 'Base' do |s1|
-    s1.subspec 'Log' do |ss|
-      ss.source_files = 'Classes/Log/**/*'
-    end
-    s1.subspec 'Capables' do |ss|
-      ss.source_files = 'Classes/Capables/**/*'
-    end
-    s1.subspec 'Extensions' do |ss|
-      ss.source_files = 'Classes/Extensions/**/*'
-    end
-    s1.subspec 'Lock' do |ss|
-      ss.source_files = 'Classes/Lock/**/*'
-    end
-    s1.subspec 'ValueWrapper' do |ss|
-      ss.source_files = 'Classes/ValueWrapper/*'
-    end
-    s1.subspec 'Collections' do |ss|
-      ss.source_files = 'Classes/Collections/*'
-    end
-    s1.subspec 'TimeoutTask' do |ss|
-      ss.source_files = 'Classes/TimeoutTask/*'
-    end
+  s.subspec 'Core' do |s|
+      s.source_files = 'Classes/Core/**/*'
   end
 end
