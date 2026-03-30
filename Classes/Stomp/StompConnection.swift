@@ -8,6 +8,7 @@
 
 import Foundation
 import Combine
+import RYKitCore
 
 /// 握手请求的错误类型
 fileprivate enum FetchError: Error {

@@ -15,8 +15,8 @@ extension Collection {
 }
 
 extension String {
-    
-    var sha1: String {
+
+    public var sha1: String {
         let data = Data(self.utf8)
         var digest = [UInt8](repeating: 0, count:Int(CC_SHA1_DIGEST_LENGTH))
         data.withUnsafeBytes {
@@ -35,12 +35,12 @@ public extension RYObject<String> {
 }
 
 extension Dictionary where Key == String, Value == String {
-    
-    var sha1: String {
+
+    public var sha1: String {
         sortedURLParams.sha1
     }
-    
-    var sortedURLParams: String {
+
+    public var sortedURLParams: String {
         let sortedKeys = self.keys.sorted()
         let str = sortedKeys.map { key in
             let value = self[key] ?? ""

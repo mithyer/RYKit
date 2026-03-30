@@ -9,6 +9,7 @@
 import Foundation
 import OSLog
 import Combine
+import RYKitCore
 
 let NULL_CHAR = "\u{00}"
 

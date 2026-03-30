@@ -9,6 +9,7 @@ let package = Package(
         .tvOS(.v13)
     ],
     products: [
+        .library(name: "RYKit", targets: ["RYKit"]),
         .library(name: "RYKitCore", targets: ["RYKitCore"]),
         .library(name: "RYKitNetworkHttp", targets: ["RYKitNetworkHttp"]),
         .library(name: "RYKitNetworkStomp", targets: ["RYKitNetworkStomp"])
@@ -27,6 +28,12 @@ let package = Package(
             name: "RYKitNetworkStomp",
             dependencies: ["RYKitCore"],
             path: "Classes/Stomp"
+        ),
+        .target(
+            name: "RYKit",
+            dependencies: ["RYKitCore", "RYKitNetworkHttp", "RYKitNetworkStomp"],
+            path: "Classes",
+            sources: ["RYKit.swift"]
         )
     ]
 )

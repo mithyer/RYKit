@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import RYKitCore
 
 /// 接收消息的策略
 public enum ReceiveMessageStrategy {

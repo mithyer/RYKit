@@ -7,7 +7,7 @@
 # HOW TO USE
 
 ```ruby
-pod 'RYKit', :git => 'https://github.com/mithyer/RYKit.git', :tag => '2.0.7'
+pod 'RYKit', :git => 'https://github.com/mithyer/RYKit.git', :tag => '2.0.9'
 ```
 
 <a name="english"></a>
@@ -17,7 +17,7 @@ A feature-rich Swift utility library providing common foundational modules for i
 
 ### Version Information
 
-- **Current Version**: 2.0.7
+- **Current Version**: 2.0.9
 - **Supported Platforms**: iOS 13.0+, macOS 10.15+, tvOS 13.0+
 - **Swift Version**: 5.0+
 
@@ -313,6 +313,42 @@ let version = RYKit.version
 
 ### Installation
 
+#### Swift Package Manager
+Add `RYKit` to your Package.swift dependencies:
+
+```swift
+.dependencies([
+    .package(url: "https://github.com/mithyer/RYKit.git", from: "2.0.9")
+])
+```
+
+Then choose the product that fits your use case:
+
+```swift
+.target(
+    name: "YourTarget",
+    dependencies: [
+        .product(name: "RYKit", package: "RYKit")
+    ]
+)
+```
+
+Available products:
+- `RYKit`: Aggregated product that re-exports `RYKitCore`, `RYKitNetworkHttp`, and `RYKitNetworkStomp`
+- `RYKitCore`: Core utilities and foundational types
+- `RYKitNetworkHttp`: HTTP request module
+- `RYKitNetworkStomp`: STOMP messaging module
+
+Import examples:
+
+```swift
+import RYKit                // Recommended: aggregated import
+// or
+import RYKitCore
+import RYKitNetworkHttp
+import RYKitNetworkStomp
+```
+
 #### CocoaPods
 Add to your `Podfile`:
 
@@ -446,7 +482,7 @@ Ray - [GitHub](http://github.com/mithyer)
 
 ### 版本信息
 
-- **当前版本**: 2.0.7
+- **当前版本**: 2.0.9
 - **支持平台**: iOS 13.0+, macOS 10.15+, tvOS 13.0+
 - **Swift 版本**: 5.0+
 

@@ -6,6 +6,9 @@
 //
 
 import Foundation
+@_exported import RYKitCore
+@_exported import RYKitNetworkHttp
+@_exported import RYKitNetworkStomp
 
 public func compareVersion(_ version1: String, _ version2: String) -> Int {
     let v1 = version1.split(separator: ".").map { Int($0) ?? 0 }
