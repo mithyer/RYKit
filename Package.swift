@@ -8,6 +8,25 @@ let package = Package(
         .macOS(.v10_15),
         .tvOS(.v13)
     ],
-    products: [],
-    targets: []
+    products: [
+        .library(name: "RYKitCore", targets: ["RYKitCore"]),
+        .library(name: "RYKitNetworkHttp", targets: ["RYKitNetworkHttp"]),
+        .library(name: "RYKitNetworkStomp", targets: ["RYKitNetworkStomp"])
+    ],
+    targets: [
+        .target(
+            name: "RYKitCore",
+            path: "Classes/Core"
+        ),
+        .target(
+            name: "RYKitNetworkHttp",
+            dependencies: ["RYKitCore"],
+            path: "Classes/Http"
+        ),
+        .target(
+            name: "RYKitNetworkStomp",
+            dependencies: ["RYKitCore"],
+            path: "Classes/Stomp"
+        )
+    ]
 )
