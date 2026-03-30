@@ -7,7 +7,9 @@
 
 import Foundation
 import Combine
+#if canImport(RYKitCore)
 import RYKitCore
+#endif
 
 /// 接收消息的策略
 public enum ReceiveMessageStrategy {

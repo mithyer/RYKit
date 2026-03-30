@@ -7,8 +7,9 @@
 
 import Combine
 import Foundation
+#if canImport(RYKitCore)
 import RYKitCore
-
+#endif
 // initialize
 public final class HttpRequest {
             

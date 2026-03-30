@@ -9,7 +9,9 @@
 import Foundation
 import OSLog
 import Combine
+#if canImport(RYKitCore)
 import RYKitCore
+#endif
 
 let NULL_CHAR = "\u{00}"
 

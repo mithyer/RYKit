@@ -6,9 +6,15 @@
 //
 
 import Foundation
+#if canImport(RYKitCore)
 @_exported import RYKitCore
+#endif
+#if canImport(RYKitNetworkHttp)
 @_exported import RYKitNetworkHttp
+#endif
+#if canImport(RYKitNetworkStomp)
 @_exported import RYKitNetworkStomp
+#endif
 
 public func compareVersion(_ version1: String, _ version2: String) -> Int {
     let v1 = version1.split(separator: ".").map { Int($0) ?? 0 }
