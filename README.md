@@ -95,11 +95,9 @@ Add to your `Podfile`:
 pod 'RYKit'
 
 # Or install only needed submodules
-# Network modules
-pod 'RYKit/Network'
-
-# Base modules
-pod 'RYKit/Base'
+pod 'RYKit/Core'
+pod 'RYKit/NetworkHttp'
+pod 'RYKit/NetworkStomp'
 ```
 
 Then run:
@@ -187,21 +185,27 @@ if let path = LogRecorder.shared.getCurrentLogFilePath() {
 }
 ```
 
-### Module Description
+### Package and Module Mapping
 
-Each submodule can be used independently, choose based on project needs:
+Choose the public product that best fits your integration needs:
 
-| Module | Functionality | Dependencies |
-|--------|---------------|--------------|
-| `Network/Http` | HTTP network requests | None |
-| `Network/Stomp` | WebSocket/STOMP messaging | Built-in SwiftStomp |
-| `Base/Log` | Logging | None |
-| `Base/Extensions` | Swift extensions | None |
-| `Base/ValueWrapper` | Property wrappers | None |
-| `Base/Capables` | Capability extensions | None |
-| `Base/Lock` | Thread synchronization | None |
-| `Base/Collections` | Data structures | Lock |
-| `Base/TimeoutTask` | Timeout task management | Lock |
+- `RYKit`: Umbrella product that re-exports `RYKitCore`, `RYKitNetworkHttp`, and `RYKitNetworkStomp`
+- `RYKitCore`: Foundational utilities for decoding resilience, concurrency safety, lightweight storage, async helpers, logging, and common reusable building blocks.
+  - `Associatable`: Attach associated objects to existing instances.
+  - `Async`: Provide lightweight async execution helpers.
+  - `Codable`: Improve resilient decoding and value conversion.
+  - `Collections`: Offer linked lists, queues, weak maps, and weak sets.
+  - `Combine`: Add practical Combine storage and callback helpers.
+  - `Extensions`: Add convenience helpers for common Foundation and Swift types.
+  - `KV`: Simplify lightweight key-value storage and buffering.
+  - `Lock`: Protect shared state in concurrent code.
+  - `Log`: Persist and inspect runtime logs.
+  - `Reachability`: Monitor shared network reachability state.
+  - `TimeoutTask`: Manage delayed and timeout-based task execution.
+- `RYKitNetworkHttp`: HTTP request abstraction and response handling
+- `RYKitNetworkStomp`: STOMP-based real-time messaging over WebSocket
+
+> In CocoaPods, the public subspecs are `Core`, `NetworkHttp`, and `NetworkStomp`. In Swift Package Manager, the corresponding public products are `RYKitCore`, `RYKitNetworkHttp`, and `RYKitNetworkStomp`.
 
 ### License
 
@@ -246,18 +250,9 @@ RYKit 是一个面向 Apple 平台的 Swift 基础能力工具库，重点覆盖
 pod 'RYKit'
 
 # 或者只安装需要的子模块
-# 网络模块
-pod 'RYKit/Network/Http'
-pod 'RYKit/Network/Stomp'
-
-# 基础模块
-pod 'RYKit/Base/Log'
-pod 'RYKit/Base/Extensions'
-pod 'RYKit/Base/ValueWrapper'
-pod 'RYKit/Base/Capables'
-pod 'RYKit/Base/Lock'
-pod 'RYKit/Base/Collections'
-pod 'RYKit/Base/TimeoutTask'
+pod 'RYKit/Core'
+pod 'RYKit/NetworkHttp'
+pod 'RYKit/NetworkStomp'
 ```
 
 然后运行:
@@ -345,21 +340,27 @@ if let path = LogRecorder.shared.getCurrentLogFilePath() {
 }
 ```
 
-### 模块说明
+### 包与模块对应关系
 
-每个子模块都可以独立使用，根据项目需求选择安装:
+根据接入方式选择最适合你的对外产品：
 
-| 模块 | 功能 | 依赖 |
-|------|------|------|
-| `Network/Http` | HTTP 网络请求 | 无 |
-| `Network/Stomp` | WebSocket/STOMP 消息 | 内置 SwiftStomp |
-| `Base/Log` | 日志记录 | 无 |
-| `Base/Extensions` | Swift 扩展 | 无 |
-| `Base/ValueWrapper` | 属性包装器 | 无 |
-| `Base/Capables` | 能力扩展 | 无 |
-| `Base/Lock` | 线程同步 | 无 |
-| `Base/Collections` | 数据结构 | Lock |
-| `Base/TimeoutTask` | 超时任务管理 | Lock |
+- `RYKit`：聚合产品，统一导出 `RYKitCore`、`RYKitNetworkHttp` 和 `RYKitNetworkStomp`
+- `RYKitCore`：基础工具能力，重点覆盖解码容错、并发安全、轻量存储、异步辅助、日志以及常用可复用组件。
+  - `Associatable`：为现有实例附加关联对象能力。
+  - `Async`：提供轻量级异步执行辅助工具。
+  - `Codable`：提升解码容错与数值转换能力。
+  - `Collections`：提供链表、队列、弱引用映射和弱引用集合等数据结构。
+  - `Combine`：补充实用的 Combine 存储与回调辅助能力。
+  - `Extensions`：为常见 Foundation 和 Swift 类型补充便捷扩展能力。
+  - `KV`：简化轻量级键值存储及缓冲写入。
+  - `Lock`：用于在并发代码中保护共享状态。
+  - `Log`：用于持久化和查看运行日志。
+  - `Reachability`：用于监控共享网络可达性状态。
+  - `TimeoutTask`：用于管理延时任务和超时任务。
+- `RYKitNetworkHttp`：HTTP 请求封装与响应处理
+- `RYKitNetworkStomp`：基于 WebSocket 的 STOMP 实时消息能力
+
+> 在 CocoaPods 中，对外暴露的 subspec 为 `Core`、`NetworkHttp` 和 `NetworkStomp`；在 Swift Package Manager 中，对应的公开产品为 `RYKitCore`、`RYKitNetworkHttp` 和 `RYKitNetworkStomp`。
 
 ### 许可证
 

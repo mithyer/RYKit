@@ -22,19 +22,15 @@ Pod::Spec.new do |s|
   s.swift_version    = '5.0'
   s.source_files = 'Classes/RYKit.swift'
 
-  s.subspec 'Network' do |s1|
-    s1.subspec 'Http' do |ss|
-      ss.source_files = 'Classes/Http/**/*'
-    end
-    s1.subspec 'Stomp' do |ss|
-      ss.source_files = 'Classes/Stomp/*'
-      ss.subspec 'Vendor' do |vendor|
-        vendor.source_files = 'Classes/Stomp/SwiftStomp/**/*'
-      end
-    end
+  s.subspec 'Core' do |core|
+    core.source_files = 'Classes/Core/**/*'
   end
 
-  s.subspec 'Core' do |s|
-      s.source_files = 'Classes/Core/**/*'
+  s.subspec 'NetworkHttp' do |http|
+    http.source_files = 'Classes/Http/**/*'
+  end
+
+  s.subspec 'NetworkStomp' do |stomp|
+    stomp.source_files = 'Classes/Stomp/*', 'Classes/Stomp/SwiftStomp/**/*'
   end
 end
