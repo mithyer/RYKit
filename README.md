@@ -1,13 +1,27 @@
 # RYKit
 
+![Platform](https://img.shields.io/badge/Platform-iOS%2013.0%2B%20%7C%20macOS%2010.15%2B%20%7C%20tvOS%2013.0%2B-blue)
+![Swift](https://img.shields.io/badge/Swift-5.0%2B-orange)
+![Version](https://img.shields.io/badge/Version-2.0.9-green)
+
 [English](#english) | [中文](#中文)
+
+A Swift foundational toolkit for Apple platforms, covering networking, resilient decoding, concurrency safety, and practical development utilities.
 
 ---
 
-# HOW TO USE
+## Quick Start
+
+### CocoaPods
 
 ```ruby
 pod 'RYKit', :git => 'https://github.com/mithyer/RYKit.git', :tag => '2.0.9'
+```
+
+### Swift Package Manager
+
+```swift
+.package(url: "https://github.com/mithyer/RYKit.git", from: "2.0.9")
 ```
 
 <a name="english"></a>
@@ -23,293 +37,17 @@ A feature-rich Swift utility library providing common foundational modules for i
 
 ### Features Overview
 
-RYKit provides the following core modules:
+RYKit is a Swift foundational toolkit for Apple platforms, focused on providing stable, reusable building blocks for networking, data decoding, concurrency safety, and common utility scenarios.
 
-#### 📡 HTTP Request Module (`Http`)
-Powerful HTTP network request wrapper offering:
-- Support for GET, POST, and other HTTP methods
-- Automatic data encryption/decryption (configurable)
-- Flexible request strategies (cancel duplicate requests, debouncing)
-- Support for multiple Content-Types (JSON, Form-Encoded)
-- Comprehensive error handling and business code validation
-- Automatic response parsing to models, lists, strings, etc.
-- Support for custom headers and parameters
-- Detailed request/response logging
+Core capabilities at a glance:
 
-#### 🔌 WebSocket/STOMP Module (`Stomp`)
-Complete STOMP protocol implementation for real-time messaging:
-- Automatic reconnection mechanism
-- Subscription management and lifecycle control
-- Message throttling strategy support
-- Encrypted message support
-- Thread-safe message dispatching
-- Combine framework integration
+- **HTTP request abstraction**: Encapsulates common request flows, response parsing, request strategies, and business error handling to reduce repetitive networking code.
+- **STOMP real-time messaging**: Provides subscription management, reconnect handling, and message distribution for WebSocket-based real-time communication.
+- **Codable resilience tools**: Uses property wrappers such as `@Default`, `@PreferValue`, and `@IgnoreValue` to make model decoding more fault-tolerant and easier to maintain.
+- **Thread safety primitives**: Includes locks and thread-safe property wrappers for protecting shared state in concurrent code.
+- **Practical utilities and data structures**: Offers common extensions, linked lists, queues, timeout task helpers, and version comparison utilities for everyday development.
 
-#### 📝 Logging Module (`Log`)
-Simple and easy-to-use logging tool:
-- Automatic log file creation based on time
-- Support for logging any Encodable type data
-- Configurable write interval for same keys
-- Asynchronous writing without blocking main thread
-- JSON format storage for easy analysis
-
-#### 🎁 Property Wrapper Module (`ValueWrapper`)
-Multiple Property Wrappers to simplify Codable usage:
-
-##### `@DefaultValue`
-Automatically provide default values during decoding to avoid failures from missing fields:
-```swift
-struct User: Codable {
-    @Default.StringEmpty var name: String
-    @Default.IntZero var age: Int
-    @Default.BoolFalse var isVIP: Bool
-    @Default.ArrayEmpty var tags: [String]
-}
-```
-
-Supported default value types:
-- `BoolFalse` / `BoolTrue`
-- `IntZero`
-- `DoubleZero`
-- `DecimalZero`
-- `StringEmpty`
-- `ArrayEmpty`
-- `DicEmpty`
-
-##### `@PreferValue`
-Attempts to convert different types to target type, returns nil on failure:
-```swift
-struct Response: Codable {
-    @PreferValue var count: Int?  // "123" auto-converts to 123
-    @PreferValue var price: Double?  // 100 auto-converts to 100.0
-}
-```
-
-##### `@IgnoreValue`
-Marked properties are excluded from encoding/decoding:
-```swift
-struct Model: Codable {
-    var id: String
-    @IgnoreValue var tempData: String?  // Won't be encoded or decoded
-}
-```
-
-#### 🔧 Extensions Module (`Extensions`)
-
-##### Collection Extensions
-```swift
-let array = [1, 2, 3]
-let emptyArray: [Int] = []
-let result = emptyArray.nilIfEmpty  // nil
-
-// SHA1 hash
-let hash = "text".sha1
-let dictHash = ["key": "value"].sha1
-let arrayHash = ["a", "b", "c"].sha1
-
-// Type conversion
-let dict = ["age": 25]
-let age: Int? = dict[(key: "age", type: Int.self)]
-```
-
-##### Number Extensions
-```swift
-let value: Int = 0
-let result = value.nilIfZero  // nil
-```
-
-##### String Extensions
-```swift
-let str: String? = nil
-let result = str.transferIfNil { "default" }  // "default"
-```
-
-#### 🌐 Network Reachability Module (`Capables/GlobalReachability`)
-Monitor network status changes:
-```swift
-let listener = GlobalReachability.shared.listen { connection in
-    switch connection {
-    case .wifi:
-        print("WiFi connected")
-    case .cellular:
-        print("Cellular connected")
-    case .unavailable:
-        print("Network unavailable")
-    case .none:
-        print("Unknown status")
-    }
-}
-// Automatically stops listening when listener is released
-```
-
-#### 🔗 Associated Objects Module (`Capables/Associatable`)
-Add associated properties to any class:
-```swift
-extension UIView: Associatable {}
-
-// Usage
-view.setAssociated("customID", value: "12345")
-let id: String? = view.associated("customID", initializer: nil)
-```
-
-#### 🔒 Lock Module (`Lock`)
-Thread synchronization primitives and property wrappers:
-
-##### `UnfairLock`
-High-performance lock based on `os_unfair_lock`:
-```swift
-let lock = UnfairLock()
-lock.lock()
-// Critical section
-lock.unlock()
-
-// Or use tryLock
-if lock.tryLock() {
-    // Critical section
-    lock.unlock()
-}
-```
-
-##### `ReadWriteLock`
-Read-write lock allowing multiple readers or single writer:
-```swift
-let rwLock = ReadWriteLock()
-
-// Read operation (multiple readers allowed)
-rwLock.read {
-    // Read shared data
-}
-
-// Write operation (exclusive access)
-rwLock.write {
-    // Modify shared data
-}
-```
-
-##### `@ThreadSafe`
-Property wrapper for thread-safe value access:
-```swift
-class Counter {
-    @ThreadSafe var count: Int = 0
-
-    func increment() {
-        // Atomic access
-        $count.lock { value in
-            value += 1
-        }
-    }
-}
-```
-
-##### `@RWThreadSafe`
-Property wrapper using read-write lock for optimized concurrent reads:
-```swift
-class Cache {
-    @RWThreadSafe var data: [String: Any] = [:]
-
-    func read(key: String) -> Any? {
-        $data.read { dict in
-            dict[key]
-        }
-    }
-
-    func write(key: String, value: Any) {
-        $data.write { dict in
-            dict[key] = value
-        }
-    }
-}
-```
-
-#### 📦 Collections Module (`Collections`)
-Thread-safe and non-thread-safe data structures:
-
-##### `LinkedList` / `ThreadSafeLinkedList`
-Doubly linked list implementation:
-```swift
-let list = LinkedList<Int>()
-list.append(1)
-list.append(2)
-list.prepend(0)
-list.insert(3, at: 2)
-
-print(list.head)  // 0
-print(list.tail)  // 2
-print(list.count) // 4
-
-_ = list.removeHead()
-_ = list.remove(at: 1)
-```
-
-##### `Queue` / `ThreadSafeQueue`
-FIFO queue based on linked list:
-```swift
-let queue = Queue<String>()
-queue.enqueue("first")
-queue.enqueue("second")
-
-print(queue.front)  // "first"
-print(queue.back)   // "second"
-
-let item = queue.dequeue()  // "first"
-```
-
-#### ⏱ Timeout Task Module (`TimeoutTask`)
-Task execution with timeout support:
-
-##### `OnceTimeoutTask`
-Single execution task with timeout:
-```swift
-let task = OnceTimeoutTask<String, Error>(
-    timeoutInterval: .seconds(5),
-    execute: { completed in
-        // Perform async operation
-        someAsyncOperation { result in
-            completed(.success(result))
-        }
-    },
-    done: { doneType in
-        switch doneType {
-        case .timeout:
-            print("Task timed out")
-        case .completed(let result):
-            switch result {
-            case .success(let value):
-                print("Success: \(value)")
-            case .failure(let error):
-                print("Error: \(error)")
-            }
-        }
-    }
-)
-
-task.perform(by: .main, timeoutQueue: .global())
-```
-
-##### `OnceTimeoutTaskQueue`
-Queue for sequential timeout task execution:
-```swift
-let taskQueue = OnceTimeoutTaskQueue<Data, Error>(executeQueue: .main)
-
-// Tasks execute sequentially, each with its own timeout
-taskQueue.addTask(task1)
-taskQueue.addTask(task2)
-taskQueue.addTask(task3)
-
-// Control queue execution
-taskQueue.pause()
-taskQueue.resume()
-```
-
-#### 🛠 Core Utilities
-```swift
-// Version comparison
-let result = RYKit.compareVersion("1.2.3", "1.2.0")
-// Returns: 1 (first version newer), 0 (same), -1 (second version newer)
-
-// Get library version
-let version = RYKit.version
-```
+Additional built-in modules include logging, network reachability monitoring, and associated object helpers. Detailed examples and module-specific usage are provided in the sections below.
 
 ### Installation
 
@@ -478,7 +216,7 @@ Ray - [GitHub](http://github.com/mithyer)
 <a name="中文"></a>
 ## 中文
 
-一个功能丰富的 Swift 工具库，为 iOS、macOS 和 tvOS 应用提供常用的基础功能模块。
+RYKit 是一个面向 Apple 平台的 Swift 基础能力工具库，重点覆盖网络通信、数据解码容错、并发安全以及常见开发工具场景，帮助你减少重复造轮子。
 
 ### 版本信息
 
@@ -488,293 +226,15 @@ Ray - [GitHub](http://github.com/mithyer)
 
 ### 功能概览
 
-RYKit 提供了以下核心模块:
+核心能力包括：
 
-#### 📡 HTTP 请求模块 (`Http`)
-功能强大的 HTTP 网络请求封装，提供:
-- 支持 GET、POST 等多种请求方法
-- 自动加密/解密数据（可配置）
-- 灵活的请求策略（取消重复请求、防抖）
-- 支持多种 Content-Type（JSON、Form-Encoded）
-- 完善的错误处理和业务码校验
-- 自动解析响应数据到模型、列表、字符串等
-- 支持自定义请求头和参数
-- 详细的请求/响应日志记录
+- **HTTP 请求封装**：统一常见请求流程、响应解析、请求策略与业务错误处理，减少重复网络层代码。
+- **STOMP 实时通信**：提供订阅管理、重连处理和消息分发能力，适合基于 WebSocket 的实时消息场景。
+- **Codable 容错工具**：通过 `@Default`、`@PreferValue`、`@IgnoreValue` 等属性包装器，让模型解码更稳健、更易维护。
+- **线程安全原语**：内置锁与线程安全属性包装器，便于在并发代码中保护共享状态。
+- **常用扩展与数据结构**：提供常见扩展、链表、队列、超时任务工具和版本比较等高频基础能力。
 
-#### 🔌 WebSocket/STOMP 模块 (`Stomp`)
-完整的 STOMP 协议实现，用于实时消息通信:
-- 自动重连机制
-- 订阅管理和生命周期控制
-- 支持消息节流（throttle）策略
-- 支持加密消息
-- 线程安全的消息分发
-- Combine 框架集成
-
-#### 📝 日志记录模块 (`Log`)
-简单易用的日志记录工具:
-- 按时间自动创建日志文件
-- 支持记录任意 Encodable 类型的数据
-- 可配置相同 key 的写入时间间隔
-- 异步写入，不阻塞主线程
-- JSON 格式存储，便于分析
-
-#### 🎁 属性包装器模块 (`ValueWrapper`)
-提供多种 Property Wrapper 简化 Codable 使用:
-
-##### `@DefaultValue`
-解码时自动提供默认值，避免因缺少字段导致解码失败:
-```swift
-struct User: Codable {
-    @Default.StringEmpty var name: String
-    @Default.IntZero var age: Int
-    @Default.BoolFalse var isVIP: Bool
-    @Default.ArrayEmpty var tags: [String]
-}
-```
-
-支持的默认值类型:
-- `BoolFalse` / `BoolTrue`
-- `IntZero`
-- `DoubleZero`
-- `DecimalZero`
-- `StringEmpty`
-- `ArrayEmpty`
-- `DicEmpty`
-
-##### `@PreferValue`
-尝试将不同类型转换为目标类型，转换失败则为 nil:
-```swift
-struct Response: Codable {
-    @PreferValue var count: Int?  // "123" 会自动转换为 123
-    @PreferValue var price: Double?  // 100 会自动转换为 100.0
-}
-```
-
-##### `@IgnoreValue`
-标记的属性不参与编码/解码:
-```swift
-struct Model: Codable {
-    var id: String
-    @IgnoreValue var tempData: String?  // 不会被编码或解码
-}
-```
-
-#### 🔧 扩展模块 (`Extensions`)
-
-##### Collection 扩展
-```swift
-let array = [1, 2, 3]
-let emptyArray: [Int] = []
-let result = emptyArray.nilIfEmpty  // nil
-
-// SHA1 哈希
-let hash = "text".sha1
-let dictHash = ["key": "value"].sha1
-let arrayHash = ["a", "b", "c"].sha1
-
-// 类型转换
-let dict = ["age": 25]
-let age: Int? = dict[(key: "age", type: Int.self)]
-```
-
-##### Number 扩展
-```swift
-let value: Int = 0
-let result = value.nilIfZero  // nil
-```
-
-##### String 扩展
-```swift
-let str: String? = nil
-let result = str.transferIfNil { "default" }  // "default"
-```
-
-#### 🌐 网络可达性模块 (`Capables/GlobalReachability`)
-监听网络状态变化:
-```swift
-let listener = GlobalReachability.shared.listen { connection in
-    switch connection {
-    case .wifi:
-        print("WiFi 已连接")
-    case .cellular:
-        print("蜂窝网络已连接")
-    case .unavailable:
-        print("网络不可用")
-    case .none:
-        print("未知状态")
-    }
-}
-// listener 释放后自动停止监听
-```
-
-#### 🔗 关联对象模块 (`Capables/Associatable`)
-为任意类添加关联属性:
-```swift
-extension UIView: Associatable {}
-
-// 使用
-view.setAssociated("customID", value: "12345")
-let id: String? = view.associated("customID", initializer: nil)
-```
-
-#### 🔒 锁模块 (`Lock`)
-线程同步原语和属性包装器:
-
-##### `UnfairLock`
-基于 `os_unfair_lock` 的高性能锁:
-```swift
-let lock = UnfairLock()
-lock.lock()
-// 临界区
-lock.unlock()
-
-// 或使用 tryLock
-if lock.tryLock() {
-    // 临界区
-    lock.unlock()
-}
-```
-
-##### `ReadWriteLock`
-读写锁，允许多个读取者或单个写入者:
-```swift
-let rwLock = ReadWriteLock()
-
-// 读操作（允许多个读取者）
-rwLock.read {
-    // 读取共享数据
-}
-
-// 写操作（独占访问）
-rwLock.write {
-    // 修改共享数据
-}
-```
-
-##### `@ThreadSafe`
-线程安全值访问的属性包装器:
-```swift
-class Counter {
-    @ThreadSafe var count: Int = 0
-
-    func increment() {
-        // 原子访问
-        $count.lock { value in
-            value += 1
-        }
-    }
-}
-```
-
-##### `@RWThreadSafe`
-使用读写锁优化并发读取的属性包装器:
-```swift
-class Cache {
-    @RWThreadSafe var data: [String: Any] = [:]
-
-    func read(key: String) -> Any? {
-        $data.read { dict in
-            dict[key]
-        }
-    }
-
-    func write(key: String, value: Any) {
-        $data.write { dict in
-            dict[key] = value
-        }
-    }
-}
-```
-
-#### 📦 集合模块 (`Collections`)
-线程安全和非线程安全的数据结构:
-
-##### `LinkedList` / `ThreadSafeLinkedList`
-双向链表实现:
-```swift
-let list = LinkedList<Int>()
-list.append(1)
-list.append(2)
-list.prepend(0)
-list.insert(3, at: 2)
-
-print(list.head)  // 0
-print(list.tail)  // 2
-print(list.count) // 4
-
-_ = list.removeHead()
-_ = list.remove(at: 1)
-```
-
-##### `Queue` / `ThreadSafeQueue`
-基于链表的 FIFO 队列:
-```swift
-let queue = Queue<String>()
-queue.enqueue("first")
-queue.enqueue("second")
-
-print(queue.front)  // "first"
-print(queue.back)   // "second"
-
-let item = queue.dequeue()  // "first"
-```
-
-#### ⏱ 超时任务模块 (`TimeoutTask`)
-支持超时的任务执行:
-
-##### `OnceTimeoutTask`
-带超时的单次执行任务:
-```swift
-let task = OnceTimeoutTask<String, Error>(
-    timeoutInterval: .seconds(5),
-    execute: { completed in
-        // 执行异步操作
-        someAsyncOperation { result in
-            completed(.success(result))
-        }
-    },
-    done: { doneType in
-        switch doneType {
-        case .timeout:
-            print("任务超时")
-        case .completed(let result):
-            switch result {
-            case .success(let value):
-                print("成功: \(value)")
-            case .failure(let error):
-                print("错误: \(error)")
-            }
-        }
-    }
-)
-
-task.perform(by: .main, timeoutQueue: .global())
-```
-
-##### `OnceTimeoutTaskQueue`
-顺序执行超时任务的队列:
-```swift
-let taskQueue = OnceTimeoutTaskQueue<Data, Error>(executeQueue: .main)
-
-// 任务顺序执行，每个任务有独立的超时
-taskQueue.addTask(task1)
-taskQueue.addTask(task2)
-taskQueue.addTask(task3)
-
-// 控制队列执行
-taskQueue.pause()
-taskQueue.resume()
-```
-
-#### 🛠 核心工具
-```swift
-// 版本比较
-let result = RYKit.compareVersion("1.2.3", "1.2.0")
-// 返回: 1 (第一个版本更新), 0 (相同), -1 (第二个版本更新)
-
-// 获取库版本
-let version = RYKit.version
-```
+此外，库中还内置了日志记录、网络可达性监听和关联对象等实用模块。更详细的示例和模块说明请继续查看下方章节。
 
 ### 安装
 
