@@ -2,7 +2,7 @@
 
 ![Platform](https://img.shields.io/badge/Platform-iOS%2013.0%2B%20%7C%20macOS%2010.15%2B%20%7C%20tvOS%2013.0%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.0%2B-orange)
-![Version](https://img.shields.io/badge/Version-2.0.9-green)
+![Version](https://img.shields.io/badge/Version-2.1.0-green)
 
 [English](#english) | [中文](#中文)
 
@@ -15,13 +15,13 @@ A Swift foundational toolkit for Apple platforms, covering networking, resilient
 ### CocoaPods
 
 ```ruby
-pod 'RYKit', :git => 'https://github.com/mithyer/RYKit.git', :tag => '2.0.9'
+pod 'RYKit', :git => 'https://github.com/mithyer/RYKit.git', :tag => '2.1.0'
 ```
 
 ### Swift Package Manager
 
 ```swift
-.package(url: "https://github.com/mithyer/RYKit.git", from: "2.0.9")
+.package(url: "https://github.com/mithyer/RYKit.git", from: "2.1.0")
 ```
 
 <a name="english"></a>
@@ -31,7 +31,7 @@ A feature-rich Swift utility library providing common foundational modules for i
 
 ### Version Information
 
-- **Current Version**: 2.0.9
+- **Current Version**: 2.1.0
 - **Supported Platforms**: iOS 13.0+, macOS 10.15+, tvOS 13.0+
 - **Swift Version**: 5.0+
 
@@ -56,7 +56,7 @@ Add `RYKit` to your Package.swift dependencies:
 
 ```swift
 .dependencies([
-    .package(url: "https://github.com/mithyer/RYKit.git", from: "2.0.9")
+    .package(url: "https://github.com/mithyer/RYKit.git", from: "2.1.0")
 ])
 ```
 
@@ -195,7 +195,7 @@ Choose the public product that best fits your integration needs:
   - `Async`: Provide lightweight async execution helpers.
   - `Codable`: Improve resilient decoding and value conversion.
   - `Collections`: Offer linked lists, queues, weak maps, and weak sets.
-  - `Combine`: Add practical Combine storage and callback helpers.
+  - `Combine`: Add practical Combine storage, callback throttling, and debouncing helpers.
   - `Extensions`: Add convenience helpers for common Foundation and Swift types.
   - `KV`: Simplify lightweight key-value storage and buffering.
   - `Lock`: Protect shared state in concurrent code.
@@ -224,7 +224,7 @@ RYKit 是一个面向 Apple 平台的 Swift 基础能力工具库，重点覆盖
 
 ### 版本信息
 
-- **当前版本**: 2.0.9
+- **当前版本**: 2.1.0
 - **支持平台**: iOS 13.0+, macOS 10.15+, tvOS 13.0+
 - **Swift 版本**: 5.0+
 
@@ -350,7 +350,7 @@ if let path = LogRecorder.shared.getCurrentLogFilePath() {
   - `Async`：提供轻量级异步执行辅助工具。
   - `Codable`：提升解码容错与数值转换能力。
   - `Collections`：提供链表、队列、弱引用映射和弱引用集合等数据结构。
-  - `Combine`：补充实用的 Combine 存储与回调辅助能力。
+  - `Combine`：补充实用的 Combine 存储、回调节流与防抖辅助能力。
   - `Extensions`：为常见 Foundation 和 Swift 类型补充便捷扩展能力。
   - `KV`：简化轻量级键值存储及缓冲写入。
   - `Lock`：用于在并发代码中保护共享状态。
