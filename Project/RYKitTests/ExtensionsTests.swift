@@ -12,25 +12,65 @@ import Combine
 // MARK: - Numeric Extension Tests
 
 final class NumericExtensionTests: XCTestCase {
-    
+
     func test_nilIfZero_int_zero_returnsNil() {
         let value: Int = 0
         XCTAssertNil(value.nilIfZero)
     }
-    
+
     func test_nilIfZero_int_nonZero_returnsSelf() {
         let value: Int = 42
         XCTAssertEqual(value.nilIfZero, 42)
     }
-    
+
     func test_nilIfZero_double_zero_returnsNil() {
         let value: Double = 0.0
         XCTAssertNil(value.nilIfZero)
     }
-    
+
     func test_nilIfZero_double_nonZero_returnsSelf() {
         let value: Double = 3.14
         XCTAssertEqual(value.nilIfZero, 3.14)
+    }
+
+    func test_safeInt_finiteWholeNumber_returnsValue() {
+        let value = Int(safe: 42.0)
+        XCTAssertEqual(value, 42)
+    }
+
+    func test_safeInt_nan_returnsNil() {
+        let value = Int(safe: Double.nan)
+        XCTAssertNil(value)
+    }
+
+    func test_safeInt_positiveInfinity_returnsNil() {
+        let value = Int(safe: Double.infinity)
+        XCTAssertNil(value)
+    }
+
+    func test_safeInt_negativeInfinity_returnsNil() {
+        let value = Int(safe: -Double.infinity)
+        XCTAssertNil(value)
+    }
+
+    func test_safeInt_outOfRange_returnsNil() {
+        let value = Int8(safe: 128.0)
+        XCTAssertNil(value)
+    }
+
+    func test_safeInt_fractionalValue_nonStrict_truncates() {
+        let value = Int(safe: 1.9)
+        XCTAssertEqual(value, 1)
+    }
+
+    func test_safeInt_fractionalValue_strict_returnsNil() {
+        let value = Int(safe: 1.9, strict: true)
+        XCTAssertNil(value)
+    }
+
+    func test_safeInt_wholeNumber_strict_returnsValue() {
+        let value = Int(safe: 42.0, strict: true)
+        XCTAssertEqual(value, 42)
     }
 }
 
