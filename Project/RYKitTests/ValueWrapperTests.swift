@@ -904,7 +904,70 @@ final class EdgeCaseTests: XCTestCase {
         let model = try decode(Model.self, from: json)
         XCTAssertEqual(model.magic, 42)
     }
-    
+
+    func test_customAlias_withMissingKey_usesProviderDefault() throws {
+        enum FortyTwo: DefaultValueProvider {
+            static let `default` = 42
+        }
+
+        struct Model: Codable {
+            @Default.Custom<FortyTwo> var magic: Int
+        }
+
+        let json = "{}"
+        let model = try decode(Model.self, from: json)
+
+        XCTAssertEqual(model.magic, 42)
+    }
+
+    func test_customAlias_withMatchingValue_decodesNormally() throws {
+        enum FortyTwo: DefaultValueProvider {
+            static let `default` = 42
+        }
+
+        struct Model: Codable {
+            @Default.Custom<FortyTwo> var magic: Int
+        }
+
+        let json = "{" + #""magic": 7"# + "}"
+        let model = try decode(Model.self, from: json)
+
+        XCTAssertEqual(model.magic, 7)
+    }
+
+    func test_customAlias_withNull_usesProviderDefault() throws {
+        enum FortyTwo: DefaultValueProvider {
+            static let `default` = 42
+        }
+
+        struct Model: Codable {
+            @Default.Custom<FortyTwo> var magic: Int
+        }
+
+        let json = "{" + #""magic": null"# + "}"
+        let model = try decode(Model.self, from: json)
+
+        XCTAssertEqual(model.magic, 42)
+    }
+
+    func test_customAlias_encode_encodesWrappedValue() throws {
+        enum FortyTwo: DefaultValueProvider {
+            static let `default` = 42
+        }
+
+        struct Model: Codable {
+            @Default.Custom<FortyTwo> var magic: Int
+        }
+
+        var model = try decode(Model.self, from: "{}")
+        model.magic = 7
+
+        let data = try JSONEncoder().encode(model)
+        let dict = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(dict["magic"] as? Int, 7)
+    }
+
     func test_description_correctFormat() {
         @Default.IntZero var intVal: Int
         intVal = 123
