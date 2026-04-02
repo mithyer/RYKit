@@ -263,6 +263,8 @@ public enum EmptyProvider<T: Codable & EmptyValue>: DefaultValueProvider {
 }
 
 public struct Default {
+    
+    public typealias Custom<Provider: DefaultValueProvider> = DefaultValue<Provider>
 
     public typealias Zero<T: Codable & ZeroValue> = DefaultValue<ZeroProvider<T>>
     public typealias Empty<T: Codable & EmptyValue> = DefaultValue<EmptyProvider<T>>
