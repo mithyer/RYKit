@@ -194,17 +194,29 @@ public protocol Initializable {
     init()
 }
 
+public protocol ZeroValue {
+    static var zeroValue: Self { get }
+}
+
+public extension ZeroValue where Self: Numeric {
+    static var zeroValue: Self { .zero }
+}
+
 extension String: Initializable {}
 extension Int: Initializable {}
+extension Int: ZeroValue {}
 extension Double: Initializable {}
+extension Double: ZeroValue {}
 extension Float: Initializable {}
+extension Float: ZeroValue {}
+extension Decimal: ZeroValue {}
 extension Bool: Initializable {}
 extension Dictionary: Initializable {}
 extension Array: Initializable {}
 extension Set: Initializable {}
 
 public struct DefaultValueProviders {
-    
+
     public enum BoolFalse: DefaultValueProvider {
         public static let `default` = false
     }
@@ -212,56 +224,52 @@ public struct DefaultValueProviders {
     public enum BoolTrue: DefaultValueProvider {
         public static let `default` = true
     }
-    
-    public enum IntZero: DefaultValueProvider {
-        public static let `default` = 0
-    }
-
-    public enum DoubleZero: DefaultValueProvider {
-        public static let `default`: Double = 0
-    }
-
-    public enum FloatZero: DefaultValueProvider {
-        public static let `default`: Float = 0
-    }
 
     public enum StringEmpty: DefaultValueProvider {
         public static let `default` = ""
     }
-    
-    public enum DecimalZero: DefaultValueProvider {
-        public static let `default` = Decimal.zero
-    }
-    
+
     public enum ArrayEmpty<A>: DefaultValueProvider where A: Codable & RangeReplaceableCollection {
         public static var `default`: A { A() }
     }
-    
+
     public enum DicEmpty<K, V>: DefaultValueProvider where K: Hashable & Codable, V: Codable {
         public static var `default`: [K: V] { Dictionary() }
     }
-    
+
     public enum CaseFirst<A>: DefaultValueProvider where A: Codable & CaseIterable {
         public static var `default`: A { A.allCases.first! }
     }
-    
+
     public enum Init<A>: DefaultValueProvider where A: Initializable & Codable {
         public static var `default`: A  { A() }
     }
-    
+
     public enum InitObject<A>: DefaultValueProvider where A: NSObject & Codable {
         public static var `default`: A  { A() }
     }
 }
 
+public enum ZeroProvider<T: Codable & ZeroValue>: DefaultValueProvider {
+    public static var `default`: T { T.zeroValue }
+}
+
 public struct Default {
-    
+
+    public typealias Zero<T: Codable & ZeroValue> = DefaultValue<ZeroProvider<T>>
+
+    @available(*, deprecated, message: "Use @Default.Zero instead.")
+    public typealias IntZero = Zero<Int>
+    @available(*, deprecated, message: "Use @Default.Zero instead.")
+    public typealias DoubleZero = Zero<Double>
+    @available(*, deprecated, message: "Use @Default.Zero instead.")
+    public typealias FloatZero = Zero<Float>
+    @available(*, deprecated, message: "Use @Default.Zero instead.")
+    public typealias DecimalZero = Zero<Decimal>
+
     public typealias BoolFalse = DefaultValue<DefaultValueProviders.BoolFalse>
     public typealias BoolTrue = DefaultValue<DefaultValueProviders.BoolTrue>
-    public typealias IntZero = DefaultValue<DefaultValueProviders.IntZero>
-    public typealias DoubleZero = DefaultValue<DefaultValueProviders.DoubleZero>
-    public typealias FloatZero = DefaultValue<DefaultValueProviders.FloatZero>
-    public typealias DecimalZero = DefaultValue<DefaultValueProviders.DecimalZero>
+
     public typealias StringEmpty = DefaultValue<DefaultValueProviders.StringEmpty>
     public typealias ArrayEmpty<A: Codable & RangeReplaceableCollection> = DefaultValue<DefaultValueProviders.ArrayEmpty<A>>
     public typealias DicEmpty<K: Hashable & Codable, V: Codable> = DefaultValue<DefaultValueProviders.DicEmpty<K, V>>

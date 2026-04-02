@@ -53,7 +53,7 @@
 
 1. 不把 `Default.Zero` 扩展到 `Bool`、`String`、数组、字典等非“数值零”类型。
 2. 不重写 `DefaultValue` 的解码路径。
-3. 不移除现有 `IntZero` / `FloatZero` / `DoubleZero` / `DecimalZero`。
+3. 不删除现有 `Default.IntZero` / `Default.FloatZero` / `Default.DoubleZero` / `Default.DecimalZero` 对外入口；它们会保留为迁移期兼容别名。
 4. 不新增与本需求无关的默认值抽象体系，例如“任意 Empty 值”或“任意 Init 值”的统一入口。
 
 ## 推荐方案
@@ -62,7 +62,7 @@
 
 ### 核心思路
 
-新增一个专门表示“数值零值”的协议，例如：
+新增一个专门表示“数值零值”的协议：
 
 ```swift
 public protocol ZeroValue {
@@ -70,7 +70,15 @@ public protocol ZeroValue {
 }
 ```
 
-然后让以下类型实现该协议：
+通过条件扩展为所有 `Numeric` 类型提供默认零值实现：
+
+```swift
+public extension ZeroValue where Self: Numeric {
+    static var zeroValue: Self { .zero }
+}
+```
+
+然后显式声明以下类型遵守该协议：
 
 - `Int`
 - `Float`
@@ -85,12 +93,14 @@ public enum ZeroProvider<T: Codable & ZeroValue>: DefaultValueProvider {
 }
 ```
 
-最后在 `Default` 命名空间下暴露统一入口，使 `DefaultValue` 基于属性声明类型推断出目标零值类型。
+最后在 `Default` 命名空间下暴露统一入口 `Default.Zero`，并将旧的 `Default.IntZero` / `Default.FloatZero` / `Default.DoubleZero` / `Default.DecimalZero` 改为指向新入口的 deprecated typealias。
 
 该方案的优势是：
 
 - 对外 API 最简洁，符合用户直觉
 - 零值语义集中在协议层，扩展性好
+- 用 `Numeric` 默认实现减少重复代码，同时仍通过显式遵守限制当前支持范围
+- 旧 API 继续可用，但通过 deprecation 明确迁移方向
 - 底层仍复用现有 `DefaultValue` 包装器，不需要重构解码体系
 
 ## 详细设计
@@ -123,12 +133,18 @@ private struct Model: Codable {
 - `Double -> 0`
 - `Decimal -> .zero`
 
-现有 API 保持不变，继续可用：
+现有 API 保持可用，但迁移策略调整为 deprecated compatibility aliases：
 
 - `Default.IntZero`
 - `Default.FloatZero`
 - `Default.DoubleZero`
 - `Default.DecimalZero`
+
+这些旧入口会直接 typealias 到新的 `Default.Zero`，从而：
+
+- 不破坏现有调用方
+- 不再维护重复的按类型 zero provider 实现
+- 通过编译期 deprecation message 引导迁移到 `@Default.Zero`
 
 ### 2. 内部类型设计
 
@@ -148,16 +164,24 @@ public protocol ZeroValue {
 - 本需求聚焦于数值类型统一零值，不应把“零值”和“默认构造值”混为一谈
 - 新协议的约束更精确，编译期语义更清晰
 
-#### 2.2 为数值类型实现 `ZeroValue`
+#### 2.2 为数值类型声明 `ZeroValue` 遵守关系
 
-在现有文件中直接补充协议实现：
+在现有基础类型扩展区域补充显式遵守声明：
 
-- `Int.zeroValue = 0`
-- `Float.zeroValue = 0`
-- `Double.zeroValue = 0`
-- `Decimal.zeroValue = .zero`
+- `extension Int: ZeroValue {}`
+- `extension Float: ZeroValue {}`
+- `extension Double: ZeroValue {}`
+- `extension Decimal: ZeroValue {}`
 
-先只支持这四类数值类型，保持边界清晰。
+具体零值实现不再由每个类型单独书写，而是统一复用：
+
+```swift
+public extension ZeroValue where Self: Numeric {
+    static var zeroValue: Self { .zero }
+}
+```
+
+这样既减少重复代码，又保持当前支持范围明确，只开放给显式声明遵守 `ZeroValue` 的数值类型。
 
 #### 2.3 新增泛型 `ZeroProvider<T>`
 
@@ -249,18 +273,25 @@ DefaultValue<ZeroProvider<Int>>
 
 #### 向后兼容
 
-现有 provider 和 typealias 全部保留：
+对外仍保留以下入口：
 
 - `Default.IntZero`
 - `Default.FloatZero`
 - `Default.DoubleZero`
 - `Default.DecimalZero`
 
+但实现方式改为：
+
+- 旧入口全部声明为 `@available(*, deprecated, message: "Use @Default.Zero instead.")`
+- 旧入口直接 typealias 到新的 `Default.Zero`
+- 删除旧的按类型 zero providers，避免底层重复实现
+
 这样：
 
-- 旧代码无需修改
-- 新代码可按需迁移到 `Default.Zero`
-- 不引入破坏性变更
+- 旧代码无需立即修改
+- 新代码可直接使用 `@Default.Zero`
+- 编译期 warning 会给出明确迁移指引
+- 底层只有一套零值 provider 逻辑
 
 ## 测试策略
 

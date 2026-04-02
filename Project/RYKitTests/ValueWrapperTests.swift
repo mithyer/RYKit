@@ -75,6 +75,13 @@ private struct FloatDictionaryModel: Codable {
     @Default.DicEmpty<String, Float> var values: [String: Float]
 }
 
+private struct ZeroModel: Codable {
+    @Default.Zero var intValue: Int
+    @Default.Zero var floatValue: Float
+    @Default.Zero var doubleValue: Double
+    @Default.Zero var decimalValue: Decimal
+}
+
 // MARK: - DefaultValue Tests
 
 final class DefaultValueTests: XCTestCase {
@@ -223,6 +230,59 @@ final class DefaultValueTests: XCTestCase {
         XCTAssertEqual(model.values["d"]!, 3.25, accuracy: 0.0001)
     }
 
+    func test_decode_zeroModel_withMissingKey_usesZeroDefaults() throws {
+        let json = "{}"
+        let model = try decode(ZeroModel.self, from: json)
+
+        XCTAssertEqual(model.intValue, 0)
+        XCTAssertEqual(model.floatValue, 0, accuracy: 0.0001)
+        XCTAssertEqual(model.doubleValue, 0, accuracy: 0.0001)
+        XCTAssertEqual(model.decimalValue, Decimal.zero)
+    }
+
+    func test_decode_zeroModel_withMatchingTypes_succeeds() throws {
+        let json = """
+        {"intValue": 42, "floatValue": 2.5, "doubleValue": 3.14, "decimalValue": 99.99}
+        """
+        let model = try decode(ZeroModel.self, from: json)
+
+        XCTAssertEqual(model.intValue, 42)
+        XCTAssertEqual(model.floatValue, 2.5, accuracy: 0.0001)
+        XCTAssertEqual(model.doubleValue, 3.14, accuracy: 0.001)
+        XCTAssertEqual(model.decimalValue, Decimal(string: "99.99"))
+    }
+
+    func test_decode_zeroModel_withNullValues_usesZeroDefaults() throws {
+        let json = """
+        {"intValue": null, "floatValue": null, "doubleValue": null, "decimalValue": null}
+        """
+        let model = try decode(ZeroModel.self, from: json)
+
+        XCTAssertEqual(model.intValue, 0)
+        XCTAssertEqual(model.floatValue, 0, accuracy: 0.0001)
+        XCTAssertEqual(model.doubleValue, 0, accuracy: 0.0001)
+        XCTAssertEqual(model.decimalValue, Decimal.zero)
+    }
+
+    func test_decode_zeroModel_withConvertibleValues_converts() throws {
+        let json = """
+        {"intValue": "12", "floatValue": "2.5", "doubleValue": 7, "decimalValue": "8.75"}
+        """
+        let model = try decode(ZeroModel.self, from: json)
+
+        XCTAssertEqual(model.intValue, 12)
+        XCTAssertEqual(model.floatValue, 2.5, accuracy: 0.0001)
+        XCTAssertEqual(model.doubleValue, 7, accuracy: 0.0001)
+        XCTAssertEqual(model.decimalValue, Decimal(string: "8.75"))
+    }
+
+    func test_zeroValue_numericDefaultImplementation_usesZeroProviderDefaults() {
+        XCTAssertEqual(ZeroProvider<Int>.default, 0)
+        XCTAssertEqual(ZeroProvider<Float>.default, 0, accuracy: 0.0001)
+        XCTAssertEqual(ZeroProvider<Double>.default, 0, accuracy: 0.0001)
+        XCTAssertEqual(ZeroProvider<Decimal>.default, Decimal.zero)
+    }
+
     func test_encode_outputsUnwrappedValue() throws {
         var model = DefaultValueModel()
         model.intValue = 100
@@ -235,6 +295,13 @@ final class DefaultValueTests: XCTestCase {
         XCTAssertEqual(dict["stringValue"] as? String, "test")
     }
 
+    func test_deprecatedZeroAliases_useZeroProviderDefaults() {
+        XCTAssertEqual(Default.IntZero().wrappedValue, 0)
+        XCTAssertEqual(Default.FloatZero().wrappedValue, 0, accuracy: 0.0001)
+        XCTAssertEqual(Default.DoubleZero().wrappedValue, 0, accuracy: 0.0001)
+        XCTAssertEqual(Default.DecimalZero().wrappedValue, Decimal.zero)
+    }
+
     func test_providers_boolFalse_default() {
         XCTAssertEqual(DefaultValueProviders.BoolFalse.default, false)
     }
@@ -244,7 +311,7 @@ final class DefaultValueTests: XCTestCase {
     }
     
     func test_providers_intZero_default() {
-        XCTAssertEqual(DefaultValueProviders.IntZero.default, 0)
+        XCTAssertEqual(Default.IntZero().wrappedValue, 0)
     }
     
     func test_providers_stringEmpty_default() {
@@ -252,7 +319,7 @@ final class DefaultValueTests: XCTestCase {
     }
     
     func test_providers_floatZero_default() {
-        XCTAssertEqual(DefaultValueProviders.FloatZero.default, 0)
+        XCTAssertEqual(Default.FloatZero().wrappedValue, 0)
     }
 
     func test_providers_arrayEmpty_default() throws {
