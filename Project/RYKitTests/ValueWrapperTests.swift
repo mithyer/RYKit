@@ -82,6 +82,17 @@ private struct ZeroModel: Codable {
     @Default.Zero var decimalValue: Decimal
 }
 
+private struct EmptyModel: Codable {
+    @Default.Empty var name: String
+    @Default.Empty var tags: [String]
+    @Default.Empty var mapping: [String: Int]
+    @Default.Empty var ids: Set<Int>
+}
+
+private struct SetContainerModel: Codable {
+    @Default.Empty var ids: Set<Int>
+}
+
 // MARK: - DefaultValue Tests
 
 final class DefaultValueTests: XCTestCase {
@@ -264,6 +275,49 @@ final class DefaultValueTests: XCTestCase {
         XCTAssertEqual(model.decimalValue, Decimal.zero)
     }
 
+    func test_decode_emptyModel_withMissingKey_usesEmptyDefaults() throws {
+        let json = "{}"
+        let model = try decode(EmptyModel.self, from: json)
+
+        XCTAssertEqual(model.name, "")
+        XCTAssertEqual(model.tags, [])
+        XCTAssertEqual(model.mapping, [:])
+        XCTAssertEqual(model.ids, Set<Int>())
+    }
+
+    func test_decode_emptyModel_withMatchingTypes_succeeds() throws {
+        let json = """
+        {"name": "ray", "tags": ["swift", "codable"], "mapping": {"a": 1, "b": 2}, "ids": [1, 2, 3]}
+        """
+        let model = try decode(EmptyModel.self, from: json)
+
+        XCTAssertEqual(model.name, "ray")
+        XCTAssertEqual(model.tags, ["swift", "codable"])
+        XCTAssertEqual(model.mapping, ["a": 1, "b": 2])
+        XCTAssertEqual(model.ids, Set([1, 2, 3]))
+    }
+
+    func test_decode_emptyModel_withNullValues_usesEmptyDefaults() throws {
+        let json = """
+        {"name": null, "tags": null, "mapping": null, "ids": null}
+        """
+        let model = try decode(EmptyModel.self, from: json)
+
+        XCTAssertEqual(model.name, "")
+        XCTAssertEqual(model.tags, [])
+        XCTAssertEqual(model.mapping, [:])
+        XCTAssertEqual(model.ids, Set<Int>())
+    }
+
+    func test_decode_setContainerModel_withMatchingType_succeeds() throws {
+        let json = """
+        {"ids": [3, 1, 3, 2]}
+        """
+        let model = try decode(SetContainerModel.self, from: json)
+
+        XCTAssertEqual(model.ids, Set([1, 2, 3]))
+    }
+
     func test_decode_zeroModel_withConvertibleValues_converts() throws {
         let json = """
         {"intValue": "12", "floatValue": "2.5", "doubleValue": 7, "decimalValue": "8.75"}
@@ -281,6 +335,13 @@ final class DefaultValueTests: XCTestCase {
         XCTAssertEqual(ZeroProvider<Float>.default, 0, accuracy: 0.0001)
         XCTAssertEqual(ZeroProvider<Double>.default, 0, accuracy: 0.0001)
         XCTAssertEqual(ZeroProvider<Decimal>.default, Decimal.zero)
+    }
+
+    func test_emptyValue_defaultImplementations_useEmptyProviderDefaults() {
+        XCTAssertEqual(EmptyProvider<String>.default, "")
+        XCTAssertEqual(EmptyProvider<[Int]>.default, [])
+        XCTAssertEqual(EmptyProvider<[String: Int]>.default, [:])
+        XCTAssertEqual(EmptyProvider<Set<Int>>.default, Set<Int>())
     }
 
     func test_encode_outputsUnwrappedValue() throws {
@@ -302,6 +363,13 @@ final class DefaultValueTests: XCTestCase {
         XCTAssertEqual(Default.DecimalZero().wrappedValue, Decimal.zero)
     }
 
+    func test_deprecatedEmptyAliases_useEmptyProviderDefaults() {
+        XCTAssertEqual(Default.StringEmpty().wrappedValue, "")
+        XCTAssertEqual(Default.ArrayEmpty<[Int]>().wrappedValue, [])
+        XCTAssertEqual(Default.DicEmpty<String, Int>().wrappedValue, [:])
+        XCTAssertEqual(Default.SetEmpty<Int>().wrappedValue, Set<Int>())
+    }
+
     func test_providers_boolFalse_default() {
         XCTAssertEqual(DefaultValueProviders.BoolFalse.default, false)
     }
@@ -315,7 +383,7 @@ final class DefaultValueTests: XCTestCase {
     }
     
     func test_providers_stringEmpty_default() {
-        XCTAssertEqual(DefaultValueProviders.StringEmpty.default, "")
+        XCTAssertEqual(Default.StringEmpty().wrappedValue, "")
     }
     
     func test_providers_floatZero_default() {
@@ -323,11 +391,12 @@ final class DefaultValueTests: XCTestCase {
     }
 
     func test_providers_arrayEmpty_default() throws {
-        let json = "{}"
-        let model = try decode(DefaultValueArrayModel.self, from: json)
+        XCTAssertEqual(Default.ArrayEmpty<[Int]>().wrappedValue, [])
+        XCTAssertEqual(Default.ArrayEmpty<[String]>().wrappedValue, [])
+    }
 
-        XCTAssertEqual(model.intArray, [])
-        XCTAssertEqual(model.stringArray, [])
+    func test_providers_dicEmpty_default() {
+        XCTAssertEqual(Default.DicEmpty<String, Int>().wrappedValue, [:])
     }
 
     func test_providers_caseFirst_default() throws {
