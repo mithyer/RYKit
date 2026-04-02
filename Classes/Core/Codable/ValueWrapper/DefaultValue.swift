@@ -71,6 +71,9 @@ func convert<T: SingleValueConvertable>(value: Any, toType: T.Type) -> T? {
     if toType == Double.self {
         return value.convertToDouble() as? T
     }
+    if toType == Float.self {
+        return value.convertToFloat() as? T
+    }
     if toType == String.self {
         return value.convertToString() as? T
     }
@@ -104,6 +107,10 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
                 value = array.compactMap {
                     convert(value: $0, toType:Double.self)
                 } as? T
+            } else if T.self == [Float].self {
+                value = array.compactMap {
+                    convert(value: $0, toType:Float.self)
+                } as? T
             } else if T.self == [String].self {
                 value = array.compactMap {
                     convert(value: $0, toType:String.self)
@@ -125,6 +132,10 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
                 value = dic.compactMapValues {
                     convert(value: $0, toType:Double.self)
                 } as? T
+            } else if T.self == [String: Float].self {
+                value = dic.compactMapValues {
+                    convert(value: $0, toType:Float.self)
+                } as? T
             } else if T.self == [String: String].self {
                 value = dic.compactMapValues {
                     convert(value: $0, toType:String.self)
@@ -140,6 +151,8 @@ func tryMakeWrapperValue<T: Decodable>(container: any SingleValueDecodingContain
                 value = single.value(Decimal.self) as? T
             } else if T.self == Double.self {
                 value = single.value(Double.self) as? T
+            } else if T.self == Float.self {
+                value = single.value(Float.self) as? T
             } else if T.self == String.self {
                 value = single.value(String.self) as? T
             } else if T.self == Bool.self {
@@ -184,6 +197,7 @@ public protocol Initializable {
 extension String: Initializable {}
 extension Int: Initializable {}
 extension Double: Initializable {}
+extension Float: Initializable {}
 extension Bool: Initializable {}
 extension Dictionary: Initializable {}
 extension Array: Initializable {}
@@ -206,7 +220,11 @@ public struct DefaultValueProviders {
     public enum DoubleZero: DefaultValueProvider {
         public static let `default`: Double = 0
     }
-    
+
+    public enum FloatZero: DefaultValueProvider {
+        public static let `default`: Float = 0
+    }
+
     public enum StringEmpty: DefaultValueProvider {
         public static let `default` = ""
     }
@@ -242,6 +260,7 @@ public struct Default {
     public typealias BoolTrue = DefaultValue<DefaultValueProviders.BoolTrue>
     public typealias IntZero = DefaultValue<DefaultValueProviders.IntZero>
     public typealias DoubleZero = DefaultValue<DefaultValueProviders.DoubleZero>
+    public typealias FloatZero = DefaultValue<DefaultValueProviders.FloatZero>
     public typealias DecimalZero = DefaultValue<DefaultValueProviders.DecimalZero>
     public typealias StringEmpty = DefaultValue<DefaultValueProviders.StringEmpty>
     public typealias ArrayEmpty<A: Codable & RangeReplaceableCollection> = DefaultValue<DefaultValueProviders.ArrayEmpty<A>>
@@ -255,6 +274,7 @@ public protocol SingleValueConvertable {
     func convertToDecimal() -> Decimal?
     func convertToString() -> String?
     func convertToDouble() -> Double?
+    func convertToFloat() -> Float?
     func convertToBool() -> Bool?
 }
 
@@ -262,19 +282,23 @@ extension Int: SingleValueConvertable {
     public func convertToInt() -> Int? {
         self
     }
-    
+
     public func convertToDecimal() -> Decimal? {
         Decimal(self)
     }
-    
+
     public func convertToString() -> String? {
         "\(self)"
     }
-    
+
     public func convertToDouble() -> Double? {
         Double(self)
     }
-    
+
+    public func convertToFloat() -> Float? {
+        Float(self)
+    }
+
     public func convertToBool() -> Bool? {
         self == 0 ? false : (self == 1 ? true : nil)
     }
@@ -287,90 +311,132 @@ extension Decimal: SingleValueConvertable {
         }
         return Int((self as NSDecimalNumber).doubleValue)
     }
-    
+
     public func convertToDecimal() -> Decimal? {
         self
     }
-    
+
     public func convertToString() -> String? {
         "\(self)"
     }
-    
+
     public func convertToDouble() -> Double? {
         (self as NSDecimalNumber).doubleValue
     }
-    
+
+    public func convertToFloat() -> Float? {
+        Float((self as NSDecimalNumber).doubleValue)
+    }
+
     public func convertToBool() -> Bool? {
         self == 0 ? false : (self == 1 ? true : nil)
     }
 }
 
 extension String: SingleValueConvertable {
-    
+
     public func convertToInt() -> Int? {
         Int(self)
     }
-    
+
     public func convertToDecimal() -> Decimal? {
         Decimal(string: self)
     }
-    
+
     public func convertToString() -> String? {
         self
     }
-    
+
     public func convertToDouble() -> Double? {
         Double(self)
     }
-    
+
+    public func convertToFloat() -> Float? {
+        Float(self)
+    }
+
     public func convertToBool() -> Bool? {
         ["true", "y", "t", "yes", "1"].contains { caseInsensitiveCompare($0) == .orderedSame }
     }
 }
 
 extension Double: SingleValueConvertable {
-    
+
     public func convertToInt() -> Int? {
         Int(self)
     }
-    
+
     public func convertToDecimal() -> Decimal? {
         Decimal(self)
     }
-    
+
     public func convertToString() -> String? {
         "\(self)"
     }
-    
+
     public func convertToDouble() -> Double? {
         self
     }
-    
+
+    public func convertToFloat() -> Float? {
+        Float(self)
+    }
+
     public func convertToBool() -> Bool? {
         self == 1 ? true : (self == 0 ? false : nil)
     }
 }
 
 extension Bool: SingleValueConvertable {
-    
+
     public func convertToInt() -> Int? {
         self ? 1 : 0
     }
-    
+
     public func convertToDecimal() -> Decimal? {
         Decimal(self ? 1 : 0)
     }
-    
+
     public func convertToString() -> String? {
         "\(self)"
     }
-    
+
     public func convertToDouble() -> Double? {
         self ? 1.0 : 0.0
     }
-    
+
+    public func convertToFloat() -> Float? {
+        self ? 1.0 : 0.0
+    }
+
     public func convertToBool() -> Bool? {
         self
+    }
+}
+extension Float: SingleValueConvertable {
+
+    public func convertToInt() -> Int? {
+        Int(self)
+    }
+
+    public func convertToDecimal() -> Decimal? {
+        Decimal(Double(self))
+    }
+
+    public func convertToString() -> String? {
+        "\(self)"
+    }
+
+    public func convertToDouble() -> Double? {
+        Double(self)
+    }
+
+    public func convertToFloat() -> Float? {
+        self
+    }
+
+    public func convertToBool() -> Bool? {
+        self == 1 ? true : (self == 0 ? false : nil)
     }
 }
 

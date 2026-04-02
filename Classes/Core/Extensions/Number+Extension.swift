@@ -20,7 +20,7 @@ extension FixedWidthInteger {
     ///   - strict: When `false`, fractional values are truncated using Swift's default integer conversion behavior.
     ///             When `true`, only finite values without a fractional component are accepted.
     /// - Returns: `nil` if the value is not finite or cannot be represented by this integer type.
-    init?<T>(safe float: T, strict: Bool = false) where T: BinaryFloatingPoint {
+    public init?<T>(safe float: T, strict: Bool = false) where T: BinaryFloatingPoint {
         guard float.isFinite else {
             return nil
         }

@@ -15,6 +15,7 @@ private struct DefaultValueModel: Codable {
     @Default.BoolFalse var boolValue: Bool
     @Default.StringEmpty var stringValue: String
     @Default.DoubleZero var doubleValue: Double
+    @Default.FloatZero var floatValue: Float
     @Default.DecimalZero var decimalValue: Decimal
 }
 
@@ -62,44 +63,59 @@ private struct FromStringValueModel: Codable {
     @FromStringValue var inner: InnerModel?
 }
 
+private struct FloatContainerModel: Codable {
+    @Default.FloatZero var floatValue: Float
+}
+
+private struct FloatArrayModel: Codable {
+    @Default.ArrayEmpty<[Float]> var values: [Float]
+}
+
+private struct FloatDictionaryModel: Codable {
+    @Default.DicEmpty<String, Float> var values: [String: Float]
+}
+
 // MARK: - DefaultValue Tests
 
 final class DefaultValueTests: XCTestCase {
     
     func test_decode_withMatchingType_succeeds() throws {
         let json = """
-        {"intValue": 42, "boolValue": true, "stringValue": "hello", "doubleValue": 3.14, "decimalValue": 99.99}
+        {"intValue": 42, "boolValue": true, "stringValue": "hello", "doubleValue": 3.14, "floatValue": 2.5, "decimalValue": 99.99}
         """
         let model = try decode(DefaultValueModel.self, from: json)
-        
+
         XCTAssertEqual(model.intValue, 42)
         XCTAssertEqual(model.boolValue, true)
         XCTAssertEqual(model.stringValue, "hello")
         XCTAssertEqual(model.doubleValue, 3.14, accuracy: 0.001)
+        XCTAssertEqual(model.floatValue, 2.5, accuracy: 0.0001)
         XCTAssertEqual(model.decimalValue, Decimal(string: "99.99"))
     }
     
     func test_decode_withMissingKey_usesDefault() throws {
         let json = "{}"
         let model = try decode(DefaultValueModel.self, from: json)
-        
+
         XCTAssertEqual(model.intValue, 0)
         XCTAssertEqual(model.boolValue, false)
         XCTAssertEqual(model.stringValue, "")
         XCTAssertEqual(model.doubleValue, 0)
+        XCTAssertEqual(model.floatValue, 0)
         XCTAssertEqual(model.decimalValue, Decimal.zero)
     }
     
     func test_decode_withNullValue_usesDefault() throws {
         let json = """
-        {"intValue": null, "boolValue": null, "stringValue": null, "doubleValue": null, "decimalValue": null}
+        {"intValue": null, "boolValue": null, "stringValue": null, "doubleValue": null, "floatValue": null, "decimalValue": null}
         """
         let model = try decode(DefaultValueModel.self, from: json)
-        
+
         XCTAssertEqual(model.intValue, 0)
         XCTAssertEqual(model.boolValue, false)
         XCTAssertEqual(model.stringValue, "")
         XCTAssertEqual(model.doubleValue, 0)
+        XCTAssertEqual(model.floatValue, 0)
         XCTAssertEqual(model.decimalValue, Decimal.zero)
     }
     
@@ -148,18 +164,77 @@ final class DefaultValueTests: XCTestCase {
         XCTAssertEqual(model.intValue, 3)
     }
     
+    func test_decode_stringToFloat_converts() throws {
+        let json = """
+        {"floatValue": "12.5"}
+        """
+        let model = try decode(FloatContainerModel.self, from: json)
+
+        XCTAssertEqual(model.floatValue, 12.5, accuracy: 0.0001)
+    }
+
+    func test_decode_intToFloat_converts() throws {
+        let json = """
+        {"floatValue": 7}
+        """
+        let model = try decode(FloatContainerModel.self, from: json)
+
+        XCTAssertEqual(model.floatValue, 7, accuracy: 0.0001)
+    }
+
+    func test_decode_doubleToFloat_converts() throws {
+        let json = """
+        {"floatValue": 3.25}
+        """
+        let model = try decode(FloatContainerModel.self, from: json)
+
+        XCTAssertEqual(model.floatValue, 3.25, accuracy: 0.0001)
+    }
+
+    func test_decode_decimalToFloat_converts() throws {
+        let value = SingleValue(Decimal(string: "4.5")!)
+        let converted = try XCTUnwrap(value.value(Float.self))
+
+        XCTAssertEqual(converted, 4.5, accuracy: 0.0001)
+    }
+
+    func test_decode_floatArray_convertsElements() throws {
+        let json = """
+        {"values": ["1.5", 2, true, 3.25]}
+        """
+        let model = try decode(FloatArrayModel.self, from: json)
+
+        XCTAssertEqual(model.values.count, 4)
+        XCTAssertEqual(model.values[0], 1.5, accuracy: 0.0001)
+        XCTAssertEqual(model.values[1], 2, accuracy: 0.0001)
+        XCTAssertEqual(model.values[2], 1, accuracy: 0.0001)
+        XCTAssertEqual(model.values[3], 3.25, accuracy: 0.0001)
+    }
+
+    func test_decode_floatDictionary_convertsValues() throws {
+        let json = """
+        {"values": {"a": "1.5", "b": 2, "c": false, "d": 3.25}}
+        """
+        let model = try decode(FloatDictionaryModel.self, from: json)
+
+        XCTAssertEqual(model.values["a"]!, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(model.values["b"]!, 2, accuracy: 0.0001)
+        XCTAssertEqual(model.values["c"]!, 0, accuracy: 0.0001)
+        XCTAssertEqual(model.values["d"]!, 3.25, accuracy: 0.0001)
+    }
+
     func test_encode_outputsUnwrappedValue() throws {
         var model = DefaultValueModel()
         model.intValue = 100
         model.stringValue = "test"
-        
+
         let data = try JSONEncoder().encode(model)
         let dict = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        
+
         XCTAssertEqual(dict["intValue"] as? Int, 100)
         XCTAssertEqual(dict["stringValue"] as? String, "test")
     }
-    
+
     func test_providers_boolFalse_default() {
         XCTAssertEqual(DefaultValueProviders.BoolFalse.default, false)
     }
@@ -176,14 +251,18 @@ final class DefaultValueTests: XCTestCase {
         XCTAssertEqual(DefaultValueProviders.StringEmpty.default, "")
     }
     
+    func test_providers_floatZero_default() {
+        XCTAssertEqual(DefaultValueProviders.FloatZero.default, 0)
+    }
+
     func test_providers_arrayEmpty_default() throws {
         let json = "{}"
         let model = try decode(DefaultValueArrayModel.self, from: json)
-        
+
         XCTAssertEqual(model.intArray, [])
         XCTAssertEqual(model.stringArray, [])
     }
-    
+
     func test_providers_caseFirst_default() throws {
         let json = "{}"
         let model = try decode(DefaultValueEnumModel.self, from: json)
