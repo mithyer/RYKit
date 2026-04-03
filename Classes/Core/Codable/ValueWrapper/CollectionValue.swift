@@ -73,6 +73,8 @@ public extension KeyedEncodingContainer {
             try encode(array, forKey: key)
         } else if let dictionary = wrappedValue as? [String: Any] {
             try encode(dictionary, forKey: key)
+        } else {
+            assertionFailure("Unsupported CollectionValue type: \(T.self). Only [Any] and [String: Any] are supported.")
         }
     }
 }
