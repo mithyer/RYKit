@@ -29,13 +29,16 @@ public struct CollectionValue<T: AnyCollectionValue>: Codable, CustomStringConve
         let container = try decoder.singleValueContainer()
         if container.decodeNil() {
             wrappedValue = nil
+        // Bridge `[Any]` via CodableArray because `Any` is not directly Codable.
         } else if T.self == [Any].self,
                   let array = try? container.decode(CodableArray.self).array as? T {
             wrappedValue = array
+        // Bridge `[String: Any]` via CodableDictionary for the same reason.
         } else if T.self == [String: Any].self,
                   let dictionary = try? container.decode(CodableDictionary.self).dictionary as? T {
             wrappedValue = dictionary
         } else {
+            // Fail-soft by design: mismatched payloads decode to nil instead of throwing.
             wrappedValue = nil
         }
     }
@@ -56,12 +59,14 @@ public struct CollectionValue<T: AnyCollectionValue>: Codable, CustomStringConve
 
 public extension KeyedDecodingContainer {
     func decode<T>(_ type: CollectionValue<T>.Type, forKey key: K) throws -> CollectionValue<T> {
+        // Keep wrapper behavior consistent with other wrappers: missing key -> nil wrapped value.
         try decodeIfPresent(type, forKey: key) ?? .init()
     }
 }
 
 public extension KeyedEncodingContainer {
     mutating func encode<T>(_ value: CollectionValue<T>, forKey key: Key) throws {
+        // Omit key when wrapped value is nil.
         guard let wrappedValue = value.wrappedValue else {
             return
         }

@@ -5,3 +5,5 @@ CLAUDE.md
 .worktrees/
 .claude/
 .build/
+TemporaryDirectory.*/
+_Users_*.lock
