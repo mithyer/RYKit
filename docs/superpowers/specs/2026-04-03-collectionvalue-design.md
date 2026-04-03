@@ -18,6 +18,18 @@
 3. 解码失败不抛错，统一置为 `nil`。
 4. 编码时 `wrappedValue == nil` 不输出字段（由 keyed container 编码扩展配合实现）。
 
+## 调用方式约束（明确）
+
+本次实现以“可选属性”作为调用约束，避免与 `wrappedValue: T?` 语义冲突。允许的声明形式：
+
+1. `@CollectionValue var items: [Any]?`
+2. `@CollectionValue var metadata: [String: Any]?`
+
+说明：
+
+1. 本次不覆盖非可选声明（如 `@CollectionValue var items: [Any]`）。
+2. “不改变现有调用方式”指保留 `@CollectionValue` 包装器名字与单包装器模型，不新增拆分 API（如 `@ArrayValue` / `@DictionaryValue`）。
+
 ## 非目标
 
 1. 不新增字符串 JSON（如 `"{...}"` / `"[...]"`）到集合的二次解析。
@@ -73,6 +85,7 @@
 2. `T == [Any]` 时包为 `CodableArray` 编码。
 3. `T == [String: Any]` 时包为 `CodableDictionary` 编码。
 4. 兜底分支不编码，避免引发不必要异常。
+5. 若集合内元素存在 `Codable+Any` 不支持的值类型，沿用底层实现抛出 `EncodingError`，`CollectionValue` 不吞错。
 
 ## 错误处理策略
 
@@ -81,6 +94,7 @@
 1. 类型不匹配（例如 JSON 是字符串、数字）不抛错，值置 `nil`。
 2. 不支持的 `T`（理论上不应发生）不抛错，值置 `nil` 或跳过编码。
 3. `null` 视为有效空值，置 `nil`。
+4. 对已支持 `T` 的“内容级编码非法值”（例如自定义对象直接放入 `[Any]`）不做静默跳过，透传 `EncodingError`。
 
 ## 测试设计
 
@@ -93,6 +107,7 @@
 5. 类型不匹配解码为 `nil`
 6. 非空编码输出字段
 7. `nil` 编码不输出字段
+8. 集合包含不可编码值时，编码抛出 `EncodingError`
 
 ## 修改清单
 
