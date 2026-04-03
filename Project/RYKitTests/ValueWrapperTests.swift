@@ -75,6 +75,14 @@ private struct FloatDictionaryModel: Codable {
     @Default.DicEmpty<String, Float> var values: [String: Float]
 }
 
+private struct CollectionArrayModel: Codable {
+    @CollectionValue var items: [Any]?
+}
+
+private struct CollectionDictionaryModel: Codable {
+    @CollectionValue var metadata: [String: Any]?
+}
+
 private struct ZeroModel: Codable {
     @Default.Zero var intValue: Int
     @Default.Zero var floatValue: Float
@@ -617,6 +625,56 @@ final class FromStringValueTests: XCTestCase {
         let model = try decode(FromStringValueModel.self, from: json)
         
         XCTAssertNil(model.inner)
+    }
+}
+
+// MARK: - CollectionValue Tests
+
+final class CollectionValueTests: XCTestCase {
+
+    func test_decode_array_success() throws {
+        let json = """
+        {"items": [1, "two", true, 3.5]}
+        """
+        let model = try decode(CollectionArrayModel.self, from: json)
+
+        XCTAssertEqual(model.items?.count, 4)
+    }
+
+    func test_decode_dictionary_success() throws {
+        let json = """
+        {"metadata": {"name": "ray", "count": 2, "active": true}}
+        """
+        let model = try decode(CollectionDictionaryModel.self, from: json)
+
+        XCTAssertEqual(model.metadata?["name"] as? String, "ray")
+        XCTAssertEqual(model.metadata?["count"] as? Int, 2)
+        XCTAssertEqual(model.metadata?["active"] as? Bool, true)
+    }
+
+    func test_decode_missingKey_returnsNil() throws {
+        let json = "{}"
+        let model = try decode(CollectionArrayModel.self, from: json)
+
+        XCTAssertNil(model.items)
+    }
+
+    func test_decode_null_returnsNil() throws {
+        let json = """
+        {"items": null}
+        """
+        let model = try decode(CollectionArrayModel.self, from: json)
+
+        XCTAssertNil(model.items)
+    }
+
+    func test_decode_typeMismatch_returnsNilWithoutThrow() throws {
+        let json = """
+        {"items": {"unexpected": "object"}}
+        """
+        let model = try decode(CollectionArrayModel.self, from: json)
+
+        XCTAssertNil(model.items)
     }
 }
 
