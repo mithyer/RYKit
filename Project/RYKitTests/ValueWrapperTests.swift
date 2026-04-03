@@ -634,11 +634,16 @@ final class CollectionValueTests: XCTestCase {
 
     func test_decode_array_success() throws {
         let json = """
-        {"items": [1, "two", true, 3.5]}
+        {"items": [1, "two", true, {"k": "v"}]}
         """
         let model = try decode(CollectionArrayModel.self, from: json)
 
         XCTAssertEqual(model.items?.count, 4)
+        XCTAssertEqual(model.items?[0] as? Int, 1)
+        XCTAssertEqual(model.items?[1] as? String, "two")
+        XCTAssertEqual(model.items?[2] as? Bool, true)
+        let nestedObject = model.items?[3] as? [String: Any]
+        XCTAssertEqual(nestedObject?["k"] as? String, "v")
     }
 
     func test_decode_dictionary_success() throws {
