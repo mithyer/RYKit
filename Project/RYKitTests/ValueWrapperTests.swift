@@ -632,6 +632,53 @@ final class FromStringValueTests: XCTestCase {
 
 final class CollectionValueTests: XCTestCase {
 
+    func test_encode_array_success() throws {
+        let model = CollectionArrayModel(items: .init(wrappedValue: [1, "two", true] as [Any]))
+
+        let data = try JSONEncoder().encode(model)
+        let dict = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let items = try XCTUnwrap(dict["items"] as? [Any])
+
+        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(items[0] as? Int, 1)
+        XCTAssertEqual(items[1] as? String, "two")
+        XCTAssertEqual(items[2] as? Bool, true)
+    }
+
+    func test_encode_dictionary_success() throws {
+        let model = CollectionDictionaryModel(metadata: .init(wrappedValue: ["name": "ray", "count": 2, "active": true] as [String: Any]))
+
+        let data = try JSONEncoder().encode(model)
+        let dict = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let metadata = try XCTUnwrap(dict["metadata"] as? [String: Any])
+
+        XCTAssertEqual(metadata["name"] as? String, "ray")
+        XCTAssertEqual(metadata["count"] as? Int, 2)
+        XCTAssertEqual(metadata["active"] as? Bool, true)
+    }
+
+    func test_encode_nil_omitsKey() throws {
+        let model = CollectionDictionaryModel(metadata: .init(wrappedValue: nil))
+
+        let data = try JSONEncoder().encode(model)
+        let dict = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertNil(dict["metadata"])
+    }
+
+    func test_encode_invalidPayload_throwsEncodingError() {
+        let model = CollectionDictionaryModel(metadata: .init(wrappedValue: ["date": Date()] as [String: Any]))
+
+        XCTAssertThrowsError(try JSONEncoder().encode(model)) { error in
+            guard case let EncodingError.invalidValue(value, context) = error else {
+                return XCTFail("Expected EncodingError.invalidValue, got \(error)")
+            }
+
+            XCTAssertTrue(value is Date)
+            XCTAssertFalse(context.codingPath.isEmpty)
+        }
+    }
+
     func test_decode_array_success() throws {
         let json = """
         {"items": [1, "two", true, {"k": "v"}]}
@@ -674,6 +721,8 @@ final class CollectionValueTests: XCTestCase {
     }
 
     func test_decode_typeMismatch_returnsNilWithoutThrow() throws {
+        XCTExpectFailure("CollectionValue asserts on mismatched payloads in debug builds before returning nil.")
+
         let json = """
         {"items": {"unexpected": "object"}}
         """
