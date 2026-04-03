@@ -36,7 +36,6 @@ public struct CollectionValue<T: AnyCollectionValue>: Codable, CustomStringConve
                   let dictionary = try? container.decode(CodableDictionary.self).dictionary as? T {
             wrappedValue = dictionary
         } else {
-            assertionFailure("Unsupported CollectionValue type: \(T.self). Only [Any] and [String: Any] are supported.")
             wrappedValue = nil
         }
     }
@@ -51,8 +50,6 @@ public struct CollectionValue<T: AnyCollectionValue>: Codable, CustomStringConve
             try container.encode(CodableArray(array))
         } else if let dictionary = wrappedValue as? [String: Any] {
             try container.encode(CodableDictionary(dictionary))
-        } else {
-            assertionFailure("Unsupported CollectionValue type: \(T.self). Only [Any] and [String: Any] are supported.")
         }
     }
 }
@@ -73,8 +70,6 @@ public extension KeyedEncodingContainer {
             try encode(array, forKey: key)
         } else if let dictionary = wrappedValue as? [String: Any] {
             try encode(dictionary, forKey: key)
-        } else {
-            assertionFailure("Unsupported CollectionValue type: \(T.self). Only [Any] and [String: Any] are supported.")
         }
     }
 }

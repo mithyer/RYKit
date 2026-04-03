@@ -721,8 +721,6 @@ final class CollectionValueTests: XCTestCase {
     }
 
     func test_decode_typeMismatch_returnsNilWithoutThrow() throws {
-        XCTExpectFailure("CollectionValue asserts on mismatched payloads in debug builds before returning nil.")
-
         let json = """
         {"items": {"unexpected": "object"}}
         """
