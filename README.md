@@ -301,8 +301,9 @@ store.$count.lock { $0 += 1 }
 
 ```swift
 let lock = ReadWriteLock()
-let value = lock.read { sharedState.value }
-lock.write { sharedState.value = value + 1 }
+var value = 0
+let current = lock.read { value }
+lock.write { value = current + 1 }
 ```
 
 #### Reachability
@@ -328,7 +329,6 @@ let task = OnceTimeoutTask<String, Error>(
 ```swift
 let queue = OnceTimeoutTaskQueue<String, Error>(executeQueue: .main)
 queue.addTask(task)
-queue.resume()
 ```
 
 ### License
