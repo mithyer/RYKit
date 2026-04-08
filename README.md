@@ -219,8 +219,8 @@ let traceId: String? = session.associated("traceId")
 
 #### Async
 ```swift
-let executor = AsyncSerialExecutor(label: "com.rykit.sync")
-executor.async {
+let executor = AsyncSerialExecutor()
+try await executor.run {
     // run serial side effects
 }
 ```
@@ -228,8 +228,8 @@ executor.async {
 #### Codable
 ```swift
 struct Profile: Codable {
-    @Default<DefaultValueProviders.EmptyString> var name: String
-    @Default<DefaultValueProviders.ZeroInt> var age: Int
+    @Default.Empty<String> var name: String
+    @Default.Zero<Int> var age: Int
 }
 ```
 
@@ -258,7 +258,7 @@ let cached = map["item"]
 #### Combine
 ```swift
 var cancellables = Set<AnyCancellable>()
-publisher
+Just("value")
     .sink { value in print(value) }
     .store(in: &cancellables)
 ```
@@ -272,20 +272,21 @@ debounce.send {
 
 #### Extensions
 ```swift
-UserDefaults.standard.setCodable(["theme": "dark"], forKey: "settings")
-let settings: [String: String]? = UserDefaults.standard.codable(forKey: "settings")
+let defaults = UserDefaults.WithKeyExtended { "app.\($0)" }
+defaults.set("dark", forKey: "theme")
+let theme = defaults.string(forKey: "theme")
 ```
 
 #### KV
 ```swift
 let kv = TinyKV(dbName: "app", tableName: "cache")
-try await kv.set(value: "Alice", for: .key("user.name"))
-let name: String = try await kv.getValue(for: .key("user.name"))
+try await kv.set(value: "Alice", for: .string("user.name"))
+let name: String = try await kv.getValue(for: .string("user.name"))
 ```
 
 ```swift
 let buffered = TinyBufferedKV(dbName: "app", tableName: "buffer")
-try await buffered.set(value: 42, for: .key("counter"))
+try await buffered.set(value: 42, for: .string("counter"))
 try await buffered.flush()
 ```
 
@@ -313,11 +314,15 @@ let token = GlobalReachability.shared.listen { status in
 
 #### TimeoutTask
 ```swift
-let task = OnceTimeoutTask<String, Error>(timeoutInterval: .seconds(3)) { complete in
-    complete(.success("ok"))
-} onDone: { result in
-    print(result)
-}
+let task = OnceTimeoutTask<String, Error>(
+    timeoutInterval: .seconds(3),
+    execute: { complete in
+        complete(.success("ok"))
+    },
+    done: { result in
+        print(result)
+    }
+)
 ```
 
 ```swift
