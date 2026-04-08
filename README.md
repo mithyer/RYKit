@@ -116,37 +116,21 @@ let request = HttpRequest(
     method: .POST,
     path: "/users",
     params: .dic(["name": "John"]),
-    contentType: .applicationJson,
-    requestStrategy: .cancelIfRequesting,
-    baseHeaders: ["Authorization": "Bearer token"],
     handlers: handlers
 )
 
-// Request object
 request.response(User.self) { result in
     switch result {
-    case .success(let user):
-        print("User: \(user)")
-    case .failure(let error):
-        print("Error: \(error.localizedDescription)")
+    case .success(let user): print("User: \(user)")
+    case .failure(let error): print("Error: \(error.localizedDescription)")
     }
-}
-
-// Request list
-request.response([User].self) { result in
-    // Handle user list
 }
 ```
 
 #### STOMP Message Subscription Example
 ```swift
 let manager = StompManager<YourChannel>(userToken: "user123")
-
-let subscription = StompSubInfo(
-    destination: "/topic/messages",
-    identifier: "msg_subscriber",
-    headers: nil
-)
+let subscription = StompSubInfo(destination: "/topic/messages", identifier: "msg_subscriber", headers: nil)
 
 let holder = manager.subscribe(
     dataType: Message.self,
@@ -155,8 +139,6 @@ let holder = manager.subscribe(
 ) { message, headers, raw in
     print("Received message: \(message)")
 }
-
-// Automatically unsubscribes when holder is released
 ```
 
 #### Logging Example
@@ -395,37 +377,21 @@ let request = HttpRequest(
     method: .POST,
     path: "/users",
     params: .dic(["name": "John"]),
-    contentType: .applicationJson,
-    requestStrategy: .cancelIfRequesting,
-    baseHeaders: ["Authorization": "Bearer token"],
     handlers: handlers
 )
 
-// 请求对象
 request.response(User.self) { result in
     switch result {
-    case .success(let user):
-        print("User: \(user)")
-    case .failure(let error):
-        print("Error: \(error.localizedDescription)")
+    case .success(let user): print("User: \(user)")
+    case .failure(let error): print("Error: \(error.localizedDescription)")
     }
-}
-
-// 请求列表
-request.response([User].self) { result in
-    // 处理用户列表
 }
 ```
 
 #### STOMP 消息订阅示例
 ```swift
 let manager = StompManager<YourChannel>(userToken: "user123")
-
-let subscription = StompSubInfo(
-    destination: "/topic/messages",
-    identifier: "msg_subscriber",
-    headers: nil
-)
+let subscription = StompSubInfo(destination: "/topic/messages", identifier: "msg_subscriber", headers: nil)
 
 let holder = manager.subscribe(
     dataType: Message.self,
@@ -434,8 +400,6 @@ let holder = manager.subscribe(
 ) { message, headers, raw in
     print("收到消息: \(message)")
 }
-
-// holder 释放时自动取消订阅
 ```
 
 #### 日志记录示例
