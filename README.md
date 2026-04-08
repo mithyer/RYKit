@@ -207,6 +207,125 @@ Choose the public product that best fits your integration needs:
 
 > In CocoaPods, the public subspecs are `Core`, `NetworkHttp`, and `NetworkStomp`. In Swift Package Manager, the corresponding public products are `RYKitCore`, `RYKitNetworkHttp`, and `RYKitNetworkStomp`.
 
+### Typical Examples by Core Submodule
+
+#### Associatable
+```swift
+final class Session: NSObject, Associatable {}
+let session = Session()
+session.setAssociated("traceId", value: "req-001")
+let traceId: String? = session.associated("traceId")
+```
+
+#### Async
+```swift
+let executor = AsyncSerialExecutor(label: "com.rykit.sync")
+executor.async {
+    // run serial side effects
+}
+```
+
+#### Codable
+```swift
+struct Profile: Codable {
+    @Default<DefaultValueProviders.EmptyString> var name: String
+    @Default<DefaultValueProviders.ZeroInt> var age: Int
+}
+```
+
+```swift
+struct Payload: Codable {
+    @PreferValue var score: Int?
+    @FromStringValue var amount: Double?
+}
+```
+
+#### Collections
+```swift
+let queue = Queue<Int>()
+queue.enqueue(1)
+queue.enqueue(2)
+let first = queue.dequeue()
+```
+
+```swift
+let map = WeakMap<String, NSObject>()
+let object = NSObject()
+map.insert(key: "item", object)
+let cached = map["item"]
+```
+
+#### Combine
+```swift
+var cancellables = Set<AnyCancellable>()
+publisher
+    .sink { value in print(value) }
+    .store(in: &cancellables)
+```
+
+```swift
+let debounce = DebounceCallback(interval: .milliseconds(300))
+debounce.send {
+    // execute once after quiet period
+}
+```
+
+#### Extensions
+```swift
+UserDefaults.standard.setCodable(["theme": "dark"], forKey: "settings")
+let settings: [String: String]? = UserDefaults.standard.codable(forKey: "settings")
+```
+
+#### KV
+```swift
+let kv = TinyKV(dbName: "app", tableName: "cache")
+try await kv.set(value: "Alice", for: .key("user.name"))
+let name: String = try await kv.getValue(for: .key("user.name"))
+```
+
+```swift
+let buffered = TinyBufferedKV(dbName: "app", tableName: "buffer")
+try await buffered.set(value: 42, for: .key("counter"))
+try await buffered.flush()
+```
+
+#### Lock
+```swift
+class Store {
+    @ThreadSafe var count: Int = 0
+}
+let store = Store()
+store.$count.lock { $0 += 1 }
+```
+
+```swift
+let lock = ReadWriteLock()
+let value = lock.read { sharedState.value }
+lock.write { sharedState.value = value + 1 }
+```
+
+#### Reachability
+```swift
+let token = GlobalReachability.shared.listen { status in
+    print("network:", status)
+}
+```
+
+#### TimeoutTask
+```swift
+let task = OnceTimeoutTask<String, Error>(timeoutInterval: .seconds(3)) { complete in
+    complete(.success("ok"))
+} onDone: { result in
+    print(result)
+}
+```
+
+```swift
+let queue = OnceTimeoutTaskQueue<String, Error>(executeQueue: .main)
+queue.addTask(task)
+queue.resume()
+```
+
 ### License
 
 MIT License
