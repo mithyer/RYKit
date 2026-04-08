@@ -250,8 +250,8 @@ let first = queue.dequeue()
 
 ```swift
 let map = WeakMap<String, NSObject>()
-let object = NSObject()
-map.insert(key: "item", object)
+let retainedObject = NSObject() // keep a strong owner outside the weak map
+map.insert(key: "item", retainedObject)
 let cached = map["item"]
 ```
 
@@ -581,8 +581,7 @@ store.$count.lock { $0 += 1 }
 ```swift
 var value = 0
 let lock = ReadWriteLock()
-let current = lock.read { value }
-lock.write { value = current + 1 }
+lock.write { value += 1 }
 ```
 
 #### Reachability
