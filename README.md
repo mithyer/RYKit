@@ -116,6 +116,10 @@ let request = HttpRequest(
     method: .POST,
     path: "/users",
     params: .dic(["name": "John"]),
+    contentType: .applicationJson,
+    requestStrategy: .cancelIfRequesting,
+    baseHeaders: ["Authorization": "Bearer token"],
+    businessCodeValidator: nil,
     handlers: handlers
 )
 
@@ -377,6 +381,10 @@ let request = HttpRequest(
     method: .POST,
     path: "/users",
     params: .dic(["name": "John"]),
+    contentType: .applicationJson,
+    requestStrategy: .cancelIfRequesting,
+    baseHeaders: ["Authorization": "Bearer token"],
+    businessCodeValidator: nil,
     handlers: handlers
 )
 
