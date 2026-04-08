@@ -486,6 +486,130 @@ if let path = LogRecorder.shared.getCurrentLogFilePath() {
 
 > 在 CocoaPods 中，对外暴露的 subspec 为 `Core`、`NetworkHttp` 和 `NetworkStomp`；在 Swift Package Manager 中，对应的公开产品为 `RYKitCore`、`RYKitNetworkHttp` 和 `RYKitNetworkStomp`。
 
+### 各子模块典型示例
+
+#### Associatable
+```swift
+final class Session: NSObject, Associatable {}
+let session = Session()
+session.setAssociated("traceId", value: "req-001")
+let traceId: String? = session.associated("traceId")
+```
+
+#### Async
+```swift
+let executor = AsyncSerialExecutor()
+try await executor.run {
+    // 串行执行副作用任务
+}
+```
+
+#### Codable
+```swift
+struct Profile: Codable {
+    @Default.Empty<String> var name: String
+    @Default.Zero<Int> var age: Int
+}
+```
+
+```swift
+struct Payload: Codable {
+    @PreferValue var score: Int?
+    @FromStringValue var amount: Double?
+}
+```
+
+#### Collections
+```swift
+let queue = Queue<Int>()
+queue.enqueue(1)
+queue.enqueue(2)
+let first = queue.dequeue()
+```
+
+```swift
+let map = WeakMap<String, NSObject>()
+let object = NSObject()
+map.insert(key: "item", object)
+let cached = map["item"]
+```
+
+#### Combine
+```swift
+var cancellables = Set<AnyCancellable>()
+Just("value")
+    .sink { value in print(value) }
+    .store(in: &cancellables)
+```
+
+```swift
+let debounce = DebounceCallback(interval: .milliseconds(300))
+debounce.send {
+    // 静默窗口后触发一次
+}
+```
+
+#### Extensions
+```swift
+let prefs = UserDefaults.WithKeyExtended { "app.\($0)" }
+prefs.set("dark", forKey: "theme")
+let theme = prefs.string(forKey: "theme")
+```
+
+#### KV
+```swift
+let kv = TinyKV(dbName: "app", tableName: "cache")
+try await kv.set(value: "Alice", for: .string("user.name"))
+let name: String = try await kv.getValue(for: .string("user.name"))
+```
+
+```swift
+let buffered = TinyBufferedKV(dbName: "app", tableName: "buffer")
+try await buffered.set(value: 42, for: .string("counter"))
+try await buffered.flush()
+```
+
+#### Lock
+```swift
+class Store {
+    @ThreadSafe var count: Int = 0
+}
+let store = Store()
+store.$count.lock { $0 += 1 }
+```
+
+```swift
+var value = 0
+let lock = ReadWriteLock()
+let current = lock.read { value }
+lock.write { value = current + 1 }
+```
+
+#### Reachability
+```swift
+let token = GlobalReachability.shared.listen { status in
+    print("network:", status)
+}
+```
+
+#### TimeoutTask
+```swift
+let task = OnceTimeoutTask<String, Error>(
+    timeoutInterval: .seconds(3),
+    execute: { complete in
+        complete(.success("ok"))
+    },
+    done: { result in
+        print(result)
+    }
+)
+```
+
+```swift
+let queue = OnceTimeoutTaskQueue<String, Error>(executeQueue: .main)
+queue.addTask(task)
+```
+
 ### 许可证
 
 MIT License
