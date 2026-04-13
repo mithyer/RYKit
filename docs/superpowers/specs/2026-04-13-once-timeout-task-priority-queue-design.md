@@ -14,18 +14,20 @@ In scope:
 
 - Rename task execution timeout API from `timeoutInterval` to `executionTimeoutInterval`.
 - Rename `DoneType.timeout` to `DoneType.executionTimeout`.
+- Add a required `String` `flag` to each task for caller-owned identification.
 - Remove the public `done` callback from `OnceTimeoutTask` initialization.
 - Add a required `stop` callback to `OnceTimeoutTask` initialization.
 - Add a task-level `stopTimeoutInterval` that bounds how long the queue waits for `stopped()`.
 - Add async convenience initialization for async `execute` and async `stop`.
 - Add task priority and priority-sorted insertion to `OnceTimeoutTaskQueue`.
 - Add default queue preemption strategy plus per-`addTask` strategy override.
+- Add a queue-level `PassthroughSubject` that emits when a task truly leaves queue ownership.
 - Update tests and README examples to match the new public API.
 
 Out of scope:
 
 - Adding new dependencies.
-- Adding external task-completion observer APIs.
+- Adding task-level completion observer APIs beyond the queue-level `taskDidFinish` subject.
 - Supporting concurrent execution of multiple queued tasks.
 - Changing unrelated queue, lock, or collection APIs.
 - Guaranteeing cancellation of Swift concurrency `Task` handles created by async convenience initialization.
@@ -55,7 +57,10 @@ public class OnceTimeoutTask<T, E: Error> {
     public typealias Stopped = () -> Void
     public typealias Stop = (@escaping Stopped) -> Void
 
+    public let flag: String
+
     public init(
+        flag: String,
         executionTimeoutInterval: DispatchTimeInterval,
         stopTimeoutInterval: DispatchTimeInterval,
         execute: @escaping (@escaping Completed) -> Void,
@@ -63,6 +68,7 @@ public class OnceTimeoutTask<T, E: Error> {
     )
 
     public convenience init(
+        flag: String,
         executionTimeoutInterval: DispatchTimeInterval,
         stopTimeoutInterval: DispatchTimeInterval,
         execute: @escaping () async -> Result<T, E>,
@@ -76,6 +82,8 @@ public class OnceTimeoutTask<T, E: Error> {
 
 `stop` is required. Callers with no resource-specific stop work must still pass an explicit implementation, for example `{ stopped in stopped() }`. This keeps the stop contract visible at each call site.
 
+`flag` is required and stored as public read-only metadata. The queue does not interpret it. It exists so callers can identify tasks in queue-finish events without comparing task object identity.
+
 The old initializer with `timeoutInterval` and `done` is not part of the new target API. This is an intentional breaking API cleanup for the feature work. Tests and documentation migrate to the new required stop-aware initializer.
 
 ### OnceTimeoutTaskQueue
@@ -83,12 +91,22 @@ The old initializer with `timeoutInterval` and `done` is not part of the new tar
 `OnceTimeoutTaskQueue` executes at most one task at a time and maintains a priority-sorted waiting list.
 
 ```swift
+import Combine
+
 public class OnceTimeoutTaskQueue<T, E: Error> {
     public enum PreemptionStrategy {
         case stopCurrentAndDiscard
         case waitCurrentCompletion
         case stopCurrentAndRequeue
     }
+
+    public struct TaskFinishEvent {
+        public let flag: String
+        public let task: OnceTimeoutTask<T, E>
+        public let doneType: OnceTimeoutTask<T, E>.DoneType
+    }
+
+    public let taskDidFinish = PassthroughSubject<TaskFinishEvent, Never>()
 
     public init(
         executeQueue: DispatchQueue,
@@ -108,6 +126,10 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
 ```
 
 `priority` uses `Int`; larger numbers run earlier. Equal priority preserves FIFO order by insertion sequence. Equal priority never preempts the currently executing task.
+
+`taskDidFinish` is a Combine subject owned by the queue. It emits when a task truly leaves queue ownership, not merely when its `state` changes.
+
+Because `PassthroughSubject` is part of Apple's Combine framework, this adds a framework import but no third-party dependency.
 
 ## 4. Task State Semantics
 
@@ -163,7 +185,26 @@ Strategy behavior:
 - `.stopCurrentAndDiscard`: request stop on the current task. After `stopped()` or stop timeout, discard the stopped task and start the highest-priority waiting task.
 - `.stopCurrentAndRequeue`: request stop on the current task. After `stopped()` or stop timeout, reset the stopped task to `.unstart`, reinsert it using its original priority and a new sequence, then start the highest-priority waiting task.
 
-## 7. Internal Implementation Notes
+## 7. Queue Finish Events
+
+`taskDidFinish` emits `TaskFinishEvent` only when a task is removed from the queue lifecycle and will not be started by that queue again.
+
+Event rules:
+
+- Normal completion emits when the current execution slot is cleared.
+- Execution timeout emits when the current execution slot is cleared.
+- `cancelAll()` emits for each waiting task removed from the waiting list and for the current executing task when it is cleared.
+- `.stopCurrentAndDiscard` emits after `stopped()` or `stopTimeoutInterval`, when the stopped task is discarded.
+- `.stopCurrentAndRequeue` does not emit for the first stop, because the task is reset and reinserted. It emits only when the requeued task later completes, times out, is cancelled, or is finally discarded by another strategy.
+- If `cancelAll()` abandons a pending preemption while waiting for `stopped()`, the stopped task emits once when `stopped()` or stop timeout later fires and the queue discards it.
+
+The event carries:
+
+- `flag`: copied from `task.flag`.
+- `task`: the task instance.
+- `doneType`: the task's final `DoneType` at removal time.
+
+## 8. Internal Implementation Notes
 
 `OnceTimeoutTaskQueue` will not rely on inherited `Queue<OnceTimeoutTask>` storage for priority ordering because the queue must preserve per-item metadata. It will use private storage for waiting items.
 
@@ -178,7 +219,9 @@ Queue locks should protect only queue state transitions. User closures (`execute
 
 The `.stopCurrentAndRequeue` strategy needs an internal-only reset capability. It may reset only a task that was stopped by the queue for requeue. This reset is not public API.
 
-## 8. Async Convenience Initialization
+`taskDidFinish.send(...)` should be emitted outside the queue lock. The queue should first decide which events to emit while locked, then release the lock and publish them. This avoids subscriber callbacks reentering queue methods while the lock is held.
+
+## 9. Async Convenience Initialization
 
 The async initializer bridges to the callback initializer:
 
@@ -188,7 +231,7 @@ The async initializer bridges to the callback initializer:
 
 The async initializer does not promise to cancel the underlying Swift concurrency task. The caller's `stop` implementation remains responsible for resource-specific cancellation.
 
-## 9. Pause, Resume, And Cancel
+## 10. Pause, Resume, And Cancel
 
 `pause()` prevents starting additional tasks. It does not stop or cancel the current task.
 
@@ -198,28 +241,31 @@ The async initializer does not promise to cancel the underlying Swift concurrenc
 
 If `cancelAll()` is called while the queue is already waiting for `stopped()` from a preemption, the waiting list is emptied and the pending preemption is abandoned. When `stopped()` or stop timeout later fires, the stopped task is discarded and no new task starts.
 
-## 10. Validation Criteria
+## 11. Validation Criteria
 
 Tests must cover:
 
 1. New init starts with `.unstart`.
-2. Callback `execute` success and failure produce `.done(.completed(result))`.
-3. Async `execute` success and failure produce `.done(.completed(result))`.
-4. Execution timeout produces `.done(.executionTimeout)`.
-5. `stop()` immediately produces `.done(.stop)` and ignores later completion.
-6. Queue waits for `stopped()` before starting a preempting task.
-7. Queue continues after `stopTimeoutInterval` if `stopped()` is not called.
-8. Priority ordering runs larger priority first.
-9. Equal priority preserves FIFO and does not preempt current work.
-10. `.waitCurrentCompletion` inserts higher-priority work without stopping current work.
-11. `.stopCurrentAndDiscard` stops current work, waits for stopped or timeout, then runs the higher-priority task and does not rerun the stopped task.
-12. `.stopCurrentAndRequeue` stops current work, waits for stopped or timeout, resets and reinserts the stopped task with its original priority, then runs tasks by priority order.
-13. `pause()` and `resume()` preserve priority ordering.
-14. `cancelAll()` leaves no queued task able to start afterward.
+2. `flag` is stored and visible on the task.
+3. Callback `execute` success and failure produce `.done(.completed(result))`.
+4. Async `execute` success and failure produce `.done(.completed(result))`.
+5. Execution timeout produces `.done(.executionTimeout)`.
+6. `stop()` immediately produces `.done(.stop)` and ignores later completion.
+7. Queue waits for `stopped()` before starting a preempting task.
+8. Queue continues after `stopTimeoutInterval` if `stopped()` is not called.
+9. Priority ordering runs larger priority first.
+10. Equal priority preserves FIFO and does not preempt current work.
+11. `.waitCurrentCompletion` inserts higher-priority work without stopping current work.
+12. `.stopCurrentAndDiscard` stops current work, waits for stopped or timeout, then runs the higher-priority task and does not rerun the stopped task.
+13. `.stopCurrentAndRequeue` stops current work, waits for stopped or timeout, resets and reinserts the stopped task with its original priority, then runs tasks by priority order.
+14. `taskDidFinish` emits only when a task leaves queue ownership and includes the expected `flag`, task instance, and `doneType`.
+15. `.stopCurrentAndRequeue` does not emit a finish event for the intermediate stop before requeue.
+16. `pause()` and `resume()` preserve priority ordering.
+17. `cancelAll()` leaves no queued task able to start afterward and emits finish events for discarded tasks.
 
 Verification commands for implementation should include the focused `TimeoutTaskTests` suite and the full Swift test suite when feasible.
 
-## 11. Documentation Updates
+## 12. Documentation Updates
 
 README examples should change from:
 
@@ -235,6 +281,7 @@ to the new required stop-aware form:
 
 ```swift
 let task = OnceTimeoutTask<String, Error>(
+    flag: "load-profile",
     executionTimeoutInterval: .seconds(3),
     stopTimeoutInterval: .seconds(1),
     execute: { complete in
@@ -249,6 +296,9 @@ let queue = OnceTimeoutTaskQueue<String, Error>(
     executeQueue: .main,
     defaultPreemptionStrategy: .waitCurrentCompletion
 )
+let cancellable = queue.taskDidFinish.sink { event in
+    print(event.flag, event.doneType)
+}
 queue.addTask(task, priority: 10)
 ```
 
