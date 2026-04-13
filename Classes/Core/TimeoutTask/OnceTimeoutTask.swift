@@ -46,7 +46,7 @@ public class OnceTimeoutTask<T, E: Error> {
     private var stopTimeoutItem: DispatchWorkItem?
     private var stopFinished: (() -> Void)?
     
-    var onDone: (() -> Void)?
+    var onDone: ((DoneType) -> Void)?
     
     public var state: State {
         lock.lock()
@@ -186,7 +186,7 @@ public class OnceTimeoutTask<T, E: Error> {
     }
     
     private func finish(with doneType: DoneType, notify: Bool, runGeneration expectedRunGeneration: UInt64?) {
-        let doneHandler: (() -> Void)?
+        let doneHandler: ((DoneType) -> Void)?
         
         lock.lock()
         guard case .executing = currentState else {
@@ -203,11 +203,11 @@ public class OnceTimeoutTask<T, E: Error> {
         doneHandler = notify ? onDone : nil
         lock.unlock()
         
-        doneHandler?()
+        doneHandler?(doneType)
     }
     
     private func transitionToCancel(allowUnstarted: Bool, notify: Bool) -> DoneType? {
-        let doneHandler: (() -> Void)?
+        let doneHandler: ((DoneType) -> Void)?
         
         lock.lock()
         switch currentState {
@@ -226,7 +226,7 @@ public class OnceTimeoutTask<T, E: Error> {
         doneHandler = notify ? onDone : nil
         lock.unlock()
         
-        doneHandler?()
+        doneHandler?(.cancel)
         return .cancel
     }
     
