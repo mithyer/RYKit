@@ -16,178 +16,206 @@ final class OnceTimeoutTaskTests: XCTestCase {
         case failed
     }
     
-    func test_init_state_isUnstart() {
+    private func assertCompletedSuccess(
+        _ doneType: OnceTimeoutTask<Int, TestError>.DoneType?,
+        equals expected: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard case .completed(let result) = doneType else {
+            XCTFail("Expected completed success, got \(String(describing: doneType))", file: file, line: line)
+            return
+        }
+        XCTAssertEqual(try? result.get(), expected, file: file, line: line)
+    }
+    
+    private func doneType(
+        of task: OnceTimeoutTask<Int, TestError>
+    ) -> OnceTimeoutTask<Int, TestError>.DoneType? {
+        if case .done(let doneType) = task.state {
+            return doneType
+        }
+        return nil
+    }
+    
+    func test_init_storesFlagAndStateIsUnstart() {
         let task = OnceTimeoutTask<Int, TestError>(
-            timeoutInterval: .seconds(1),
+            flag: "task-1",
+            executionTimeoutInterval: .seconds(1),
+            stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            done: { _ in }
+            stop: { stopped in stopped() }
         )
+        
+        XCTAssertEqual(task.flag, "task-1")
         XCTAssertFalse(task.state.hasStarted)
         XCTAssertFalse(task.state.isDone)
     }
     
-    func test_perform_state_becomesExecuting() {
+    func test_perform_stateBecomesExecuting() {
         let task = OnceTimeoutTask<Int, TestError>(
-            timeoutInterval: .seconds(10),
+            flag: "task-1",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            done: { _ in }
+            stop: { stopped in stopped() }
         )
         
         task.perform(by: .global(), timeoutQueue: .global())
         
-        // Give time for async execution
         Thread.sleep(forTimeInterval: 0.1)
         XCTAssertTrue(task.state.hasStarted)
+        XCTAssertFalse(task.state.isDone)
     }
     
-    func test_complete_success_callsDone() {
-        let expectation = expectation(description: "done called")
-        var doneType: OnceTimeoutTask<Int, TestError>.DoneType?
-        
+    func test_callbackExecute_successUpdatesState() {
+        let executed = expectation(description: "executed")
         let task = OnceTimeoutTask<Int, TestError>(
-            timeoutInterval: .seconds(10),
+            flag: "success",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
             execute: { completed in
                 completed(.success(42))
+                executed.fulfill()
             },
-            done: { type in
-                doneType = type
-                expectation.fulfill()
-            }
+            stop: { stopped in stopped() }
         )
         
         task.perform(by: .global(), timeoutQueue: .global())
-        wait(for: [expectation], timeout: 1.0)
+        wait(for: [executed], timeout: 1.0)
         
-        if case .completed(let result) = doneType {
-            XCTAssertEqual(try? result.get(), 42)
-        } else {
-            XCTFail("Expected completed, got \(String(describing: doneType))")
-        }
+        assertCompletedSuccess(doneType(of: task), equals: 42)
         XCTAssertTrue(task.state.isDone)
     }
     
-    func test_complete_failure_callsDone() {
-        let expectation = expectation(description: "done called")
-        var doneType: OnceTimeoutTask<Int, TestError>.DoneType?
-        
+    func test_callbackExecute_failureUpdatesState() {
+        let executed = expectation(description: "executed")
         let task = OnceTimeoutTask<Int, TestError>(
-            timeoutInterval: .seconds(10),
+            flag: "failure",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
             execute: { completed in
                 completed(.failure(.failed))
+                executed.fulfill()
             },
-            done: { type in
-                doneType = type
-                expectation.fulfill()
-            }
+            stop: { stopped in stopped() }
         )
         
         task.perform(by: .global(), timeoutQueue: .global())
-        wait(for: [expectation], timeout: 1.0)
+        wait(for: [executed], timeout: 1.0)
         
-        if case .completed(let result) = doneType {
-            XCTAssertThrowsError(try result.get())
-        } else {
+        guard case .completed(let result) = doneType(of: task) else {
             XCTFail("Expected completed with error")
+            return
+        }
+        XCTAssertThrowsError(try result.get())
+    }
+    
+    func test_executionTimeout_updatesState() {
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "timeout",
+            executionTimeoutInterval: .milliseconds(80),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in },
+            stop: { stopped in stopped() }
+        )
+        
+        task.perform(by: .global(), timeoutQueue: .global())
+        Thread.sleep(forTimeInterval: 0.2)
+        
+        guard case .executionTimeout = doneType(of: task) else {
+            XCTFail("Expected executionTimeout, got \(String(describing: doneType(of: task)))")
+            return
         }
     }
     
-    func test_timeout_callsDoneWithTimeout() {
-        let expectation = expectation(description: "timeout")
-        var doneType: OnceTimeoutTask<Int, TestError>.DoneType?
-        
-        let task = OnceTimeoutTask<Int, TestError>(
-            timeoutInterval: .milliseconds(100),
-            execute: { _ in
-                // Never completes
-            },
-            done: { type in
-                doneType = type
-                expectation.fulfill()
-            }
-        )
-        
-        task.perform(by: .global(), timeoutQueue: .global())
-        wait(for: [expectation], timeout: 1.0)
-        
-        if case .timeout = doneType {
-            // Success
-        } else {
-            XCTFail("Expected timeout, got \(String(describing: doneType))")
-        }
-        XCTAssertTrue(task.state.isDone)
-    }
-    
-    func test_complete_beforeTimeout_cancelsTimeout() {
-        let doneExpectation = expectation(description: "done")
-        var callCount = 0
-        
-        let task = OnceTimeoutTask<Int, TestError>(
-            timeoutInterval: .milliseconds(200),
-            execute: { completed in
-                // Complete immediately
-                completed(.success(1))
-            },
-            done: { _ in
-                callCount += 1
-                doneExpectation.fulfill()
-            }
-        )
-        
-        task.perform(by: .global(), timeoutQueue: .global())
-        wait(for: [doneExpectation], timeout: 1.0)
-        
-        // Wait past timeout to ensure it doesn't fire
-        Thread.sleep(forTimeInterval: 0.3)
-        XCTAssertEqual(callCount, 1, "Done should only be called once")
-    }
-    
-    func test_perform_twice_secondIgnored() {
-        var executeCount = 0
-        let expectation = expectation(description: "done")
-        
-        let task = OnceTimeoutTask<Int, TestError>(
-            timeoutInterval: .seconds(10),
-            execute: { completed in
-                executeCount += 1
-                completed(.success(1))
-            },
-            done: { _ in
-                expectation.fulfill()
-            }
-        )
-        
-        task.perform(by: .global(), timeoutQueue: .global())
-        task.perform(by: .global(), timeoutQueue: .global()) // Second call
-        
-        wait(for: [expectation], timeout: 1.0)
-        XCTAssertEqual(executeCount, 1)
-    }
-    
-    func test_complete_afterDone_ignored() {
-        let expectation = expectation(description: "done")
-        var callCount = 0
+    func test_stop_immediatelyMarksStoppedAndCallsStopClosure() {
+        let started = expectation(description: "started")
+        let stopCalled = expectation(description: "stop called")
         var capturedComplete: ((Result<Int, TestError>) -> Void)?
         
         let task = OnceTimeoutTask<Int, TestError>(
-            timeoutInterval: .seconds(10),
+            flag: "stop",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
             execute: { completed in
                 capturedComplete = completed
-                completed(.success(1))
+                started.fulfill()
             },
-            done: { _ in
-                callCount += 1
-                expectation.fulfill()
+            stop: { stopped in
+                stopCalled.fulfill()
+                stopped()
             }
         )
         
         task.perform(by: .global(), timeoutQueue: .global())
-        wait(for: [expectation], timeout: 1.0)
+        wait(for: [started], timeout: 1.0)
+        task.stop()
+        wait(for: [stopCalled], timeout: 1.0)
+        capturedComplete?(.success(1))
         
-        // Try to complete again
-        capturedComplete?(.success(2))
-        Thread.sleep(forTimeInterval: 0.1)
+        guard case .stop = doneType(of: task) else {
+            XCTFail("Expected stop, got \(String(describing: doneType(of: task)))")
+            return
+        }
+    }
+    
+    func test_cancel_whenExecutingUpdatesState() {
+        let started = expectation(description: "started")
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "cancel",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in started.fulfill() },
+            stop: { stopped in stopped() }
+        )
         
-        XCTAssertEqual(callCount, 1)
+        task.perform(by: .global(), timeoutQueue: .global())
+        wait(for: [started], timeout: 1.0)
+        task.cancel()
+        
+        guard case .cancel = doneType(of: task) else {
+            XCTFail("Expected cancel, got \(String(describing: doneType(of: task)))")
+            return
+        }
+    }
+    
+    func test_asyncExecute_successUpdatesState() async throws {
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "async-success",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: {
+                .success(7)
+            },
+            stop: {}
+        )
+        
+        task.perform(by: .global(), timeoutQueue: .global())
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        assertCompletedSuccess(doneType(of: task), equals: 7)
+    }
+    
+    func test_asyncExecute_failureUpdatesState() async throws {
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "async-failure",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: {
+                .failure(.failed)
+            },
+            stop: {}
+        )
+        
+        task.perform(by: .global(), timeoutQueue: .global())
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        guard case .completed(let result) = doneType(of: task) else {
+            XCTFail("Expected completed failure")
+            return
+        }
+        XCTAssertThrowsError(try result.get())
     }
 }
 
