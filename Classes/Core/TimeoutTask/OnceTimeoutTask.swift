@@ -40,6 +40,8 @@ public class OnceTimeoutTask<T, E: Error> {
     private let stopAction: Stop
     private let lock = UnfairLock()
     private var currentState: State = .unstart
+    private var runGeneration: UInt64 = 0
+    private var stopGeneration: UInt64 = 0
     private var executionTimeoutItem: DispatchWorkItem?
     private var stopTimeoutItem: DispatchWorkItem?
     private var stopFinished: (() -> Void)?
@@ -92,17 +94,18 @@ public class OnceTimeoutTask<T, E: Error> {
     }
     
     func perform(by executeQueue: DispatchQueue, timeoutQueue: DispatchQueue) {
-        let timeoutItem = DispatchWorkItem { [weak self] in
-            self?.finish(with: .executionTimeout, notify: true)
-        }
-        let completed: Completed = { [weak self] result in
-            self?.finish(with: .completed(result), notify: true)
-        }
-        
         lock.lock()
         guard case .unstart = currentState else {
             lock.unlock()
             return
+        }
+        runGeneration &+= 1
+        let generation = runGeneration
+        let timeoutItem = DispatchWorkItem { [weak self] in
+            self?.finish(with: .executionTimeout, notify: true, runGeneration: generation)
+        }
+        let completed: Completed = { [weak self] result in
+            self?.finish(with: .completed(result), notify: true, runGeneration: generation)
         }
         currentState = .executing
         executionTimeoutItem = timeoutItem
@@ -117,7 +120,7 @@ public class OnceTimeoutTask<T, E: Error> {
     }
     
     public func cancel() {
-        finish(with: .cancel, notify: true)
+        finish(with: .cancel, notify: true, runGeneration: nil)
     }
     
     public func stop() {
@@ -133,17 +136,18 @@ public class OnceTimeoutTask<T, E: Error> {
     }
     
     func makeStopRequest(timeoutQueue: DispatchQueue, onStopped: @escaping () -> Void) -> (() -> Void)? {
-        let stopTimeoutItem = DispatchWorkItem { [weak self] in
-            self?.finishStop()
-        }
-        let stopped: Stopped = { [weak self] in
-            self?.finishStop()
-        }
-        
         lock.lock()
         guard case .executing = currentState else {
             lock.unlock()
             return nil
+        }
+        stopGeneration &+= 1
+        let generation = stopGeneration
+        let stopTimeoutItem = DispatchWorkItem { [weak self] in
+            self?.finishStop(stopGeneration: generation)
+        }
+        let stopped: Stopped = { [weak self] in
+            self?.finishStop(stopGeneration: generation)
         }
         currentState = .done(.stop)
         executionTimeoutItem?.cancel()
@@ -175,15 +179,21 @@ public class OnceTimeoutTask<T, E: Error> {
         stopTimeoutItem = nil
         stopFinished = nil
         executionTimeoutItem = nil
+        runGeneration &+= 1
+        stopGeneration &+= 1
         currentState = .unstart
         return true
     }
     
-    private func finish(with doneType: DoneType, notify: Bool) {
+    private func finish(with doneType: DoneType, notify: Bool, runGeneration expectedRunGeneration: UInt64?) {
         let doneHandler: (() -> Void)?
         
         lock.lock()
         guard case .executing = currentState else {
+            lock.unlock()
+            return
+        }
+        if let expectedRunGeneration, expectedRunGeneration != runGeneration {
             lock.unlock()
             return
         }
@@ -210,6 +220,7 @@ public class OnceTimeoutTask<T, E: Error> {
             return nil
         }
         currentState = .done(.cancel)
+        runGeneration &+= 1
         executionTimeoutItem?.cancel()
         executionTimeoutItem = nil
         doneHandler = notify ? onDone : nil
@@ -219,11 +230,11 @@ public class OnceTimeoutTask<T, E: Error> {
         return .cancel
     }
     
-    private func finishStop() {
+    private func finishStop(stopGeneration expectedStopGeneration: UInt64) {
         let handler: (() -> Void)?
         
         lock.lock()
-        guard let stopFinished else {
+        guard let stopFinished, expectedStopGeneration == stopGeneration else {
             lock.unlock()
             return
         }
