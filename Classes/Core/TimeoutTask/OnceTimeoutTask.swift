@@ -124,7 +124,9 @@ public class OnceTimeoutTask<T, E: Error> {
     }
     
     public func stop() {
-        guard let request = makeStopRequest(timeoutQueue: .global(qos: .userInitiated), onStopped: {}) else {
+        guard let request = makeStopRequest(timeoutQueue: .global(qos: .userInitiated), onStopped: { [weak self] in
+            self?.notifyDone(.stop)
+        }) else {
             return
         }
         request()
@@ -228,6 +230,16 @@ public class OnceTimeoutTask<T, E: Error> {
         
         doneHandler?(.cancel)
         return .cancel
+    }
+
+    private func notifyDone(_ doneType: DoneType) {
+        let doneHandler: ((DoneType) -> Void)?
+
+        lock.lock()
+        doneHandler = onDone
+        lock.unlock()
+
+        doneHandler?(doneType)
     }
     
     private func finishStop(stopGeneration expectedStopGeneration: UInt64) {

@@ -672,6 +672,133 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         XCTAssertEqual(executionOrder, ["first", "second"])
     }
 
+    func test_finishSubscriberCanPauseBeforeNextTaskStarts() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let firstStarted = expectation(description: "first started")
+        let firstFinished = expectation(description: "first finished")
+        let secondStartedBeforeResume = expectation(description: "second started before resume")
+        secondStartedBeforeResume.isInverted = true
+        let secondFinished = expectation(description: "second finished")
+        let allowFirstToFinish = DispatchSemaphore(value: 0)
+        var executionOrder: [String] = []
+        let lock = NSLock()
+
+        queue.taskDidFinish
+            .sink { event in
+                if event.flag == "first" {
+                    queue.pause()
+                    firstFinished.fulfill()
+                } else if event.flag == "second" {
+                    secondFinished.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        let first = OnceTimeoutTask<Int, TestError>(
+            flag: "first",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { completed in
+                lock.lock()
+                executionOrder.append("first")
+                lock.unlock()
+                firstStarted.fulfill()
+                allowFirstToFinish.wait()
+                completed(.success(1))
+            },
+            stop: { stopped in stopped() }
+        )
+        let second = makeTask(flag: "second", value: 2, onExecute: {
+            lock.lock()
+            executionOrder.append("second")
+            lock.unlock()
+            secondStartedBeforeResume.fulfill()
+        })
+
+        queue.addTask(first)
+        wait(for: [firstStarted], timeout: 1.0)
+        queue.addTask(second)
+        allowFirstToFinish.signal()
+
+        wait(for: [firstFinished], timeout: 1.0)
+        wait(for: [secondStartedBeforeResume], timeout: 0.2)
+        XCTAssertEqual(executionOrder, ["first"])
+
+        queue.resume()
+        wait(for: [secondFinished], timeout: 1.0)
+        XCTAssertEqual(executionOrder, ["first", "second"])
+    }
+
+    func test_publicStopWaitsForStoppedBeforeQueueProgresses() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let stopCaptured = expectation(description: "stop captured")
+        let currentFinished = expectation(description: "current finished")
+        let secondStartedBeforeStopped = expectation(description: "second started before stopped")
+        secondStartedBeforeStopped.isInverted = true
+        let secondFinished = expectation(description: "second finished")
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+        var currentDoneType: OnceTimeoutTask<Int, TestError>.DoneType?
+        var executionOrder: [String] = []
+        let lock = NSLock()
+
+        queue.taskDidFinish
+            .sink { event in
+                if event.flag == "current" {
+                    currentDoneType = event.doneType
+                    currentFinished.fulfill()
+                } else if event.flag == "second" {
+                    secondFinished.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(10),
+            execute: { _ in
+                lock.lock()
+                executionOrder.append("current")
+                lock.unlock()
+                currentStarted.fulfill()
+            },
+            stop: { stopped in
+                lock.lock()
+                capturedStopped = stopped
+                lock.unlock()
+                stopCaptured.fulfill()
+            }
+        )
+        let second = makeTask(flag: "second", value: 2, onExecute: {
+            lock.lock()
+            executionOrder.append("second")
+            lock.unlock()
+            secondStartedBeforeStopped.fulfill()
+        })
+
+        queue.addTask(current)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(second)
+        current.stop()
+
+        wait(for: [stopCaptured], timeout: 1.0)
+        wait(for: [secondStartedBeforeStopped], timeout: 0.2)
+        XCTAssertEqual(executionOrder, ["current"])
+
+        lock.lock()
+        let stopped = capturedStopped
+        lock.unlock()
+        stopped?()
+
+        wait(for: [currentFinished, secondFinished], timeout: 1.0)
+        guard case .stop = currentDoneType else {
+            XCTFail("Expected current finish event to be stop")
+            return
+        }
+        XCTAssertEqual(executionOrder, ["current", "second"])
+    }
+
     func test_executionTimeout_triggersNextTaskAndFinishEvent() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
         let allFinished = expectation(description: "all finished")

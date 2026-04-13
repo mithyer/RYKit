@@ -148,7 +148,6 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
 
     private func handleTaskDone(_ task: OnceTimeoutTask<T, E>, doneType: OnceTimeoutTask<T, E>.DoneType) {
         let event: TaskFinishEvent?
-        let taskToStart: QueuedTask?
 
         lock.lock()
         guard let current, current.task === task else {
@@ -157,10 +156,16 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
         }
         self.current = nil
         event = TaskFinishEvent(flag: task.flag, task: task, doneType: doneType)
-        taskToStart = takeNextIfPossible()
         lock.unlock()
 
         publish([event].compactMap { $0 })
+
+        let taskToStart: QueuedTask?
+
+        lock.lock()
+        taskToStart = takeNextIfPossible()
+        lock.unlock()
+
         start(taskToStart)
     }
 
