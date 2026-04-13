@@ -598,11 +598,21 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         let currentStarted = expectation(description: "current started")
         let allFinished = expectation(description: "all finished")
         allFinished.expectedFulfillmentCount = 3
+        let duplicateCurrentEvent = expectation(description: "duplicate current event")
+        duplicateCurrentEvent.isInverted = true
         var eventFlags: [String] = []
+        var currentEventCount = 0
+        var capturedComplete: OnceTimeoutTask<Int, TestError>.Completed?
 
         queue.taskDidFinish
             .sink { event in
                 eventFlags.append(event.flag)
+                if event.flag == "current" {
+                    currentEventCount += 1
+                    if currentEventCount > 1 {
+                        duplicateCurrentEvent.fulfill()
+                    }
+                }
                 allFinished.fulfill()
             }
             .store(in: &cancellables)
@@ -611,7 +621,10 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             flag: "current",
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .milliseconds(100),
-            execute: { _ in currentStarted.fulfill() },
+            execute: { completed in
+                capturedComplete = completed
+                currentStarted.fulfill()
+            },
             stop: { stopped in stopped() }
         )
 
@@ -628,6 +641,83 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             XCTFail("Expected current to be cancelled")
             return
         }
+        capturedComplete?(.success(1))
+        wait(for: [duplicateCurrentEvent], timeout: 0.2)
+        XCTAssertEqual(currentEventCount, 1)
+    }
+
+    func test_cancelAllDuringPublicStopWaitKeepsCurrentUntilStoppedAndCancelsWaiting() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let stopCaptured = expectation(description: "stop captured")
+        let waitingCancelled = expectation(description: "waiting cancelled")
+        let currentFinished = expectation(description: "current finished")
+        let waitingStarted = expectation(description: "waiting started")
+        waitingStarted.isInverted = true
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+        var eventFlags: [String] = []
+        var currentDoneType: OnceTimeoutTask<Int, TestError>.DoneType?
+        let lock = NSLock()
+
+        queue.taskDidFinish
+            .sink { event in
+                lock.lock()
+                eventFlags.append(event.flag)
+                lock.unlock()
+
+                if event.flag == "waiting" {
+                    waitingCancelled.fulfill()
+                } else if event.flag == "current" {
+                    currentDoneType = event.doneType
+                    currentFinished.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(10),
+            execute: { _ in currentStarted.fulfill() },
+            stop: { stopped in
+                lock.lock()
+                capturedStopped = stopped
+                lock.unlock()
+                stopCaptured.fulfill()
+            }
+        )
+        let waiting = makeTask(flag: "waiting", value: 2, onExecute: {
+            waitingStarted.fulfill()
+        })
+
+        queue.addTask(current)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(waiting)
+        current.stop()
+        wait(for: [stopCaptured], timeout: 1.0)
+
+        queue.cancelAll()
+        wait(for: [waitingCancelled], timeout: 1.0)
+        wait(for: [waitingStarted], timeout: 0.2)
+
+        lock.lock()
+        let stopped = capturedStopped
+        let flagsBeforeStopped = eventFlags
+        lock.unlock()
+
+        XCTAssertEqual(flagsBeforeStopped, ["waiting"])
+        stopped?()
+
+        wait(for: [currentFinished], timeout: 1.0)
+        guard case .stop = currentDoneType else {
+            XCTFail("Expected current finish event to be stop")
+            return
+        }
+
+        lock.lock()
+        let flagsAfterStopped = eventFlags
+        lock.unlock()
+        XCTAssertEqual(flagsAfterStopped, ["waiting", "current"])
     }
 
     func test_pause_stopsNextExecutionUntilResume() {

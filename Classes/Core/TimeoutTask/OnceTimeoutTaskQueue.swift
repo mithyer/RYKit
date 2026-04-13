@@ -93,22 +93,22 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
     }
 
     public func cancelAll() {
-        let itemsToCancel: [QueuedTask]
-        let currentToCancel: QueuedTask?
+        var events: [TaskFinishEvent] = []
 
         lock.lock()
-        itemsToCancel = waiting
+        let itemsToCancel = waiting
         waiting.removeAll()
-        currentToCancel = current
-        current = nil
+        for item in itemsToCancel {
+            if let doneType = item.task.cancelFromQueue() {
+                events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
+            }
+        }
+        if let current, let doneType = current.task.cancelFromQueue() {
+            self.current = nil
+            events.append(TaskFinishEvent(flag: current.task.flag, task: current.task, doneType: doneType))
+        }
         lock.unlock()
 
-        let events = (itemsToCancel + [currentToCancel].compactMap { $0 }).compactMap { item -> TaskFinishEvent? in
-            guard let doneType = item.task.cancelFromQueue() else {
-                return nil
-            }
-            return TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType)
-        }
         publish(events)
     }
 
