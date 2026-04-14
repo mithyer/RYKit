@@ -1182,6 +1182,8 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
         let currentStarted = expectation(description: "current started")
         let currentFinished = expectation(description: "current finished")
+        let currentFinishedBeforeStopped = expectation(description: "current finished before stopped")
+        currentFinishedBeforeStopped.isInverted = true
         var stoppedCallback: (() -> Void)?
         var eventDoneType: OnceTimeoutTask<Int, TestError>.DoneType?
 
@@ -1190,6 +1192,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 if event.flag == "current" {
                     eventDoneType = event.doneType
                     currentFinished.fulfill()
+                    currentFinishedBeforeStopped.fulfill()
                 }
             }
             .store(in: &cancellables)
@@ -1218,6 +1221,9 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             XCTFail("Expected done(cancel), got \(current.state)")
             return
         }
+
+        wait(for: [currentFinishedBeforeStopped], timeout: 0.2)
+        XCTAssertNil(eventDoneType)
 
         stoppedCallback?()
         wait(for: [currentFinished], timeout: 1.0)
