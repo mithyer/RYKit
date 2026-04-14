@@ -302,19 +302,27 @@ let token = GlobalReachability.shared.listen { status in
 #### TimeoutTask
 ```swift
 let task = OnceTimeoutTask<String, Error>(
-    timeoutInterval: .seconds(3),
+    flag: "load-profile",
+    executionTimeoutInterval: .seconds(3),
+    stopTimeoutInterval: .seconds(1),
     execute: { complete in
         complete(.success("ok"))
     },
-    done: { result in
-        print(result)
+    stop: { stopped in
+        stopped()
     }
 )
 ```
 
 ```swift
-let queue = OnceTimeoutTaskQueue<String, Error>(executeQueue: .main)
-queue.addTask(task)
+let queue = OnceTimeoutTaskQueue<String, Error>(
+    executeQueue: .main,
+    defaultPreemptionStrategy: .waitCurrentCompletion
+)
+let cancellable = queue.taskDidFinish.sink { event in
+    print(event.flag, event.doneType)
+}
+queue.addTask(task, priority: 10)
 ```
 
 ### License
@@ -566,19 +574,27 @@ let token = GlobalReachability.shared.listen { status in
 #### TimeoutTask
 ```swift
 let task = OnceTimeoutTask<String, Error>(
-    timeoutInterval: .seconds(3),
+    flag: "load-profile",
+    executionTimeoutInterval: .seconds(3),
+    stopTimeoutInterval: .seconds(1),
     execute: { complete in
         complete(.success("ok"))
     },
-    done: { result in
-        print(result)
+    stop: { stopped in
+        stopped()
     }
 )
 ```
 
 ```swift
-let queue = OnceTimeoutTaskQueue<String, Error>(executeQueue: .main)
-queue.addTask(task)
+let queue = OnceTimeoutTaskQueue<String, Error>(
+    executeQueue: .main,
+    defaultPreemptionStrategy: .waitCurrentCompletion
+)
+let cancellable = queue.taskDidFinish.sink { event in
+    print(event.flag, event.doneType)
+}
+queue.addTask(task, priority: 10)
 ```
 
 ### 许可证
