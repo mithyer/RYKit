@@ -53,6 +53,81 @@ final class OnceTimeoutTaskTests: XCTestCase {
         XCTAssertFalse(task.state.isDone)
     }
 
+    func test_waitingRestartFalse_stateSemantics() {
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "restart",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in },
+            stop: { stopped in stopped() }
+        )
+
+        task.setWaitingRestartForTest(stopped: false)
+
+        XCTAssertTrue(task.state.hasStarted)
+        XCTAssertFalse(task.state.isDone)
+        XCTAssertFalse(task.state.canStart)
+        XCTAssertFalse(task.state.canEnqueue)
+    }
+
+    func test_waitingRestartTrue_stateSemantics() {
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "restart",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in },
+            stop: { stopped in stopped() }
+        )
+
+        task.setWaitingRestartForTest(stopped: true)
+
+        XCTAssertTrue(task.state.hasStarted)
+        XCTAssertFalse(task.state.isDone)
+        XCTAssertTrue(task.state.canStart)
+        XCTAssertTrue(task.state.canEnqueue)
+    }
+
+    func test_perform_canStartFromWaitingRestartStoppedTrue() {
+        let started = expectation(description: "started")
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "restart",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in started.fulfill() },
+            stop: { stopped in stopped() }
+        )
+
+        task.setWaitingRestartForTest(stopped: true)
+        task.perform(by: .global(), timeoutQueue: .global())
+
+        wait(for: [started], timeout: 1.0)
+        if case .executing = task.state {
+        } else {
+            XCTFail("Expected executing, got \(task.state)")
+        }
+    }
+
+    func test_perform_doesNotStartFromWaitingRestartStoppedFalse() {
+        let started = expectation(description: "started")
+        started.isInverted = true
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "restart",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in started.fulfill() },
+            stop: { stopped in stopped() }
+        )
+
+        task.setWaitingRestartForTest(stopped: false)
+        task.perform(by: .global(), timeoutQueue: .global())
+
+        wait(for: [started], timeout: 0.2)
+        guard case .waitingRestart(stopped: false) = task.state else {
+            XCTFail("Expected waitingRestart(false), got \(task.state)")
+            return
+        }
+    }
+
     func test_perform_stateBecomesExecuting() {
         let task = OnceTimeoutTask<Int, TestError>(
             flag: "task-1",
@@ -1107,5 +1182,11 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.2)
 
         XCTAssertEqual(eventFlags, ["high", "current"])
+    }
+}
+
+private extension OnceTimeoutTask {
+    func setWaitingRestartForTest(stopped: Bool) {
+        setWaitingRestart(stopped: stopped)
     }
 }

@@ -10,7 +10,7 @@ import Foundation
 public class OnceTimeoutTask<T, E: Error> {
     
     public enum State {
-        case unstart, executing, done(DoneType)
+        case unstart, executing, waitingRestart(stopped: Bool), done(DoneType)
         
         var isDone: Bool {
             if case .done = self { true } else { false }
@@ -18,6 +18,19 @@ public class OnceTimeoutTask<T, E: Error> {
         
         var hasStarted: Bool {
             if case .unstart = self { false } else { true }
+        }
+
+        var canStart: Bool {
+            switch self {
+            case .unstart, .waitingRestart(stopped: true):
+                return true
+            case .executing, .waitingRestart(stopped: false), .done:
+                return false
+            }
+        }
+
+        var canEnqueue: Bool {
+            canStart
         }
     }
     
@@ -95,7 +108,7 @@ public class OnceTimeoutTask<T, E: Error> {
     
     func perform(by executeQueue: DispatchQueue, timeoutQueue: DispatchQueue) {
         lock.lock()
-        guard case .unstart = currentState else {
+        guard currentState.canStart else {
             lock.unlock()
             return
         }
@@ -186,6 +199,23 @@ public class OnceTimeoutTask<T, E: Error> {
         currentState = .unstart
         return true
     }
+
+    func setWaitingRestart(stopped: Bool) {
+        lock.lock()
+        currentState = .waitingRestart(stopped: stopped)
+        lock.unlock()
+    }
+
+    @discardableResult
+    func markWaitingRestartStopped() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard case .waitingRestart(stopped: false) = currentState else {
+            return false
+        }
+        currentState = .waitingRestart(stopped: true)
+        return true
+    }
     
     private func finish(with doneType: DoneType, notify: Bool, runGeneration expectedRunGeneration: UInt64?) {
         let doneHandler: ((DoneType) -> Void)?
@@ -216,6 +246,8 @@ public class OnceTimeoutTask<T, E: Error> {
         case .executing:
             break
         case .unstart where allowUnstarted:
+            break
+        case .waitingRestart where allowUnstarted:
             break
         default:
             lock.unlock()
