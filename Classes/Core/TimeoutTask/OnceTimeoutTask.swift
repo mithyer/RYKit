@@ -122,7 +122,7 @@ public class OnceTimeoutTask<T, E: Error> {
     ///
     /// The async `execute` result is bridged to the callback-based initializer. If `stop` is
     /// non-nil, the queue waits until the async stop closure returns.
-    public convenience init(
+    convenience init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,

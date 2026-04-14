@@ -325,6 +325,19 @@ let cancellable = queue.taskDidFinish.sink { event in
 queue.addTask(task, priority: 10)
 ```
 
+```swift
+let persistentTask = OnceTimeoutTask<String, Error>(
+    flag: "persistent",
+    executionTimeoutInterval: nil,
+    stopTimeoutInterval: nil,
+    execute: { _ in
+        // Complete later, or keep running.
+    },
+    stop: nil
+)
+queue.addTask(persistentTask, priority: 1)
+```
+
 ### License
 
 MIT License
@@ -595,6 +608,19 @@ let cancellable = queue.taskDidFinish.sink { event in
     print(event.flag, event.doneType)
 }
 queue.addTask(task, priority: 10)
+```
+
+```swift
+let persistentTask = OnceTimeoutTask<String, Error>(
+    flag: "persistent",
+    executionTimeoutInterval: nil,
+    stopTimeoutInterval: nil,
+    execute: { _ in
+        // Complete later, or keep running.
+    },
+    stop: nil
+)
+queue.addTask(persistentTask, priority: 1)
 ```
 
 ### 许可证
