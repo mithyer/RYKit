@@ -209,6 +209,97 @@ final class OnceTimeoutTaskTests: XCTestCase {
         }
     }
 
+    func test_nilExecutionTimeout_doesNotTimeoutNonCompletingTask() {
+        let finished = expectation(description: "finished")
+        finished.isInverted = true
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "no-execution-timeout",
+            executionTimeoutInterval: nil,
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in },
+            stop: { stopped in stopped() }
+        )
+        task.onDone = { _ in finished.fulfill() }
+
+        task.perform(by: .global(), timeoutQueue: .global())
+        wait(for: [finished], timeout: 0.2)
+
+        if case .executing = task.state {
+        } else {
+            XCTFail("Expected executing, got \(task.state)")
+        }
+    }
+
+    func test_nilStopTimeout_waitsForStoppedWithoutFallback() {
+        let stopCalled = expectation(description: "stop called")
+        let stoppedBeforeCallback = expectation(description: "stopped before callback")
+        stoppedBeforeCallback.isInverted = true
+        let stoppedAfterCallback = expectation(description: "stopped after callback")
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "no-stop-timeout",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: nil,
+            execute: { _ in },
+            stop: { stopped in
+                capturedStopped = stopped
+                stopCalled.fulfill()
+            }
+        )
+
+        task.perform(by: .global(), timeoutQueue: .global())
+        let request = task.makeStopRequest(timeoutQueue: .global()) {
+            stoppedAfterCallback.fulfill()
+            stoppedBeforeCallback.fulfill()
+        }
+        request?()
+
+        wait(for: [stopCalled], timeout: 1.0)
+        wait(for: [stoppedBeforeCallback], timeout: 0.2)
+        capturedStopped?()
+        wait(for: [stoppedAfterCallback], timeout: 1.0)
+    }
+
+    func test_stopNil_publicStopDoesNothing() {
+        let stopFinished = expectation(description: "stop finished")
+        stopFinished.isInverted = true
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "non-stoppable",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in },
+            stop: nil
+        )
+        task.onDone = { _ in stopFinished.fulfill() }
+
+        task.perform(by: .global(), timeoutQueue: .global())
+        task.stop()
+
+        wait(for: [stopFinished], timeout: 0.2)
+        if case .executing = task.state {
+        } else {
+            XCTFail("Expected executing, got \(task.state)")
+        }
+    }
+
+    func test_asyncInit_acceptsNilStop() async throws {
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "async-no-stop",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: nil,
+            execute: {
+                .success(99)
+            },
+            stop: nil
+        )
+
+        task.perform(by: .global(), timeoutQueue: .global())
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        assertCompletedSuccess(doneType(of: task), equals: 99)
+    }
+
     func test_stop_immediatelyMarksStoppedAndCallsStopClosure() {
         let started = expectation(description: "started")
         let stopCalled = expectation(description: "stop called")

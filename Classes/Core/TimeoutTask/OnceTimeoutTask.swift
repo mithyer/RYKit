@@ -46,11 +46,11 @@ public class OnceTimeoutTask<T, E: Error> {
     public typealias Stop = (@escaping Stopped) -> Void
     
     public let flag: String
-    let executionTimeoutInterval: DispatchTimeInterval
-    let stopTimeoutInterval: DispatchTimeInterval
+    let executionTimeoutInterval: DispatchTimeInterval?
+    let stopTimeoutInterval: DispatchTimeInterval?
     
     private let execute: (@escaping Completed) -> Void
-    private let stopAction: Stop
+    private let stopAction: Stop?
     private let lock = UnfairLock()
     private var currentState: State = .unstart
     private var runGeneration: UInt64 = 0
@@ -60,6 +60,10 @@ public class OnceTimeoutTask<T, E: Error> {
     private var stopFinished: (() -> Void)?
     
     var onDone: ((DoneType) -> Void)?
+
+    var isStoppable: Bool {
+        stopAction != nil
+    }
     
     public var state: State {
         lock.lock()
@@ -69,10 +73,10 @@ public class OnceTimeoutTask<T, E: Error> {
     
     public init(
         flag: String,
-        executionTimeoutInterval: DispatchTimeInterval,
-        stopTimeoutInterval: DispatchTimeInterval,
+        executionTimeoutInterval: DispatchTimeInterval?,
+        stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping (@escaping Completed) -> Void,
-        stop: @escaping Stop
+        stop: Stop?
     ) {
         self.flag = flag
         self.executionTimeoutInterval = executionTimeoutInterval
@@ -83,11 +87,19 @@ public class OnceTimeoutTask<T, E: Error> {
     
     public convenience init(
         flag: String,
-        executionTimeoutInterval: DispatchTimeInterval,
-        stopTimeoutInterval: DispatchTimeInterval,
+        executionTimeoutInterval: DispatchTimeInterval?,
+        stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping () async -> Result<T, E>,
-        stop: @escaping () async -> Void
+        stop: (() async -> Void)?
     ) {
+        let bridgedStop: Stop? = stop.map { stop in
+            { stopped in
+                Task {
+                    await stop()
+                    stopped()
+                }
+            }
+        }
         self.init(
             flag: flag,
             executionTimeoutInterval: executionTimeoutInterval,
@@ -97,12 +109,7 @@ public class OnceTimeoutTask<T, E: Error> {
                     completed(await execute())
                 }
             },
-            stop: { stopped in
-                Task {
-                    await stop()
-                    stopped()
-                }
-            }
+            stop: bridgedStop
         )
     }
     
@@ -114,8 +121,13 @@ public class OnceTimeoutTask<T, E: Error> {
         }
         runGeneration &+= 1
         let generation = runGeneration
-        let timeoutItem = DispatchWorkItem { [weak self] in
-            self?.finish(with: .executionTimeout, notify: true, runGeneration: generation)
+        let timeoutItem: DispatchWorkItem?
+        if executionTimeoutInterval != nil {
+            timeoutItem = DispatchWorkItem { [weak self] in
+                self?.finish(with: .executionTimeout, notify: true, runGeneration: generation)
+            }
+        } else {
+            timeoutItem = nil
         }
         let completed: Completed = { [weak self] result in
             self?.finish(with: .completed(result), notify: true, runGeneration: generation)
@@ -126,7 +138,9 @@ public class OnceTimeoutTask<T, E: Error> {
         let execute = self.execute
         lock.unlock()
         
-        timeoutQueue.asyncAfter(deadline: .now() + interval, execute: timeoutItem)
+        if let timeoutItem, let interval {
+            timeoutQueue.asyncAfter(deadline: .now() + interval, execute: timeoutItem)
+        }
         executeQueue.async {
             execute(completed)
         }
@@ -176,6 +190,10 @@ public class OnceTimeoutTask<T, E: Error> {
             lock.unlock()
             return nil
         }
+        guard let stopAction else {
+            lock.unlock()
+            return nil
+        }
         stopGeneration &+= 1
         let generation = stopGeneration
         let stopTimeoutItem = DispatchWorkItem { [weak self] in
@@ -195,11 +213,10 @@ public class OnceTimeoutTask<T, E: Error> {
         self.stopTimeoutItem = stopTimeoutItem
         stopFinished = onStopped
         let interval = stopTimeoutInterval
-        let stopAction = self.stopAction
         lock.unlock()
         
-        if case .never = interval {
-        } else {
+        if let interval, case .never = interval {
+        } else if let interval {
             timeoutQueue.asyncAfter(deadline: .now() + interval, execute: stopTimeoutItem)
         }
         
