@@ -75,7 +75,8 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
         lock.lock()
         if let current, item.priority > current.priority {
             insert(item)
-            switch strategy {
+            let effectiveStrategy = current.task.isStoppable ? strategy : .waitCurrentCompletion
+            switch effectiveStrategy {
             case .waitCurrentCompletion:
                 stopRequest = nil
             case .stopCurrentAndDiscard:

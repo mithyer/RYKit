@@ -709,6 +709,96 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         XCTAssertEqual(executionOrder, ["current", "high"])
     }
 
+    func test_stopCurrentAndDiscard_nonStoppableCurrentWaitsForCompletion() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let allowCurrentToFinish = DispatchSemaphore(value: 0)
+        let allFinished = expectation(description: "all finished")
+        allFinished.expectedFulfillmentCount = 2
+        var executionOrder: [String] = []
+        let lock = NSLock()
+
+        queue.taskDidFinish
+            .sink { _ in allFinished.fulfill() }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: nil,
+            stopTimeoutInterval: nil,
+            execute: { completed in
+                lock.lock()
+                executionOrder.append("current")
+                lock.unlock()
+                currentStarted.fulfill()
+                allowCurrentToFinish.wait()
+                completed(.success(1))
+            },
+            stop: nil
+        )
+        let high = makeTask(flag: "high", value: 2, onExecute: {
+            lock.lock()
+            executionOrder.append("high")
+            lock.unlock()
+        })
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndDiscard)
+        Thread.sleep(forTimeInterval: 0.2)
+
+        XCTAssertEqual(executionOrder, ["current"])
+
+        allowCurrentToFinish.signal()
+        wait(for: [allFinished], timeout: 2.0)
+        XCTAssertEqual(executionOrder, ["current", "high"])
+    }
+
+    func test_stopCurrentAndRequeue_nonStoppableCurrentWaitsForCompletion() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let allowCurrentToFinish = DispatchSemaphore(value: 0)
+        let allFinished = expectation(description: "all finished")
+        allFinished.expectedFulfillmentCount = 2
+        var executionOrder: [String] = []
+        let lock = NSLock()
+
+        queue.taskDidFinish
+            .sink { _ in allFinished.fulfill() }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: nil,
+            stopTimeoutInterval: nil,
+            execute: { completed in
+                lock.lock()
+                executionOrder.append("current")
+                lock.unlock()
+                currentStarted.fulfill()
+                allowCurrentToFinish.wait()
+                completed(.success(1))
+            },
+            stop: nil
+        )
+        let high = makeTask(flag: "high", value: 2, onExecute: {
+            lock.lock()
+            executionOrder.append("high")
+            lock.unlock()
+        })
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
+        Thread.sleep(forTimeInterval: 0.2)
+
+        XCTAssertEqual(executionOrder, ["current"])
+
+        allowCurrentToFinish.signal()
+        wait(for: [allFinished], timeout: 2.0)
+        XCTAssertEqual(executionOrder, ["current", "high"])
+    }
+
     func test_equalPriority_doesNotPreemptCurrentEvenWithStopStrategy() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
         let currentStarted = expectation(description: "current started")
