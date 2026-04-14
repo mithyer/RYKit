@@ -151,6 +151,26 @@ public class OnceTimeoutTask<T, E: Error> {
     }
     
     func makeStopRequest(timeoutQueue: DispatchQueue, onStopped: @escaping () -> Void) -> (() -> Void)? {
+        makeStopRequest(
+            timeoutQueue: timeoutQueue,
+            stoppedState: .done(.stop),
+            onStopped: onStopped
+        )
+    }
+
+    func makeRestartStopRequest(timeoutQueue: DispatchQueue, onStopped: @escaping () -> Void) -> (() -> Void)? {
+        makeStopRequest(
+            timeoutQueue: timeoutQueue,
+            stoppedState: .waitingRestart(stopped: true),
+            onStopped: onStopped
+        )
+    }
+
+    private func makeStopRequest(
+        timeoutQueue: DispatchQueue,
+        stoppedState: State,
+        onStopped: @escaping () -> Void
+    ) -> (() -> Void)? {
         lock.lock()
         guard case .executing = currentState else {
             lock.unlock()
@@ -159,12 +179,17 @@ public class OnceTimeoutTask<T, E: Error> {
         stopGeneration &+= 1
         let generation = stopGeneration
         let stopTimeoutItem = DispatchWorkItem { [weak self] in
-            self?.finishStop(stopGeneration: generation)
+            self?.finishStop(stoppedState: stoppedState, stopGeneration: generation)
         }
         let stopped: Stopped = { [weak self] in
-            self?.finishStop(stopGeneration: generation)
+            self?.finishStop(stoppedState: stoppedState, stopGeneration: generation)
         }
-        currentState = .done(.stop)
+        switch stoppedState {
+        case .waitingRestart:
+            currentState = .waitingRestart(stopped: false)
+        default:
+            currentState = .done(.stop)
+        }
         executionTimeoutItem?.cancel()
         executionTimeoutItem = nil
         self.stopTimeoutItem = stopTimeoutItem
@@ -274,13 +299,16 @@ public class OnceTimeoutTask<T, E: Error> {
         doneHandler?(doneType)
     }
     
-    private func finishStop(stopGeneration expectedStopGeneration: UInt64) {
+    private func finishStop(stoppedState: State, stopGeneration expectedStopGeneration: UInt64) {
         let handler: (() -> Void)?
         
         lock.lock()
         guard let stopFinished, expectedStopGeneration == stopGeneration else {
             lock.unlock()
             return
+        }
+        if case .waitingRestart(stopped: false) = currentState {
+            currentState = stoppedState
         }
         handler = stopFinished
         self.stopFinished = nil

@@ -58,7 +58,7 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
         priority: Int = 0,
         preemptionStrategy: PreemptionStrategy? = nil
     ) {
-        guard !task.state.hasStarted else {
+        guard task.state.canEnqueue else {
             return
         }
 
@@ -121,7 +121,8 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
         lock.lock()
         let itemsToCancel = waiting
         waiting.removeAll()
-        if stopping != nil {
+        if let stopping {
+            _ = stopping.task.cancelFromQueue()
             stopDisposition = .discard
         }
         for item in itemsToCancel {
@@ -203,10 +204,20 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
         guard stopping == nil, let current else {
             return nil
         }
-        guard let request = current.task.makeStopRequest(timeoutQueue: timeoutQueue, onStopped: { [weak self, weak task = current.task] in
-            guard let task else { return }
-            self?.handleTaskStopped(task)
-        }) else {
+        let request: (() -> Void)?
+        switch disposition {
+        case .discard:
+            request = current.task.makeStopRequest(timeoutQueue: timeoutQueue, onStopped: { [weak self, weak task = current.task] in
+                guard let task else { return }
+                self?.handleTaskStopped(task)
+            })
+        case .requeue:
+            request = current.task.makeRestartStopRequest(timeoutQueue: timeoutQueue, onStopped: { [weak self, weak task = current.task] in
+                guard let task else { return }
+                self?.handleTaskStopped(task)
+            })
+        }
+        guard let request else {
             return nil
         }
         self.current = nil
@@ -226,12 +237,18 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
 
         switch stopDisposition {
         case .requeue:
-            if stopping.task.resetForRequeue() {
+            if stopping.task.state.canEnqueue {
                 insert(makeQueuedTaskLocked(task: stopping.task, priority: stopping.priority))
             }
             event = nil
         case .discard, .none:
-            event = TaskFinishEvent(flag: task.flag, task: task, doneType: .stop)
+            let doneType: OnceTimeoutTask<T, E>.DoneType
+            if case .done(let currentDoneType) = task.state {
+                doneType = currentDoneType
+            } else {
+                doneType = .stop
+            }
+            event = TaskFinishEvent(flag: task.flag, task: task, doneType: doneType)
         }
 
         self.stopping = nil

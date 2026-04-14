@@ -1130,21 +1130,102 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 stoppedCallback = stopped
             }
         )
-        let high = makeTask(flag: "high", value: 2, onExecute: {
-            lock.lock()
-            executionOrder.append("high")
-            lock.unlock()
-        })
+        let allowHighToFinish = DispatchSemaphore(value: 0)
+        let high = OnceTimeoutTask<Int, TestError>(
+            flag: "high",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { completed in
+                lock.lock()
+                executionOrder.append("high")
+                lock.unlock()
+                allowHighToFinish.wait()
+                completed(.success(2))
+            },
+            stop: { stopped in
+                stopped()
+            }
+        )
 
         queue.addTask(current, priority: 0)
         wait(for: [firstCurrentStarted], timeout: 1.0)
         queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
+
+        guard case .waitingRestart(stopped: false) = current.state else {
+            XCTFail("Expected waitingRestart(false), got \(current.state)")
+            return
+        }
+
         stoppedCallback?()
+
+        let restartReady = expectation(description: "restart ready")
+        DispatchQueue.global().async {
+            let deadline = Date().addingTimeInterval(1.0)
+            while Date() < deadline {
+                if case .waitingRestart(stopped: true) = current.state {
+                    restartReady.fulfill()
+                    return
+                }
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+        }
+        wait(for: [restartReady], timeout: 1.0)
+        allowHighToFinish.signal()
 
         wait(for: [highFinished, currentFinished], timeout: 3.0)
 
         XCTAssertEqual(executionOrder, ["current-1", "high", "current-2"])
         XCTAssertEqual(eventFlags, ["high", "current"])
+    }
+
+    func test_cancelAllDuringWaitingRestartFalseFinishesAsCancelAfterStopped() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let currentFinished = expectation(description: "current finished")
+        var stoppedCallback: (() -> Void)?
+        var eventDoneType: OnceTimeoutTask<Int, TestError>.DoneType?
+
+        queue.taskDidFinish
+            .sink { event in
+                if event.flag == "current" {
+                    eventDoneType = event.doneType
+                    currentFinished.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { _ in currentStarted.fulfill() },
+            stop: { stopped in stoppedCallback = stopped }
+        )
+        let high = makeTask(flag: "high", value: 2)
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
+
+        guard case .waitingRestart(stopped: false) = current.state else {
+            XCTFail("Expected waitingRestart(false), got \(current.state)")
+            return
+        }
+
+        queue.cancelAll()
+
+        guard case .done(.cancel) = current.state else {
+            XCTFail("Expected done(cancel), got \(current.state)")
+            return
+        }
+
+        stoppedCallback?()
+        wait(for: [currentFinished], timeout: 1.0)
+
+        guard case .cancel = eventDoneType else {
+            XCTFail("Expected cancel finish event")
+            return
+        }
     }
 
     func test_cancelAll_duringStopWaitAbandonsPendingPreemptionAndEmitsStoppedTaskOnStopCompletion() {
