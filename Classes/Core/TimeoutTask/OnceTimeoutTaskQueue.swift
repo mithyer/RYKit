@@ -37,6 +37,13 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
     private var sequence: Int = 0
     private var waiting: [QueuedTask] = []
     private var current: QueuedTask?
+    private var stopping: QueuedTask?
+    private var stopDisposition: StopDisposition?
+
+    private enum StopDisposition {
+        case discard
+        case requeue
+    }
 
     public init(
         executeQueue: DispatchQueue,
@@ -61,13 +68,29 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
         }
 
         let item = makeQueuedTask(task: task, priority: priority)
+        let strategy = preemptionStrategy ?? defaultPreemptionStrategy
         let taskToStart: QueuedTask?
+        let stopRequest: (() -> Void)?
 
         lock.lock()
-        insert(item)
+        if let current, item.priority > current.priority {
+            insert(item)
+            switch strategy {
+            case .waitCurrentCompletion:
+                stopRequest = nil
+            case .stopCurrentAndDiscard:
+                stopRequest = prepareStopLocked(disposition: .discard)
+            case .stopCurrentAndRequeue:
+                stopRequest = prepareStopLocked(disposition: .requeue)
+            }
+        } else {
+            insert(item)
+            stopRequest = nil
+        }
         taskToStart = takeNextIfPossible()
         lock.unlock()
 
+        stopRequest?()
         start(taskToStart)
     }
 
@@ -98,6 +121,9 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
         lock.lock()
         let itemsToCancel = waiting
         waiting.removeAll()
+        if stopping != nil {
+            stopDisposition = .discard
+        }
         for item in itemsToCancel {
             if let doneType = item.task.cancelFromQueue() {
                 events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
@@ -114,10 +140,14 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
 
     private func makeQueuedTask(task: OnceTimeoutTask<T, E>, priority: Int) -> QueuedTask {
         lock.lock()
-        sequence += 1
-        let nextSequence = sequence
+        let item = makeQueuedTaskLocked(task: task, priority: priority)
         lock.unlock()
-        return QueuedTask(task: task, priority: priority, sequence: nextSequence)
+        return item
+    }
+
+    private func makeQueuedTaskLocked(task: OnceTimeoutTask<T, E>, priority: Int) -> QueuedTask {
+        sequence += 1
+        return QueuedTask(task: task, priority: priority, sequence: sequence)
     }
 
     private func insert(_ item: QueuedTask) {
@@ -131,7 +161,7 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
     }
 
     private func takeNextIfPossible() -> QueuedTask? {
-        guard !paused, current == nil, !waiting.isEmpty else {
+        guard !paused, current == nil, stopping == nil, !waiting.isEmpty else {
             return nil
         }
         let next = waiting.removeFirst()
@@ -156,6 +186,56 @@ public class OnceTimeoutTaskQueue<T, E: Error> {
         }
         self.current = nil
         event = TaskFinishEvent(flag: task.flag, task: task, doneType: doneType)
+        lock.unlock()
+
+        publish([event].compactMap { $0 })
+
+        let taskToStart: QueuedTask?
+
+        lock.lock()
+        taskToStart = takeNextIfPossible()
+        lock.unlock()
+
+        start(taskToStart)
+    }
+
+    private func prepareStopLocked(disposition: StopDisposition) -> (() -> Void)? {
+        guard stopping == nil, let current else {
+            return nil
+        }
+        guard let request = current.task.makeStopRequest(timeoutQueue: timeoutQueue, onStopped: { [weak self, weak task = current.task] in
+            guard let task else { return }
+            self?.handleTaskStopped(task)
+        }) else {
+            return nil
+        }
+        self.current = nil
+        stopping = current
+        stopDisposition = disposition
+        return request
+    }
+
+    private func handleTaskStopped(_ task: OnceTimeoutTask<T, E>) {
+        let event: TaskFinishEvent?
+
+        lock.lock()
+        guard let stopping, stopping.task === task else {
+            lock.unlock()
+            return
+        }
+
+        switch stopDisposition {
+        case .requeue:
+            if stopping.task.resetForRequeue() {
+                insert(makeQueuedTaskLocked(task: stopping.task, priority: stopping.priority))
+            }
+            event = nil
+        case .discard, .none:
+            event = TaskFinishEvent(flag: task.flag, task: task, doneType: .stop)
+        }
+
+        self.stopping = nil
+        stopDisposition = nil
         lock.unlock()
 
         publish([event].compactMap { $0 })

@@ -921,4 +921,191 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             return
         }
     }
+
+    func test_stopCurrentAndDiscard_waitsForStoppedBeforeStartingHighPriorityTask() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let highStarted = expectation(description: "high started")
+        var stoppedCallback: (() -> Void)?
+        var executionOrder: [String] = []
+        var eventFlags: [String] = []
+        let lock = NSLock()
+
+        queue.taskDidFinish
+            .sink { event in
+                lock.lock()
+                eventFlags.append(event.flag)
+                lock.unlock()
+            }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { _ in
+                lock.lock()
+                executionOrder.append("current")
+                lock.unlock()
+                currentStarted.fulfill()
+            },
+            stop: { stopped in
+                stoppedCallback = stopped
+            }
+        )
+        let high = makeTask(flag: "high", value: 2, onExecute: {
+            lock.lock()
+            executionOrder.append("high")
+            lock.unlock()
+            highStarted.fulfill()
+        })
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndDiscard)
+        Thread.sleep(forTimeInterval: 0.2)
+
+        XCTAssertEqual(executionOrder, ["current"])
+
+        stoppedCallback?()
+        wait(for: [highStarted], timeout: 1.0)
+        Thread.sleep(forTimeInterval: 0.1)
+
+        XCTAssertEqual(executionOrder, ["current", "high"])
+        XCTAssertEqual(eventFlags, ["current", "high"])
+    }
+
+    func test_stopCurrentAndDiscard_continuesAfterStopTimeout() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let highStarted = expectation(description: "high started")
+        var executionOrder: [String] = []
+        let lock = NSLock()
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(120),
+            execute: { _ in
+                lock.lock()
+                executionOrder.append("current")
+                lock.unlock()
+                currentStarted.fulfill()
+            },
+            stop: { _ in }
+        )
+        let high = makeTask(flag: "high", value: 2, onExecute: {
+            lock.lock()
+            executionOrder.append("high")
+            lock.unlock()
+            highStarted.fulfill()
+        })
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndDiscard)
+
+        wait(for: [highStarted], timeout: 2.0)
+        XCTAssertEqual(executionOrder, ["current", "high"])
+    }
+
+    func test_stopCurrentAndRequeue_doesNotEmitIntermediateStopAndRunsStoppedTaskAgain() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let firstCurrentStarted = expectation(description: "current first start")
+        let highFinished = expectation(description: "high finished")
+        let currentFinished = expectation(description: "current final finish")
+        var stoppedCallback: (() -> Void)?
+        var currentRunCount = 0
+        var executionOrder: [String] = []
+        var eventFlags: [String] = []
+        let lock = NSLock()
+
+        queue.taskDidFinish
+            .sink { event in
+                lock.lock()
+                eventFlags.append(event.flag)
+                lock.unlock()
+                if event.flag == "high" {
+                    highFinished.fulfill()
+                }
+                if event.flag == "current" {
+                    currentFinished.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { completed in
+                lock.lock()
+                currentRunCount += 1
+                let run = currentRunCount
+                executionOrder.append("current-\(run)")
+                lock.unlock()
+
+                if run == 1 {
+                    firstCurrentStarted.fulfill()
+                } else {
+                    completed(.success(1))
+                }
+            },
+            stop: { stopped in
+                stoppedCallback = stopped
+            }
+        )
+        let high = makeTask(flag: "high", value: 2, onExecute: {
+            lock.lock()
+            executionOrder.append("high")
+            lock.unlock()
+        })
+
+        queue.addTask(current, priority: 0)
+        wait(for: [firstCurrentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
+        stoppedCallback?()
+
+        wait(for: [highFinished, currentFinished], timeout: 3.0)
+
+        XCTAssertEqual(executionOrder, ["current-1", "high", "current-2"])
+        XCTAssertEqual(eventFlags, ["high", "current"])
+    }
+
+    func test_cancelAll_duringStopWaitAbandonsPendingPreemptionAndEmitsStoppedTaskOnStopCompletion() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let stoppedTaskFinished = expectation(description: "stopped task finished")
+        var stoppedCallback: (() -> Void)?
+        var eventFlags: [String] = []
+
+        queue.taskDidFinish
+            .sink { event in
+                eventFlags.append(event.flag)
+                if event.flag == "current" {
+                    stoppedTaskFinished.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { _ in currentStarted.fulfill() },
+            stop: { stopped in stoppedCallback = stopped }
+        )
+        let high = makeTask(flag: "high", value: 2)
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
+        queue.cancelAll()
+        stoppedCallback?()
+
+        wait(for: [stoppedTaskFinished], timeout: 1.0)
+        Thread.sleep(forTimeInterval: 0.2)
+
+        XCTAssertEqual(eventFlags, ["high", "current"])
+    }
 }
