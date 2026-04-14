@@ -146,13 +146,20 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
     ///
     /// If a task is already waiting for stop cleanup, the queue keeps ownership until `stopped()`
     /// or stop timeout, then emits the final event.
-    public func cancelAll() {
+    public func cancelAll(where block: ((OnceTimeoutTask<T, E>) -> Bool)? = nil) {
         var events: [TaskFinishEvent] = []
 
         lock.lock()
-        let itemsToCancel = waiting
-        waiting.removeAll()
-        if let stopping {
+        let itemsToCancel: [QueuedTask]
+        if let block {
+            itemsToCancel = waiting.filter({ queued in
+                return block(queued.task)
+            })
+        } else {
+            itemsToCancel = waiting
+            waiting.removeAll()
+        }
+        if let stopping, block?(stopping.task) ?? true {
             _ = stopping.task.cancelFromQueue()
             stopDisposition = .discard
         }
@@ -161,7 +168,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
                 events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
             }
         }
-        if let current, let doneType = current.task.cancelFromQueue() {
+        if let current, block?(current.task) ?? true, let doneType = current.task.cancelFromQueue() {
             self.current = nil
             events.append(TaskFinishEvent(flag: current.task.flag, task: current.task, doneType: doneType))
         }
