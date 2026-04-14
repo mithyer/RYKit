@@ -8,7 +8,7 @@
 import Foundation
 
 /// A single-use asynchronous task with optional execution timeout and cooperative stop support.
-public class OnceTimeoutTask<T, E: Error> {
+open class OnceTimeoutTask<T, E: Error> {
     
     /// The lifecycle state of a task.
     public enum State {

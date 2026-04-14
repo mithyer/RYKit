@@ -9,7 +9,7 @@ import Combine
 import Foundation
 
 /// A priority queue that executes one `OnceTimeoutTask` at a time.
-public class OnceTimeoutTaskQueue<T, E: Error> {
+open class OnceTimeoutTaskQueue<T, E: Error> {
     /// Strategy used when a newly added task has higher priority than the current task.
     public enum PreemptionStrategy {
         /// Stop the current task and discard it after stop cleanup.
