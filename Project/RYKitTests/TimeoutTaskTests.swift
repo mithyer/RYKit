@@ -992,6 +992,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
         let started = expectation(description: "started")
         let stopFinished = expectation(description: "stop finished")
         let executeQueue = DispatchQueue(label: "OnceTimeoutTaskTests.stoppedThenTimeout")
+        let timeoutQueue = DispatchQueue(label: "OnceTimeoutTaskTests.stoppedThenTimeout.timeout")
         let lock = NSLock()
         var finishCount = 0
         var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
@@ -1006,10 +1007,10 @@ final class OnceTimeoutTaskTests: XCTestCase {
             }
         )
 
-        task.perform(by: executeQueue, timeoutQueue: .global())
+        task.perform(by: executeQueue, timeoutQueue: timeoutQueue)
         wait(for: [started], timeout: 1.0)
 
-        let request = task.makeStopRequest(timeoutQueue: .global()) {
+        let request = task.makeStopRequest(timeoutQueue: timeoutQueue) {
             lock.lock()
             finishCount += 1
             lock.unlock()
@@ -1022,6 +1023,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
         capturedStopped?()
         wait(for: [stopFinished], timeout: 1.0)
         Thread.sleep(forTimeInterval: 0.1)
+        timeoutQueue.sync {}
 
         lock.lock()
         let finalFinishCount = finishCount
@@ -1081,6 +1083,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
         let started = expectation(description: "started")
         let restartStopFinished = expectation(description: "restart stop finished")
         let executeQueue = DispatchQueue(label: "OnceTimeoutTaskTests.restartStaleTimeout")
+        let timeoutQueue = DispatchQueue(label: "OnceTimeoutTaskTests.restartStaleTimeout.timeout")
         var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
 
         let task = OnceTimeoutTask<Int, TestError>(
@@ -1093,10 +1096,10 @@ final class OnceTimeoutTaskTests: XCTestCase {
             }
         )
 
-        task.perform(by: executeQueue, timeoutQueue: .global())
+        task.perform(by: executeQueue, timeoutQueue: timeoutQueue)
         wait(for: [started], timeout: 1.0)
 
-        let request = task.makeRestartStopRequest(timeoutQueue: .global()) {
+        let request = task.makeRestartStopRequest(timeoutQueue: timeoutQueue) {
             restartStopFinished.fulfill()
         }
         XCTAssertNotNil(request)
@@ -1108,6 +1111,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
         }
 
         Thread.sleep(forTimeInterval: 0.12)
+        timeoutQueue.sync {}
         guard case .waitingRestart(stopped: false) = task.state else {
             XCTFail("Expected stale timeout to be ignored, got \(task.state)")
             return
