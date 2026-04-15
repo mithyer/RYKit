@@ -50,8 +50,6 @@ open class OnceTimeoutTask<T, E: Error> {
     public enum DoneType {
         /// The task did not complete before `executionTimeoutInterval`.
         case executionTimeout
-        /// The task was canceled.
-        case cancel
         /// The task was stopped and will not be restarted by the queue.
         case stop
         /// The task completed with its result.
@@ -71,7 +69,7 @@ open class OnceTimeoutTask<T, E: Error> {
     let stopTimeoutInterval: DispatchTimeInterval?
     
     private let execute: (@escaping Completed) -> Void
-    private let stopAction: Stop?
+    private let stopAction: Stop
     private let lock = UnfairLock()
     private var currentState: State = .unstart
     private var runGeneration: UInt64 = 0
@@ -83,10 +81,8 @@ open class OnceTimeoutTask<T, E: Error> {
     var onDone: ((DoneType) -> Void)?
 
     /// Whether this task supports cooperative stop.
-    ///
-    /// Non-stoppable tasks force queue preemption strategies to wait for normal completion.
     var isStoppable: Bool {
-        stopAction != nil
+        true
     }
     
     /// The current task state.
@@ -103,13 +99,13 @@ open class OnceTimeoutTask<T, E: Error> {
     ///   - executionTimeoutInterval: Maximum execution duration. Pass `nil` to disable execution timeout.
     ///   - stopTimeoutInterval: Maximum time to wait for `stopped()`. Pass `nil` to wait indefinitely.
     ///   - execute: Starts the task and receives a one-shot completion callback.
-    ///   - stop: Cooperative stop closure. Pass `nil` to make the task non-stoppable.
+    ///   - stop: Cooperative stop closure.
     public init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping (@escaping Completed) -> Void,
-        stop: Stop?
+        stop: @escaping Stop = { stopped in stopped() }
     ) {
         self.flag = flag
         self.executionTimeoutInterval = executionTimeoutInterval
@@ -120,21 +116,19 @@ open class OnceTimeoutTask<T, E: Error> {
     
     /// Creates an async timeout task.
     ///
-    /// The async `execute` result is bridged to the callback-based initializer. If `stop` is
-    /// non-nil, the queue waits until the async stop closure returns.
-    convenience init(
+    /// The async `execute` result is bridged to the callback-based initializer. The queue waits
+    /// until the async stop closure returns.
+    public convenience init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping () async -> Result<T, E>,
-        stop: (() async -> Void)?
+        stop: @escaping () async -> Void = {}
     ) {
-        let bridgedStop: Stop? = stop.map { stop in
-            { stopped in
-                Task {
-                    await stop()
-                    stopped()
-                }
+        let bridgedStop: Stop = { stopped in
+            Task {
+                await stop()
+                stopped()
             }
         }
         self.init(
@@ -187,17 +181,9 @@ open class OnceTimeoutTask<T, E: Error> {
         }
     }
     
-    /// Cancels an executing task.
-    ///
-    /// Cancel is terminal and does not call the task's stop closure.
-    public func cancel() {
-        finish(with: .cancel, notify: true, runGeneration: nil)
-    }
-    
     /// Requests cooperative stop for an executing task.
     ///
-    /// If this task was created with `stop == nil`, this method is a no-op. Otherwise the task
-    /// enters `.done(.stop)` immediately and notifies listeners after `stopped()` or stop timeout.
+    /// The task enters `.done(.stop)` immediately and notifies listeners after `stopped()` or stop timeout.
     public func stop() {
         guard let request = makeStopRequest(timeoutQueue: .global(qos: .userInitiated), onStopped: { [weak self] in
             self?.notifyDone(.stop)
@@ -205,12 +191,6 @@ open class OnceTimeoutTask<T, E: Error> {
             return
         }
         request()
-    }
-    
-    /// Cancels from queue ownership and returns the terminal reason if cancellation was claimed.
-    @discardableResult
-    func cancelFromQueue() -> DoneType? {
-        transitionToCancel(allowUnstarted: true, notify: false)
     }
     
     /// Builds a final-stop request for queue-owned stop/discard flows.
@@ -244,10 +224,6 @@ open class OnceTimeoutTask<T, E: Error> {
             lock.unlock()
             return nil
         }
-        guard let stopAction else {
-            lock.unlock()
-            return nil
-        }
         stopGeneration &+= 1
         let generation = stopGeneration
         let stopTimeoutItem = DispatchWorkItem { [weak self] in
@@ -274,9 +250,35 @@ open class OnceTimeoutTask<T, E: Error> {
             timeoutQueue.asyncAfter(deadline: .now() + interval, execute: stopTimeoutItem)
         }
         
-        return {
+        return { [self] in
             stopAction(stopped)
         }
+    }
+
+    @discardableResult
+    func stopFromQueue() -> DoneType? {
+        lock.lock()
+        switch currentState {
+        case .unstart, .waitingRestart(stopped: true):
+            currentState = .done(.stop)
+            runGeneration &+= 1
+            stopGeneration &+= 1
+            executionTimeoutItem?.cancel()
+            executionTimeoutItem = nil
+            stopTimeoutItem?.cancel()
+            stopTimeoutItem = nil
+            stopFinished = nil
+            lock.unlock()
+            return .stop
+        default:
+            lock.unlock()
+            return nil
+        }
+    }
+
+    @discardableResult
+    func cancelFromQueue() -> DoneType? {
+        stopFromQueue()
     }
     
     /// Legacy internal reset hook retained for existing tests; queue requeue no longer uses it.
@@ -337,32 +339,6 @@ open class OnceTimeoutTask<T, E: Error> {
         doneHandler?(doneType)
     }
     
-    private func transitionToCancel(allowUnstarted: Bool, notify: Bool) -> DoneType? {
-        let doneHandler: ((DoneType) -> Void)?
-        
-        lock.lock()
-        switch currentState {
-        case .executing:
-            break
-        case .unstart where allowUnstarted:
-            break
-        case .waitingRestart where allowUnstarted:
-            break
-        default:
-            lock.unlock()
-            return nil
-        }
-        currentState = .done(.cancel)
-        runGeneration &+= 1
-        executionTimeoutItem?.cancel()
-        executionTimeoutItem = nil
-        doneHandler = notify ? onDone : nil
-        lock.unlock()
-        
-        doneHandler?(.cancel)
-        return .cancel
-    }
-
     private func notifyDone(_ doneType: DoneType) {
         let doneHandler: ((DoneType) -> Void)?
 

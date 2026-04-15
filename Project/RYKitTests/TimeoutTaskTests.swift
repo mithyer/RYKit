@@ -261,43 +261,88 @@ final class OnceTimeoutTaskTests: XCTestCase {
         wait(for: [stoppedAfterCallback], timeout: 1.0)
     }
 
-    func test_stopNil_publicStopDoesNothing() {
+    func test_defaultStop_publicStopStops() {
         let stopFinished = expectation(description: "stop finished")
-        stopFinished.isInverted = true
         let task = OnceTimeoutTask<Int, TestError>(
-            flag: "non-stoppable",
+            flag: "default-stop",
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .milliseconds(100),
-            execute: { _ in },
-            stop: nil
+            execute: { _ in }
         )
         task.onDone = { _ in stopFinished.fulfill() }
 
         task.perform(by: .global(), timeoutQueue: .global())
         task.stop()
 
-        wait(for: [stopFinished], timeout: 0.2)
-        if case .executing = task.state {
-        } else {
-            XCTFail("Expected executing, got \(task.state)")
+        wait(for: [stopFinished], timeout: 1.0)
+        guard case .done(.stop) = task.state else {
+            XCTFail("Expected done(stop), got \(task.state)")
+            return
         }
     }
 
-    func test_asyncInit_acceptsNilStop() async throws {
+    func test_asyncInit_usesDefaultStop() async throws {
         let task = OnceTimeoutTask<Int, TestError>(
-            flag: "async-no-stop",
+            flag: "async-default-stop",
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: nil,
             execute: {
                 .success(99)
-            },
-            stop: nil
+            }
         )
 
         task.perform(by: .global(), timeoutQueue: .global())
         try await Task.sleep(nanoseconds: 100_000_000)
 
         assertCompletedSuccess(doneType(of: task), equals: 99)
+    }
+
+    func test_defaultStop_immediatelyStopsExecutingTask() {
+        let started = expectation(description: "started")
+        let stopped = expectation(description: "stopped")
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "default-stop",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in started.fulfill() }
+        )
+        task.onDone = { doneType in
+            if case .stop = doneType {
+                stopped.fulfill()
+            }
+        }
+
+        task.perform(by: .global(), timeoutQueue: .global())
+        wait(for: [started], timeout: 1.0)
+        task.stop()
+
+        wait(for: [stopped], timeout: 1.0)
+        guard case .done(.stop) = task.state else {
+            XCTFail("Expected done(stop), got \(task.state)")
+            return
+        }
+    }
+
+    func test_asyncInit_defaultStop_immediatelyStopsExecutingTask() async throws {
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "async-default-stop",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                return .success(1)
+            }
+        )
+
+        task.perform(by: .global(), timeoutQueue: .global())
+        try await Task.sleep(nanoseconds: 100_000_000)
+        task.stop()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        guard case .done(.stop) = task.state else {
+            XCTFail("Expected done(stop), got \(task.state)")
+            return
+        }
     }
 
     func test_stop_immediatelyMarksStoppedAndCallsStopClosure() {
@@ -458,26 +503,6 @@ final class OnceTimeoutTaskTests: XCTestCase {
 
         secondStopped()
         wait(for: [secondStoppedDidFinish], timeout: 1.0)
-    }
-
-    func test_cancel_whenExecutingUpdatesState() {
-        let started = expectation(description: "started")
-        let task = OnceTimeoutTask<Int, TestError>(
-            flag: "cancel",
-            executionTimeoutInterval: .seconds(10),
-            stopTimeoutInterval: .milliseconds(100),
-            execute: { _ in started.fulfill() },
-            stop: { stopped in stopped() }
-        )
-
-        task.perform(by: .global(), timeoutQueue: .global())
-        wait(for: [started], timeout: 1.0)
-        task.cancel()
-
-        guard case .cancel = doneType(of: task) else {
-            XCTFail("Expected cancel, got \(String(describing: doneType(of: task)))")
-            return
-        }
     }
 
     func test_asyncExecute_successUpdatesState() async throws {
@@ -733,8 +758,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 currentStarted.fulfill()
                 allowCurrentToFinish.wait()
                 completed(.success(1))
-            },
-            stop: nil
+            }
         )
         let high = makeTask(flag: "high", value: 2, onExecute: {
             lock.lock()
@@ -778,8 +802,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 currentStarted.fulfill()
                 allowCurrentToFinish.wait()
                 completed(.success(1))
-            },
-            stop: nil
+            }
         )
         let high = makeTask(flag: "high", value: 2, onExecute: {
             lock.lock()
@@ -893,8 +916,8 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         wait(for: [allFinished], timeout: 1.0)
 
         XCTAssertEqual(eventFlags, ["waiting-high", "waiting-low", "current"])
-        guard case .cancel = doneType(of: current) else {
-            XCTFail("Expected current to be cancelled")
+        guard case .stop = doneType(of: current) else {
+            XCTFail("Expected current to be stopped")
             return
         }
         capturedComplete?(.success(1))
@@ -1398,8 +1421,8 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
 
         queue.cancelAll()
 
-        guard case .done(.cancel) = current.state else {
-            XCTFail("Expected done(cancel), got \(current.state)")
+        guard case .done(.stop) = current.state else {
+            XCTFail("Expected done(stop), got \(current.state)")
             return
         }
 
@@ -1409,8 +1432,8 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         stoppedCallback?()
         wait(for: [currentFinished], timeout: 1.0)
 
-        guard case .cancel = eventDoneType else {
-            XCTFail("Expected cancel finish event")
+        guard case .stop = eventDoneType else {
+            XCTFail("Expected stop finish event")
             return
         }
     }
