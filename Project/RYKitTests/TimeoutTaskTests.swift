@@ -945,24 +945,18 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
 
     func test_addTask_executesImmediatelyAndEmitsFinishEvent() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
-        let finished = expectation(description: "task finished")
-        var events: [OnceTimeoutTaskQueue<Int, TestError>.TaskFinishEvent] = []
-
-        queue.taskDidFinish
-            .sink { event in
-                events.append(event)
-                finished.fulfill()
-            }
-            .store(in: &cancellables)
+        let recorder = FinishEventRecorder(queue: queue)
 
         let task = makeTask(flag: "first", value: 1)
 
         queue.addTask(task)
-        wait(for: [finished], timeout: 1.0)
+        waitUntil {
+            recorder.events.count == 1
+        }
 
-        XCTAssertEqual(events.map(\.flag), ["first"])
-        XCTAssertTrue(events.first?.task === task)
-        guard case .completed(let result) = events.first?.doneType else {
+        XCTAssertEqual(recorder.flags, ["first"])
+        XCTAssertTrue(recorder.events.first?.task === task)
+        guard case .completed(let result) = recorder.events.first?.doneType else {
             XCTFail("Expected completed event")
             return
         }
@@ -1954,15 +1948,12 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         stoppedCallback?()
 
         let restartReady = expectation(description: "restart ready")
-        DispatchQueue.global().async {
-            let deadline = Date().addingTimeInterval(1.0)
-            while Date() < deadline {
-                if case .waitingRestart(stopped: true) = current.state {
-                    restartReady.fulfill()
-                    return
-                }
-                Thread.sleep(forTimeInterval: 0.01)
+        waitUntil {
+            if case .waitingRestart(stopped: true) = current.state {
+                restartReady.fulfill()
+                return true
             }
+            return false
         }
         wait(for: [restartReady], timeout: 1.0)
         allowHighToFinish.signal()
