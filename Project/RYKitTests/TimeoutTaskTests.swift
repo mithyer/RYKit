@@ -855,6 +855,272 @@ final class OnceTimeoutTaskTests: XCTestCase {
         wait(for: [secondStoppedDidFinish], timeout: 1.0)
     }
 
+    func test_stop_twiceWhileExecuting_callsStopClosureOnceAndNotifiesOnce() {
+        let started = expectation(description: "started")
+        let stopFinished = expectation(description: "stop finished")
+        let executeQueue = DispatchQueue(label: "OnceTimeoutTaskTests.stopTwice")
+        let lock = NSLock()
+        var stopCallCount = 0
+        var doneCount = 0
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "stop-twice",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { _ in started.fulfill() },
+            stopWhenExecuting: { stopped in
+                lock.lock()
+                stopCallCount += 1
+                capturedStopped = stopped
+                lock.unlock()
+            }
+        )
+        task.onDone = { doneType in
+            guard case .stop = doneType else { return }
+            lock.lock()
+            doneCount += 1
+            lock.unlock()
+            stopFinished.fulfill()
+        }
+
+        task.perform(by: executeQueue, timeoutQueue: .global())
+        wait(for: [started], timeout: 1.0)
+        task.stop()
+        task.stop()
+
+        waitUntil {
+            lock.lock()
+            defer { lock.unlock() }
+            return stopCallCount == 1 && capturedStopped != nil
+        }
+
+        capturedStopped?()
+        wait(for: [stopFinished], timeout: 1.0)
+
+        lock.lock()
+        let finalStopCallCount = stopCallCount
+        let finalDoneCount = doneCount
+        lock.unlock()
+        XCTAssertEqual(finalStopCallCount, 1)
+        XCTAssertEqual(finalDoneCount, 1)
+    }
+
+    func test_makeStopRequest_stoppedCallbackTwice_finishesOnlyOnce() {
+        let started = expectation(description: "started")
+        let stopFinished = expectation(description: "stop finished")
+        let executeQueue = DispatchQueue(label: "OnceTimeoutTaskTests.stopCallbackTwice")
+        let lock = NSLock()
+        var finishCount = 0
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "stopped-twice",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { _ in started.fulfill() },
+            stopWhenExecuting: { stopped in
+                capturedStopped = stopped
+            }
+        )
+
+        task.perform(by: executeQueue, timeoutQueue: .global())
+        wait(for: [started], timeout: 1.0)
+
+        let request = task.makeStopRequest(timeoutQueue: .global()) {
+            lock.lock()
+            finishCount += 1
+            lock.unlock()
+            stopFinished.fulfill()
+        }
+        XCTAssertNotNil(request)
+        request?()
+
+        waitUntil { capturedStopped != nil }
+        capturedStopped?()
+        capturedStopped?()
+        wait(for: [stopFinished], timeout: 1.0)
+
+        Thread.sleep(forTimeInterval: 0.1)
+        lock.lock()
+        let finalFinishCount = finishCount
+        lock.unlock()
+        XCTAssertEqual(finalFinishCount, 1)
+    }
+
+    func test_makeStopRequest_timeoutThenStopped_finishesOnlyOnce() {
+        let started = expectation(description: "started")
+        let stopFinished = expectation(description: "stop finished")
+        let executeQueue = DispatchQueue(label: "OnceTimeoutTaskTests.timeoutThenStopped")
+        let lock = NSLock()
+        var finishCount = 0
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "timeout-then-stopped",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(80),
+            execute: { _ in started.fulfill() },
+            stopWhenExecuting: { stopped in
+                capturedStopped = stopped
+            }
+        )
+
+        task.perform(by: executeQueue, timeoutQueue: .global())
+        wait(for: [started], timeout: 1.0)
+
+        let request = task.makeStopRequest(timeoutQueue: .global()) {
+            lock.lock()
+            finishCount += 1
+            lock.unlock()
+            stopFinished.fulfill()
+        }
+        XCTAssertNotNil(request)
+        request?()
+
+        wait(for: [stopFinished], timeout: 1.0)
+        capturedStopped?()
+        Thread.sleep(forTimeInterval: 0.1)
+
+        lock.lock()
+        let finalFinishCount = finishCount
+        lock.unlock()
+        XCTAssertEqual(finalFinishCount, 1)
+    }
+
+    func test_makeStopRequest_stoppedThenTimeout_finishesOnlyOnce() {
+        let started = expectation(description: "started")
+        let stopFinished = expectation(description: "stop finished")
+        let executeQueue = DispatchQueue(label: "OnceTimeoutTaskTests.stoppedThenTimeout")
+        let lock = NSLock()
+        var finishCount = 0
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "stopped-then-timeout",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(80),
+            execute: { _ in started.fulfill() },
+            stopWhenExecuting: { stopped in
+                capturedStopped = stopped
+            }
+        )
+
+        task.perform(by: executeQueue, timeoutQueue: .global())
+        wait(for: [started], timeout: 1.0)
+
+        let request = task.makeStopRequest(timeoutQueue: .global()) {
+            lock.lock()
+            finishCount += 1
+            lock.unlock()
+            stopFinished.fulfill()
+        }
+        XCTAssertNotNil(request)
+        request?()
+
+        waitUntil { capturedStopped != nil }
+        capturedStopped?()
+        wait(for: [stopFinished], timeout: 1.0)
+        Thread.sleep(forTimeInterval: 0.1)
+
+        lock.lock()
+        let finalFinishCount = finishCount
+        lock.unlock()
+        XCTAssertEqual(finalFinishCount, 1)
+    }
+
+    func test_makeRestartStopRequest_staleCompletionDoesNotFinishInterruptedRun() {
+        let started = expectation(description: "started")
+        let restartStopFinished = expectation(description: "restart stop finished")
+        let executeQueue = DispatchQueue(label: "OnceTimeoutTaskTests.restartStaleCompletion")
+        var capturedCompletion: OnceTimeoutTask<Int, TestError>.Completed?
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "restart-stale-completion",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { completed in
+                capturedCompletion = completed
+                started.fulfill()
+            },
+            stopWhenExecuting: { stopped in
+                capturedStopped = stopped
+            }
+        )
+
+        task.perform(by: executeQueue, timeoutQueue: .global())
+        wait(for: [started], timeout: 1.0)
+
+        let request = task.makeRestartStopRequest(timeoutQueue: .global()) {
+            restartStopFinished.fulfill()
+        }
+        XCTAssertNotNil(request)
+        request?()
+
+        guard case .waitingRestart(stopped: false) = task.state else {
+            XCTFail("Expected waitingRestart(false), got \(task.state)")
+            return
+        }
+
+        capturedCompletion?(.success(123))
+        guard case .waitingRestart(stopped: false) = task.state else {
+            XCTFail("Expected stale completion to be ignored, got \(task.state)")
+            return
+        }
+
+        capturedStopped?()
+        wait(for: [restartStopFinished], timeout: 1.0)
+        guard case .waitingRestart(stopped: true) = task.state else {
+            XCTFail("Expected waitingRestart(true), got \(task.state)")
+            return
+        }
+    }
+
+    func test_makeRestartStopRequest_staleExecutionTimeoutDoesNotFinishInterruptedRun() {
+        let started = expectation(description: "started")
+        let restartStopFinished = expectation(description: "restart stop finished")
+        let executeQueue = DispatchQueue(label: "OnceTimeoutTaskTests.restartStaleTimeout")
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "restart-stale-timeout",
+            executionTimeoutInterval: .milliseconds(80),
+            stopTimeoutInterval: .seconds(1),
+            execute: { _ in started.fulfill() },
+            stopWhenExecuting: { stopped in
+                capturedStopped = stopped
+            }
+        )
+
+        task.perform(by: executeQueue, timeoutQueue: .global())
+        wait(for: [started], timeout: 1.0)
+
+        let request = task.makeRestartStopRequest(timeoutQueue: .global()) {
+            restartStopFinished.fulfill()
+        }
+        XCTAssertNotNil(request)
+        request?()
+
+        guard case .waitingRestart(stopped: false) = task.state else {
+            XCTFail("Expected waitingRestart(false), got \(task.state)")
+            return
+        }
+
+        Thread.sleep(forTimeInterval: 0.12)
+        guard case .waitingRestart(stopped: false) = task.state else {
+            XCTFail("Expected stale timeout to be ignored, got \(task.state)")
+            return
+        }
+
+        capturedStopped?()
+        wait(for: [restartStopFinished], timeout: 1.0)
+        guard case .waitingRestart(stopped: true) = task.state else {
+            XCTFail("Expected waitingRestart(true), got \(task.state)")
+            return
+        }
+    }
+
     func test_asyncExecute_successUpdatesState() async throws {
         let task = OnceTimeoutTask<Int, TestError>(
             flag: "async-success",
