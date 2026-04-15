@@ -211,7 +211,13 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
     }
 
     private func takeNextIfPossible() -> QueuedTask? {
-        guard !paused, current == nil, stopping == nil, !waiting.isEmpty else {
+        guard !paused, current == nil, stopping == nil else {
+            return nil
+        }
+        while let first = waiting.first, first.task.state.isDone {
+            waiting.removeFirst()
+        }
+        guard !waiting.isEmpty else {
             return nil
         }
         let next = waiting.removeFirst()
@@ -230,12 +236,16 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         let event: TaskFinishEvent?
 
         lock.lock()
-        guard let current, current.task === task else {
+        if let current, current.task === task {
+            self.current = nil
+            event = TaskFinishEvent(flag: task.flag, task: task, doneType: doneType)
+        } else if let index = waiting.firstIndex(where: { $0.task === task }) {
+            waiting.remove(at: index)
+            event = TaskFinishEvent(flag: task.flag, task: task, doneType: doneType)
+        } else {
             lock.unlock()
             return
         }
-        self.current = nil
-        event = TaskFinishEvent(flag: task.flag, task: task, doneType: doneType)
         lock.unlock()
 
         publish([event].compactMap { $0 })
