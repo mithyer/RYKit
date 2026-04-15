@@ -47,7 +47,7 @@ public init(
     executionTimeoutInterval: DispatchTimeInterval?,
     stopTimeoutInterval: DispatchTimeInterval?,
     execute: @escaping (@escaping Completed) -> Void,
-    stop: @escaping Stop = { stopped in stopped() }
+    stopWhenExecuting: @escaping StopWhenExecuting = { stopped in stopped() }
 )
 ```
 
@@ -59,7 +59,7 @@ public convenience init(
     executionTimeoutInterval: DispatchTimeInterval?,
     stopTimeoutInterval: DispatchTimeInterval?,
     execute: @escaping () async -> Result<T, E>,
-    stop: @escaping () async -> Void = {}
+    stopWhenExecuting: @escaping () async -> Void = {}
 )
 ```
 
@@ -80,6 +80,12 @@ The default async stop is:
 ```
 
 This means a task with no custom cleanup is still stoppable, and queue stop operations can continue immediately.
+
+The typealias is also renamed for clarity:
+
+```swift
+public typealias StopWhenExecuting = (@escaping Stopped) -> Void
+```
 
 ## 5. Queue API
 
@@ -141,4 +147,3 @@ rtk xcodebuild test -project Project/RYKit.xcodeproj -scheme RYKitTests -destina
 rtk xcodebuild test -project Project/RYKit.xcodeproj -scheme RYKitTests -destination 'platform=macOS' BUILD_LIBRARY_FOR_DISTRIBUTION=NO
 rtk swift build
 ```
-
