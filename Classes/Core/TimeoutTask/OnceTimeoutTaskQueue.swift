@@ -91,7 +91,6 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
 
         let item = makeQueuedTask(task: task, priority: priority)
         let strategy = preemptionStrategy ?? defaultPreemptionStrategy
-        let taskToStart: QueuedTask?
         let stopRequest: (() -> Void)?
 
         lock.lock()
@@ -110,11 +109,10 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
             insert(item)
             stopRequest = nil
         }
-        taskToStart = takeNextIfPossible()
         lock.unlock()
 
         stopRequest?()
-        start(taskToStart)
+        start(takeNextAfterCleaning())
     }
 
     /// Pauses starting additional tasks.
@@ -128,18 +126,15 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
 
     /// Resumes the queue and starts the highest-priority waiting task when possible.
     public func resume() {
-        let taskToStart: QueuedTask?
-
         lock.lock()
         guard paused else {
             lock.unlock()
             return
         }
         paused = false
-        taskToStart = takeNextIfPossible()
         lock.unlock()
 
-        start(taskToStart)
+        start(takeNextAfterCleaning())
     }
 
     /// Stops all waiting tasks and the current task when they match the filter.
@@ -171,6 +166,8 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         for item in itemsToStop {
             if let doneType = item.task.stopWhileQueued() {
                 events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
+            } else if case .done(let doneType) = item.task.state {
+                events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
             }
         }
 
@@ -180,12 +177,11 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         } else {
             currentStopRequest = nil
         }
-        let taskToStart = takeNextIfPossible()
         lock.unlock()
 
         publish(events)
         currentStopRequest?()
-        start(taskToStart)
+        start(takeNextAfterCleaning())
     }
 
     private func makeQueuedTask(task: OnceTimeoutTask<T, E>, priority: Int) -> QueuedTask {
@@ -214,15 +210,40 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         guard !paused, current == nil, stopping == nil else {
             return nil
         }
-        while let first = waiting.first, first.task.state.isDone {
-            waiting.removeFirst()
-        }
         guard !waiting.isEmpty else {
             return nil
         }
         let next = waiting.removeFirst()
         current = next
         return next
+    }
+
+    private func takeNextAfterCleaning() -> QueuedTask? {
+        while true {
+            lock.lock()
+            let events = removeDoneWaitingTasksLocked()
+            if events.isEmpty {
+                let next = takeNextIfPossible()
+                lock.unlock()
+                return next
+            }
+            lock.unlock()
+            publish(events)
+        }
+    }
+
+    private func removeDoneWaitingTasksLocked() -> [TaskFinishEvent] {
+        var events: [TaskFinishEvent] = []
+        var remaining: [QueuedTask] = []
+        for item in waiting {
+            if case .done(let doneType) = item.task.state {
+                events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
+            } else {
+                remaining.append(item)
+            }
+        }
+        waiting = remaining
+        return events
     }
 
     private func start(_ item: QueuedTask?) {
@@ -250,13 +271,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
 
         publish([event].compactMap { $0 })
 
-        let taskToStart: QueuedTask?
-
-        lock.lock()
-        taskToStart = takeNextIfPossible()
-        lock.unlock()
-
-        start(taskToStart)
+        start(takeNextAfterCleaning())
     }
 
     /// Prepares a stop request while the queue lock is already held.
@@ -320,13 +335,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
 
         publish([event].compactMap { $0 })
 
-        let taskToStart: QueuedTask?
-
-        lock.lock()
-        taskToStart = takeNextIfPossible()
-        lock.unlock()
-
-        start(taskToStart)
+        start(takeNextAfterCleaning())
     }
 
     private func publish(_ events: [TaskFinishEvent]) {
