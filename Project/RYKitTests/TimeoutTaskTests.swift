@@ -784,11 +784,11 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         XCTAssertEqual(executionOrder, ["current", "equal"])
     }
 
-    func test_cancelAllDuringPublicStopWaitKeepsCurrentUntilStoppedAndCancelsWaiting() {
+    func test_stopAllDuringPublicStopWaitKeepsCurrentUntilStoppedAndStopsWaiting() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
         let currentStarted = expectation(description: "current started")
         let stopCaptured = expectation(description: "stop captured")
-        let waitingCancelled = expectation(description: "waiting cancelled")
+        let waitingStopped = expectation(description: "waiting stopped")
         let currentFinished = expectation(description: "current finished")
         let waitingStarted = expectation(description: "waiting started")
         waitingStarted.isInverted = true
@@ -804,7 +804,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 lock.unlock()
 
                 if event.flag == "waiting" {
-                    waitingCancelled.fulfill()
+                    waitingStopped.fulfill()
                 } else if event.flag == "current" {
                     currentDoneType = event.doneType
                     currentFinished.fulfill()
@@ -834,8 +834,8 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         current.stop()
         wait(for: [stopCaptured], timeout: 1.0)
 
-        queue.cancelAll()
-        wait(for: [waitingCancelled], timeout: 1.0)
+        queue.stopAll()
+        wait(for: [waitingStopped], timeout: 1.0)
         wait(for: [waitingStarted], timeout: 0.2)
 
         lock.lock()
@@ -1241,7 +1241,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         XCTAssertEqual(eventFlags, ["high", "current"])
     }
 
-    func test_cancelAll_duringStopWaitAbandonsPendingPreemptionAndEmitsStoppedTaskOnStopCompletion() {
+    func test_stopAll_duringStopWaitAbandonsPendingPreemptionAndEmitsStoppedTaskOnStopCompletion() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
         let currentStarted = expectation(description: "current started")
         let stoppedTaskFinished = expectation(description: "stopped task finished")
@@ -1269,7 +1269,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         queue.addTask(current, priority: 0)
         wait(for: [currentStarted], timeout: 1.0)
         queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
-        queue.cancelAll()
+        queue.stopAll()
         stoppedCallback?()
 
         wait(for: [stoppedTaskFinished], timeout: 1.0)

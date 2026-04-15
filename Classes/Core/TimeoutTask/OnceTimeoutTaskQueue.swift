@@ -142,39 +142,50 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         start(taskToStart)
     }
 
-    /// Cancels all waiting tasks and the current task when cancellation can be claimed.
+    /// Stops all waiting tasks and the current task when they match the filter.
     ///
     /// If a task is already waiting for stop cleanup, the queue keeps ownership until `stopped()`
     /// or stop timeout, then emits the final event.
-    public func cancelAll(where block: ((OnceTimeoutTask<T, E>) -> Bool)? = nil) {
+    public func stopAll(where block: ((OnceTimeoutTask<T, E>) -> Bool)? = nil) {
         var events: [TaskFinishEvent] = []
 
         lock.lock()
-        let itemsToCancel: [QueuedTask]
+        let itemsToStop: [QueuedTask]
         if let block {
-            itemsToCancel = waiting.filter({ queued in
-                return block(queued.task)
-            })
+            itemsToStop = waiting.filter { queued in
+                block(queued.task)
+            }
+            waiting.removeAll { queued in
+                block(queued.task)
+            }
         } else {
-            itemsToCancel = waiting
+            itemsToStop = waiting
             waiting.removeAll()
         }
+
         if let stopping, block?(stopping.task) ?? true {
-            _ = stopping.task.cancelFromQueue()
+            _ = stopping.task.stopFromQueue()
             stopDisposition = .discard
         }
-        for item in itemsToCancel {
-            if let doneType = item.task.cancelFromQueue() {
+
+        for item in itemsToStop {
+            if let doneType = item.task.stopFromQueue() {
                 events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
             }
         }
-        if let current, block?(current.task) ?? true, let doneType = current.task.cancelFromQueue() {
-            self.current = nil
-            events.append(TaskFinishEvent(flag: current.task.flag, task: current.task, doneType: doneType))
+
+        let currentStopRequest: (() -> Void)?
+        if let current, block?(current.task) ?? true {
+            currentStopRequest = prepareStopLocked(disposition: .discard)
+        } else {
+            currentStopRequest = nil
         }
+        let taskToStart = takeNextIfPossible()
         lock.unlock()
 
         publish(events)
+        currentStopRequest?()
+        start(taskToStart)
     }
 
     private func makeQueuedTask(task: OnceTimeoutTask<T, E>, priority: Int) -> QueuedTask {
