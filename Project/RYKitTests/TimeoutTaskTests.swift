@@ -281,6 +281,74 @@ final class OnceTimeoutTaskTests: XCTestCase {
         }
     }
 
+    func test_stop_onUnstart_marksDoneStopWithoutCallingStopWhenExecuting() {
+        let stopCalled = expectation(description: "stopWhenExecuting called")
+        stopCalled.isInverted = true
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "unstart-stop",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in },
+            stopWhenExecuting: { _ in
+                stopCalled.fulfill()
+            }
+        )
+
+        task.stop()
+
+        wait(for: [stopCalled], timeout: 0.2)
+        guard case .done(.stop) = task.state else {
+            XCTFail("Expected done(stop), got \(task.state)")
+            return
+        }
+    }
+
+    func test_stop_onWaitingRestartStoppedTrue_marksDoneStopWithoutCallingStopWhenExecuting() {
+        let stopCalled = expectation(description: "stopWhenExecuting called")
+        stopCalled.isInverted = true
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "restart-stop",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in },
+            stopWhenExecuting: { _ in
+                stopCalled.fulfill()
+            }
+        )
+
+        task.setWaitingRestartForTest(stopped: true)
+        task.stop()
+
+        wait(for: [stopCalled], timeout: 0.2)
+        guard case .done(.stop) = task.state else {
+            XCTFail("Expected done(stop), got \(task.state)")
+            return
+        }
+    }
+
+    func test_stop_onWaitingRestartStoppedFalse_doesNotCreateSecondStopFlow() {
+        let stopCalled = expectation(description: "stopWhenExecuting called")
+        stopCalled.isInverted = true
+        let task = OnceTimeoutTask<Int, TestError>(
+            flag: "restart-waiting",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { _ in },
+            stopWhenExecuting: { _ in
+                stopCalled.fulfill()
+            }
+        )
+
+        task.setWaitingRestartForTest(stopped: false)
+        task.stop()
+
+        wait(for: [stopCalled], timeout: 0.2)
+        guard case .waitingRestart(stopped: false) = task.state else {
+            XCTFail("Expected waitingRestart(false), got \(task.state)")
+            return
+        }
+    }
+
     func test_asyncInit_usesDefaultStop() async throws {
         let task = OnceTimeoutTask<Int, TestError>(
             flag: "async-default-stop",

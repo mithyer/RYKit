@@ -314,6 +314,8 @@ let task = OnceTimeoutTask<String, Error>(
 )
 ```
 
+`stopWhenExecuting` is only consulted when the task is already executing.
+
 ```swift
 let queue = OnceTimeoutTaskQueue<String, Error>(
     executeQueue: .main,

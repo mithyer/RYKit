@@ -144,8 +144,8 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
 
     /// Stops all waiting tasks and the current task when they match the filter.
     ///
-    /// If a task is already waiting for stop cleanup, the queue keeps ownership until `stopped()`
-    /// or stop timeout, then emits the final event.
+    /// Waiting tasks and restart-ready tasks stop immediately. If a task is already waiting for
+    /// stop cleanup, the queue keeps ownership until `stopped()` or stop timeout, then emits the final event.
     public func stopAll(where block: ((OnceTimeoutTask<T, E>) -> Bool)? = nil) {
         var events: [TaskFinishEvent] = []
 

@@ -185,6 +185,10 @@ open class OnceTimeoutTask<T, E: Error> {
     ///
     /// The task enters `.done(.stop)` immediately and notifies listeners after `stopped()` or stop timeout.
     public func stop() {
+        if let doneType = stopWhileQueued() {
+            notifyDone(doneType)
+            return
+        }
         guard let request = makeStopRequest(timeoutQueue: .global(qos: .userInitiated), onStopped: { [weak self] in
             self?.notifyDone(.stop)
         }) else {
