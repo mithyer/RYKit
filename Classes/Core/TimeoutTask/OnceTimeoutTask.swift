@@ -238,7 +238,6 @@ open class OnceTimeoutTask<T, E: Error> {
         default:
             currentState = .done(.stop)
         }
-        executionTimeoutItem?.cancel()
         executionTimeoutItem = nil
         self.stopTimeoutItem = stopTimeoutItem
         stopFinished = onStopped
@@ -256,16 +255,14 @@ open class OnceTimeoutTask<T, E: Error> {
     }
 
     @discardableResult
-    func stopFromQueue() -> DoneType? {
+    func stopWhileQueued() -> DoneType? {
         lock.lock()
         switch currentState {
         case .unstart, .waitingRestart(stopped: true):
             currentState = .done(.stop)
             runGeneration &+= 1
             stopGeneration &+= 1
-            executionTimeoutItem?.cancel()
             executionTimeoutItem = nil
-            stopTimeoutItem?.cancel()
             stopTimeoutItem = nil
             stopFinished = nil
             lock.unlock()
@@ -276,11 +273,6 @@ open class OnceTimeoutTask<T, E: Error> {
         }
     }
 
-    @discardableResult
-    func cancelFromQueue() -> DoneType? {
-        stopFromQueue()
-    }
-    
     /// Legacy internal reset hook retained for existing tests; queue requeue no longer uses it.
     @discardableResult
     func resetForRequeue() -> Bool {
@@ -289,7 +281,6 @@ open class OnceTimeoutTask<T, E: Error> {
         guard case .done(.stop) = currentState else {
             return false
         }
-        stopTimeoutItem?.cancel()
         stopTimeoutItem = nil
         stopFinished = nil
         executionTimeoutItem = nil
@@ -331,7 +322,6 @@ open class OnceTimeoutTask<T, E: Error> {
             return
         }
         currentState = .done(doneType)
-        executionTimeoutItem?.cancel()
         executionTimeoutItem = nil
         doneHandler = notify ? onDone : nil
         lock.unlock()
@@ -362,7 +352,6 @@ open class OnceTimeoutTask<T, E: Error> {
         }
         handler = stopFinished
         self.stopFinished = nil
-        stopTimeoutItem?.cancel()
         stopTimeoutItem = nil
         lock.unlock()
         

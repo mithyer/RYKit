@@ -332,8 +332,7 @@ let persistentTask = OnceTimeoutTask<String, Error>(
     stopTimeoutInterval: nil,
     execute: { _ in
         // Complete later, or keep running.
-    },
-    stop: nil
+    }
 )
 queue.addTask(persistentTask, priority: 1)
 ```
@@ -617,8 +616,7 @@ let persistentTask = OnceTimeoutTask<String, Error>(
     stopTimeoutInterval: nil,
     execute: { _ in
         // Complete later, or keep running.
-    },
-    stop: nil
+    }
 )
 queue.addTask(persistentTask, priority: 1)
 ```

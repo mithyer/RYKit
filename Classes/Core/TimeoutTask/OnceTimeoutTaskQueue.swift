@@ -164,12 +164,12 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         }
 
         if let stopping, block?(stopping.task) ?? true {
-            _ = stopping.task.stopFromQueue()
+            _ = stopping.task.stopWhileQueued()
             stopDisposition = .discard
         }
 
         for item in itemsToStop {
-            if let doneType = item.task.stopFromQueue() {
+            if let doneType = item.task.stopWhileQueued() {
                 events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
             }
         }
