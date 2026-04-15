@@ -45,7 +45,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: .seconds(1),
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
 
         XCTAssertEqual(task.flag, "task-1")
@@ -59,7 +59,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
 
         task.setWaitingRestartForTest(stopped: false)
@@ -76,7 +76,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
 
         task.setWaitingRestartForTest(stopped: true)
@@ -94,7 +94,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in started.fulfill() },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
 
         task.setWaitingRestartForTest(stopped: true)
@@ -115,7 +115,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in started.fulfill() },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
 
         task.setWaitingRestartForTest(stopped: false)
@@ -134,7 +134,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
 
         task.perform(by: .global(), timeoutQueue: .global())
@@ -154,7 +154,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
                 completed(.success(42))
                 executed.fulfill()
             },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
 
         task.perform(by: .global(), timeoutQueue: .global())
@@ -174,7 +174,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
                 completed(.failure(.failed))
                 executed.fulfill()
             },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
 
         task.perform(by: .global(), timeoutQueue: .global())
@@ -194,7 +194,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: .milliseconds(80),
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
         task.onDone = { _ in
             timedOut.fulfill()
@@ -217,7 +217,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: nil,
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
         task.onDone = { _ in finished.fulfill() }
 
@@ -242,7 +242,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: nil,
             execute: { _ in },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 capturedStopped = stopped
                 stopCalled.fulfill()
             }
@@ -358,7 +358,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
                 capturedComplete = completed
                 started.fulfill()
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 stopCalled.fulfill()
                 stopped()
             }
@@ -400,7 +400,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
                     secondRunStarted.fulfill()
                 }
             },
-            stop: { _ in }
+            stopWhenExecuting: { _ in }
         )
 
         task.perform(by: executeQueue, timeoutQueue: timeoutQueue)
@@ -455,7 +455,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
                     secondRunStarted.fulfill()
                 }
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 lock.lock()
                 stoppedCallbacks.append(stopped)
                 let count = stoppedCallbacks.count
@@ -513,7 +513,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             execute: {
                 .success(7)
             },
-            stop: {}
+            stopWhenExecuting: {}
         )
 
         task.perform(by: .global(), timeoutQueue: .global())
@@ -530,7 +530,7 @@ final class OnceTimeoutTaskTests: XCTestCase {
             execute: {
                 .failure(.failed)
             },
-            stop: {}
+            stopWhenExecuting: {}
         )
 
         task.perform(by: .global(), timeoutQueue: .global())
@@ -578,7 +578,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 }
                 completed(.success(value))
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 stopped()
             }
         )
@@ -710,7 +710,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 allowCurrentToFinish.wait()
                 completed(.success(1))
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 stopCalled = true
                 stopped()
             }
@@ -760,7 +760,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 allowCurrentToFinish.wait()
                 completed(.success(1))
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 stopCalled = true
                 stopped()
             }
@@ -824,7 +824,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .seconds(10),
             execute: { _ in currentStarted.fulfill() },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 lock.lock()
                 capturedStopped = stopped
                 lock.unlock()
@@ -987,7 +987,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 lock.unlock()
                 currentStarted.fulfill()
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 lock.lock()
                 capturedStopped = stopped
                 lock.unlock()
@@ -1077,7 +1077,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .seconds(10),
             execute: { _ in currentStarted.fulfill() },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 lock.lock()
                 capturedStopped = stopped
                 lock.unlock()
@@ -1194,7 +1194,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 allowFirstToFinish.wait()
                 completed(.success(1))
             },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
         let second = makeTask(flag: "second", value: 2, onExecute: {
             lock.lock()
@@ -1251,7 +1251,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 lock.unlock()
                 currentStarted.fulfill()
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 lock.lock()
                 capturedStopped = stopped
                 lock.unlock()
@@ -1305,7 +1305,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             executionTimeoutInterval: .milliseconds(80),
             stopTimeoutInterval: .milliseconds(100),
             execute: { _ in },
-            stop: { stopped in stopped() }
+            stopWhenExecuting: { stopped in stopped() }
         )
         let nextTask = makeTask(flag: "next", value: 2)
 
@@ -1347,7 +1347,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 lock.unlock()
                 currentStarted.fulfill()
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 stoppedCallback = stopped
             }
         )
@@ -1390,7 +1390,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 lock.unlock()
                 currentStarted.fulfill()
             },
-            stop: { _ in }
+            stopWhenExecuting: { _ in }
         )
         let high = makeTask(flag: "high", value: 2, onExecute: {
             lock.lock()
@@ -1449,7 +1449,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                     completed(.success(1))
                 }
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 stoppedCallback = stopped
             }
         )
@@ -1465,7 +1465,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
                 allowHighToFinish.wait()
                 completed(.success(2))
             },
-            stop: { stopped in
+            stopWhenExecuting: { stopped in
                 stopped()
             }
         )
@@ -1530,7 +1530,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .seconds(1),
             execute: { _ in currentStarted.fulfill() },
-            stop: { stopped in stoppedCallback = stopped }
+            stopWhenExecuting: { stopped in stoppedCallback = stopped }
         )
         let high = makeTask(flag: "high", value: 2)
 

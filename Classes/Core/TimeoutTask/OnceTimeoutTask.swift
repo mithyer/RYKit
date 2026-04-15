@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// A single-use asynchronous task with optional execution timeout and cooperative stop support.
+/// A single-use asynchronous task with optional execution timeout and cooperative stop support while executing.
 open class OnceTimeoutTask<T, E: Error> {
     
     /// The lifecycle state of a task.
@@ -58,10 +58,10 @@ open class OnceTimeoutTask<T, E: Error> {
     
     /// Completion callback passed to `execute`.
     public typealias Completed = (Result<T, E>) -> Void
-    /// Callback that a stop closure must call after stop cleanup completes.
+    /// Callback that a stopWhenExecuting closure must call after stop cleanup completes.
     public typealias Stopped = () -> Void
-    /// Cooperative stop closure. Call `Stopped` when resources are actually stopped.
-    public typealias Stop = (@escaping Stopped) -> Void
+    /// Cooperative stop closure used only for executing tasks. Call `Stopped` when resources are actually stopped.
+    public typealias StopWhenExecuting = (@escaping Stopped) -> Void
     
     /// Caller-owned identifier for queue finish events and diagnostics.
     public let flag: String
@@ -69,7 +69,7 @@ open class OnceTimeoutTask<T, E: Error> {
     let stopTimeoutInterval: DispatchTimeInterval?
     
     private let execute: (@escaping Completed) -> Void
-    private let stopAction: Stop
+    private let stopAction: StopWhenExecuting
     private let lock = UnfairLock()
     private var currentState: State = .unstart
     private var runGeneration: UInt64 = 0
@@ -80,7 +80,7 @@ open class OnceTimeoutTask<T, E: Error> {
     
     var onDone: ((DoneType) -> Void)?
 
-    /// Whether this task supports cooperative stop.
+    /// Whether this task supports cooperative stop while executing.
     var isStoppable: Bool {
         true
     }
@@ -99,35 +99,35 @@ open class OnceTimeoutTask<T, E: Error> {
     ///   - executionTimeoutInterval: Maximum execution duration. Pass `nil` to disable execution timeout.
     ///   - stopTimeoutInterval: Maximum time to wait for `stopped()`. Pass `nil` to wait indefinitely.
     ///   - execute: Starts the task and receives a one-shot completion callback.
-    ///   - stop: Cooperative stop closure.
+    ///   - stopWhenExecuting: Cooperative stop closure used when the task is executing.
     public init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping (@escaping Completed) -> Void,
-        stop: @escaping Stop = { stopped in stopped() }
+        stopWhenExecuting: @escaping StopWhenExecuting = { stopped in stopped() }
     ) {
         self.flag = flag
         self.executionTimeoutInterval = executionTimeoutInterval
         self.stopTimeoutInterval = stopTimeoutInterval
         self.execute = execute
-        self.stopAction = stop
+        self.stopAction = stopWhenExecuting
     }
     
     /// Creates an async timeout task.
     ///
     /// The async `execute` result is bridged to the callback-based initializer. The queue waits
-    /// until the async stop closure returns.
+    /// until the async stopWhenExecuting closure returns.
     public convenience init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping () async -> Result<T, E>,
-        stop: @escaping () async -> Void = {}
+        stopWhenExecuting: @escaping () async -> Void = {}
     ) {
-        let bridgedStop: Stop = { stopped in
+        let bridgedStop: StopWhenExecuting = { stopped in
             Task {
-                await stop()
+                await stopWhenExecuting()
                 stopped()
             }
         }
@@ -140,7 +140,7 @@ open class OnceTimeoutTask<T, E: Error> {
                     completed(await execute())
                 }
             },
-            stop: bridgedStop
+            stopWhenExecuting: bridgedStop
         )
     }
     
@@ -193,7 +193,7 @@ open class OnceTimeoutTask<T, E: Error> {
         request()
     }
     
-    /// Builds a final-stop request for queue-owned stop/discard flows.
+    /// Builds a final-stop request for queue-owned stop/discard flows while the task is executing.
     func makeStopRequest(timeoutQueue: DispatchQueue, onStopped: @escaping () -> Void) -> (() -> Void)? {
         makeStopRequest(
             timeoutQueue: timeoutQueue,
@@ -202,7 +202,7 @@ open class OnceTimeoutTask<T, E: Error> {
         )
     }
 
-    /// Builds a restart-stop request for queue requeue flows.
+    /// Builds a restart-stop request for queue requeue flows while the task is executing.
     ///
     /// The task enters `.waitingRestart(stopped: false)` immediately and moves to
     /// `.waitingRestart(stopped: true)` after `stopped()` or stop timeout.

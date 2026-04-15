@@ -308,7 +308,7 @@ let task = OnceTimeoutTask<String, Error>(
     execute: { complete in
         complete(.success("ok"))
     },
-    stop: { stopped in
+    stopWhenExecuting: { stopped in
         stopped()
     }
 )
@@ -592,7 +592,7 @@ let task = OnceTimeoutTask<String, Error>(
     execute: { complete in
         complete(.success("ok"))
     },
-    stop: { stopped in
+    stopWhenExecuting: { stopped in
         stopped()
     }
 )
