@@ -1295,6 +1295,18 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         XCTAssertEqual(executionOrder, ["one", "two", "three"])
     }
 
+    func test_allTasks_whenPaused_returnsWaitingTasksInPriorityThenFIFOOrder() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        queue.pause()
+
+        queue.addTask(makeTask(flag: "low", value: 1), priority: 0)
+        queue.addTask(makeTask(flag: "high-a", value: 2), priority: 10)
+        queue.addTask(makeTask(flag: "high-b", value: 3), priority: 10)
+        queue.addTask(makeTask(flag: "mid", value: 4), priority: 5)
+
+        XCTAssertEqual(queue.allTasks.map(\.flag), ["high-a", "high-b", "mid", "low"])
+    }
+
     func test_waitCurrentCompletion_doesNotStopCurrentTask() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(
             executeQueue: .global(),
@@ -1488,6 +1500,301 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         }
     }
 
+    func test_allTasks_duringDiscardPreemption_includesWaitingAndStoppingExactlyOnce() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let recorder = FinishEventRecorder(queue: queue)
+        let currentStarted = expectation(description: "current started")
+        let lock = NSLock()
+        var capturedStopped: (() -> Void)?
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { _ in currentStarted.fulfill() },
+            stopWhenExecuting: { stopped in
+                lock.lock()
+                capturedStopped = stopped
+                lock.unlock()
+            }
+        )
+        let high = makeTask(flag: "high", value: 2)
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndDiscard)
+
+        waitUntil {
+            lock.lock()
+            defer { lock.unlock() }
+            return capturedStopped != nil
+        }
+        let flags = queue.allTasks.map(\.flag)
+        XCTAssertEqual(flags, ["high", "current"])
+        XCTAssertEqual(Set(flags).count, 2)
+
+        lock.lock()
+        let stopped = capturedStopped
+        lock.unlock()
+        stopped?()
+
+        waitUntil { recorder.flags == ["current", "high"] }
+        XCTAssertTrue(queue.allTasks.isEmpty)
+    }
+
+    func test_allTasks_afterRequeueStopCompletion_reinsertsTaskOnce() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let recorder = FinishEventRecorder(queue: queue)
+        let currentStarted = expectation(description: "current started")
+        let highStarted = expectation(description: "high started")
+        let allowHighToFinish = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        var currentRunCount = 0
+        var capturedStopped: (() -> Void)?
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { completed in
+                lock.lock()
+                currentRunCount += 1
+                let run = currentRunCount
+                lock.unlock()
+
+                if run == 1 {
+                    currentStarted.fulfill()
+                } else {
+                    completed(.success(1))
+                }
+            },
+            stopWhenExecuting: { stopped in
+                lock.lock()
+                capturedStopped = stopped
+                lock.unlock()
+            }
+        )
+        let low = makeTask(flag: "low", value: 2)
+        let high = OnceTimeoutTask<Int, TestError>(
+            flag: "high",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { completed in
+                highStarted.fulfill()
+                allowHighToFinish.wait()
+                completed(.success(3))
+            },
+            stopWhenExecuting: { stopped in stopped() }
+        )
+
+        queue.addTask(current, priority: 5)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(low, priority: 1)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
+
+        waitUntil {
+            lock.lock()
+            defer { lock.unlock() }
+            return capturedStopped != nil
+        }
+        lock.lock()
+        let stopped = capturedStopped
+        lock.unlock()
+        stopped?()
+        wait(for: [highStarted], timeout: 1.0)
+
+        let flagsWhileHighRuns = queue.allTasks.map(\.flag)
+        XCTAssertEqual(flagsWhileHighRuns, ["current", "low", "high"])
+        XCTAssertEqual(Set(flagsWhileHighRuns).count, 3)
+
+        allowHighToFinish.signal()
+
+        waitUntil {
+            lock.lock()
+            defer { lock.unlock() }
+            return recorder.flags == ["high", "current", "low"] && queue.allTasks.isEmpty
+        }
+        lock.lock()
+        let finalCurrentRunCount = currentRunCount
+        lock.unlock()
+        XCTAssertEqual(finalCurrentRunCount, 2)
+        XCTAssertTrue(queue.allTasks.isEmpty)
+    }
+
+    func test_addTask_waitingRestartStoppedTrue_doesNotDuplicateSameInstance() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        queue.pause()
+
+        let task = makeTask(flag: "restart-ready", value: 1)
+        task.setWaitingRestartForTest(stopped: true)
+
+        queue.addTask(task, priority: 5)
+        queue.addTask(task, priority: 5)
+
+        XCTAssertEqual(queue.allTasks.map(\.flag), ["restart-ready"])
+        XCTAssertTrue(queue.allTasks.first === task)
+    }
+
+    func test_addTask_higherPriorityWhilePaused_doesNotPreemptCurrent() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let allowCurrentToFinish = DispatchSemaphore(value: 0)
+        let recorder = FinishEventRecorder(queue: queue)
+        let lock = NSLock()
+        var stopCallCount = 0
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { completed in
+                currentStarted.fulfill()
+                allowCurrentToFinish.wait()
+                completed(.success(1))
+            },
+            stopWhenExecuting: { stopped in
+                lock.lock()
+                stopCallCount += 1
+                lock.unlock()
+                stopped()
+            }
+        )
+        let high = makeTask(flag: "high", value: 2)
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.pause()
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndDiscard)
+
+        Thread.sleep(forTimeInterval: 0.15)
+        lock.lock()
+        let finalStopCallCount = stopCallCount
+        lock.unlock()
+        XCTAssertEqual(finalStopCallCount, 0)
+        XCTAssertEqual(queue.allTasks.map(\.flag), ["high", "current"])
+
+        queue.resume()
+        allowCurrentToFinish.signal()
+        waitUntil { recorder.flags == ["current", "high"] }
+    }
+
+    func test_addTask_higherPriorityWhileStopping_doesNotTriggerSecondPreemption() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let recorder = FinishEventRecorder(queue: queue)
+        let lock = NSLock()
+        var stopCallCount = 0
+        var capturedStopped: (() -> Void)?
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { _ in currentStarted.fulfill() },
+            stopWhenExecuting: { stopped in
+                lock.lock()
+                stopCallCount += 1
+                capturedStopped = stopped
+                lock.unlock()
+            }
+        )
+        let high = OnceTimeoutTask<Int, TestError>(
+            flag: "high",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .milliseconds(100),
+            execute: { completed in
+                completed(.success(2))
+            },
+            stopWhenExecuting: { stopped in stopped() }
+        )
+        let higher = makeTask(flag: "higher", value: 3)
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndDiscard)
+        waitUntil {
+            lock.lock()
+            defer { lock.unlock() }
+            return capturedStopped != nil
+        }
+        queue.addTask(higher, priority: 20, preemptionStrategy: .stopCurrentAndDiscard)
+
+        lock.lock()
+        let finalStopCallCount = stopCallCount
+        let stopped = capturedStopped
+        lock.unlock()
+        XCTAssertEqual(finalStopCallCount, 1)
+        XCTAssertEqual(queue.allTasks.map(\.flag), ["higher", "high", "current"])
+
+        stopped?()
+        waitUntil { recorder.flags == ["current", "higher", "high"] }
+    }
+
+    func test_stopCurrentAndRequeue_restartsBeforeLowerPriorityWaitingTask() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let allFinished = expectation(description: "all finished")
+        allFinished.expectedFulfillmentCount = 3
+        let lock = NSLock()
+        var runCount = 0
+        var executionOrder: [String] = []
+        var capturedStopped: (() -> Void)?
+
+        queue.taskDidFinish
+            .sink { _ in allFinished.fulfill() }
+            .store(in: &cancellables)
+
+        let current = OnceTimeoutTask<Int, TestError>(
+            flag: "current",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            execute: { completed in
+                lock.lock()
+                runCount += 1
+                let currentRun = runCount
+                executionOrder.append("current-\(currentRun)")
+                lock.unlock()
+
+                if currentRun == 1 {
+                    currentStarted.fulfill()
+                } else {
+                    completed(.success(1))
+                }
+            },
+            stopWhenExecuting: { stopped in
+                capturedStopped = stopped
+            }
+        )
+        let low = makeTask(flag: "low", value: 2, onExecute: {
+            lock.lock()
+            executionOrder.append("low")
+            lock.unlock()
+        })
+        let high = makeTask(flag: "high", value: 3, onExecute: {
+            lock.lock()
+            executionOrder.append("high")
+            lock.unlock()
+        })
+
+        queue.addTask(current, priority: 5)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(low, priority: 1)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
+
+        waitUntil {
+            lock.lock()
+            defer { lock.unlock() }
+            return capturedStopped != nil
+        }
+        lock.lock()
+        let stopped = capturedStopped
+        lock.unlock()
+        stopped?()
+        wait(for: [allFinished], timeout: 2.0)
+
+        XCTAssertEqual(executionOrder, ["current-1", "high", "current-2", "low"])
+    }
+
     func test_stopAllWhere_stopsOnlyMatchingWaitingTasks() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
         queue.pause()
@@ -1557,6 +1864,37 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         XCTAssertEqual(orderAfterResume, ["unmatched"])
     }
 
+    func test_stopAllWhere_noMatch_keepsAllTasksAndEmitsNoEvents() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let recorder = FinishEventRecorder(queue: queue)
+        queue.pause()
+
+        queue.addTask(makeTask(flag: "one", value: 1), priority: 10)
+        queue.addTask(makeTask(flag: "two", value: 2), priority: 0)
+
+        let before = queue.allTasks.map(\.flag)
+        queue.stopAll { $0.flag == "missing" }
+
+        XCTAssertEqual(queue.allTasks.map(\.flag), before)
+        XCTAssertTrue(recorder.flags.isEmpty)
+    }
+
+    func test_stopAllWhere_partialWaitingRemoval_preservesRemainingPriorityOrder() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let recorder = FinishEventRecorder(queue: queue)
+        queue.pause()
+
+        queue.addTask(makeTask(flag: "low", value: 1), priority: 0)
+        queue.addTask(makeTask(flag: "remove", value: 2), priority: 7)
+        queue.addTask(makeTask(flag: "mid", value: 3), priority: 3)
+        queue.addTask(makeTask(flag: "high", value: 4), priority: 10)
+
+        queue.stopAll { $0.flag == "remove" }
+
+        waitUntil { recorder.flags == ["remove"] }
+        XCTAssertEqual(queue.allTasks.map(\.flag), ["high", "mid", "low"])
+    }
+
     func test_waitingTaskDirectStop_removesFromQueueAndEmitsEvent() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
         queue.pause()
@@ -1624,6 +1962,22 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
 
         XCTAssertEqual(flagsAfterResume, ["first", "second"])
         XCTAssertEqual(orderAfterResume, ["second"])
+    }
+
+    func test_waitingTaskDirectStop_removesStoppedTaskFromAllTasks() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let recorder = FinishEventRecorder(queue: queue)
+        queue.pause()
+
+        let first = makeTask(flag: "first", value: 1)
+        let second = makeTask(flag: "second", value: 2)
+        queue.addTask(first, priority: 1)
+        queue.addTask(second, priority: 0)
+
+        first.stop()
+
+        waitUntil { recorder.flags == ["first"] }
+        XCTAssertEqual(queue.allTasks.map(\.flag), ["second"])
     }
 
     func test_takeNextIfPossible_skipsDoneWaitingTask() {

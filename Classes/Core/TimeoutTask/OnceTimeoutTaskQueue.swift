@@ -10,6 +10,9 @@ import Foundation
 
 /// A priority queue that executes one `OnceTimeoutTask` at a time.
 open class OnceTimeoutTaskQueue<T, E: Error> {
+    
+    public typealias Task = OnceTimeoutTask<T, E>
+
     /// Strategy used when a newly added task has higher priority than the current task.
     public enum PreemptionStrategy {
         /// Stop the current task and discard it after stop cleanup.
@@ -25,17 +28,17 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         /// Caller-owned task identifier.
         public let flag: String
         /// The task that finished.
-        public let task: OnceTimeoutTask<T, E>
+        public let task: Task
         /// The task's terminal reason at queue removal time.
-        public let doneType: OnceTimeoutTask<T, E>.DoneType
+        public let doneType: Task.DoneType
     }
 
     private struct QueuedTask {
-        let task: OnceTimeoutTask<T, E>
+        let task: Task
         let priority: Int
         let sequence: Int
     }
-
+    
     /// Emits when a task truly leaves queue ownership.
     ///
     /// Requeued tasks do not emit an event for the intermediate stop.
@@ -76,11 +79,20 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
     /// priority is higher than the current task, the effective preemption strategy is used. If the
     /// current task is non-stoppable, every stop-based strategy behaves as `.waitCurrentCompletion`.
     public func addTask(
-        _ task: OnceTimeoutTask<T, E>,
+        _ task: Task,
         priority: Int = 0,
         preemptionStrategy: PreemptionStrategy? = nil
     ) {
         guard task.state.canEnqueue else {
+            return
+        }
+
+        let strategy = preemptionStrategy ?? defaultPreemptionStrategy
+        let stopRequest: (() -> Void)?
+
+        lock.lock()
+        guard !containsTaskLocked(task) else {
+            lock.unlock()
             return
         }
 
@@ -89,12 +101,8 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
             self?.handleTaskDone(task, doneType: doneType)
         }
 
-        let item = makeQueuedTask(task: task, priority: priority)
-        let strategy = preemptionStrategy ?? defaultPreemptionStrategy
-        let stopRequest: (() -> Void)?
-
-        lock.lock()
-        if let current, item.priority > current.priority {
+        let item = makeQueuedTaskLocked(task: task, priority: priority)
+        if !paused, let current, item.priority > current.priority {
             insert(item)
             let effectiveStrategy = current.task.isStoppable ? strategy : .waitCurrentCompletion
             switch effectiveStrategy {
@@ -141,7 +149,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
     ///
     /// Waiting tasks and restart-ready tasks stop immediately. If a task is already waiting for
     /// stop cleanup, the queue keeps ownership until `stopped()` or stop timeout, then emits the final event.
-    public func stopAll(where block: ((OnceTimeoutTask<T, E>) -> Bool)? = nil) {
+    public func stopAll(where block: ((Task) -> Bool)? = nil) {
         var events: [TaskFinishEvent] = []
 
         lock.lock()
@@ -184,16 +192,15 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         start(takeNextAfterCleaning())
     }
 
-    private func makeQueuedTask(task: OnceTimeoutTask<T, E>, priority: Int) -> QueuedTask {
-        lock.lock()
-        let item = makeQueuedTaskLocked(task: task, priority: priority)
-        lock.unlock()
-        return item
-    }
-
-    private func makeQueuedTaskLocked(task: OnceTimeoutTask<T, E>, priority: Int) -> QueuedTask {
+    private func makeQueuedTaskLocked(task: Task, priority: Int) -> QueuedTask {
         sequence += 1
         return QueuedTask(task: task, priority: priority, sequence: sequence)
+    }
+
+    private func containsTaskLocked(_ task: Task) -> Bool {
+        waiting.contains { $0.task === task }
+            || current?.task === task
+            || stopping?.task === task
     }
 
     private func insert(_ item: QueuedTask) {
@@ -253,7 +260,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         item.task.perform(by: executeQueue, timeoutQueue: timeoutQueue)
     }
 
-    private func handleTaskDone(_ task: OnceTimeoutTask<T, E>, doneType: OnceTimeoutTask<T, E>.DoneType) {
+    private func handleTaskDone(_ task: Task, doneType: Task.DoneType) {
         let event: TaskFinishEvent?
 
         lock.lock()
@@ -304,7 +311,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
     }
 
     /// Handles completion of stop cleanup for discard and requeue preemption.
-    private func handleTaskStopped(_ task: OnceTimeoutTask<T, E>) {
+    private func handleTaskStopped(_ task: Task) {
         let event: TaskFinishEvent?
 
         lock.lock()
@@ -320,7 +327,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
             }
             event = nil
         case .discard, .none:
-            let doneType: OnceTimeoutTask<T, E>.DoneType
+            let doneType: Task.DoneType
             if case .done(let currentDoneType) = task.state {
                 doneType = currentDoneType
             } else {
@@ -342,5 +349,15 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         for event in events {
             taskDidFinish.send(event)
         }
+    }
+    
+    public var allTasks: [Task] {
+        lock.lock()
+        defer {
+            lock.unlock()
+        }
+        var all = waiting.map { $0.task }
+        all += [current?.task].compactMap { $0 } + [stopping?.task].compactMap{ $0 }
+        return all.map { $0 }
     }
 }
