@@ -104,7 +104,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         let item = makeQueuedTaskLocked(task: task, priority: priority)
         if !paused, let current, item.priority > current.priority {
             insert(item)
-            let effectiveStrategy = current.task.isStoppable ? strategy : .waitCurrentCompletion
+            let effectiveStrategy = strategy
             switch effectiveStrategy {
             case .waitCurrentCompletion:
                 stopRequest = nil

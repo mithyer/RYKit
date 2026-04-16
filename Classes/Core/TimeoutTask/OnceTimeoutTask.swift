@@ -68,7 +68,6 @@ open class OnceTimeoutTask<T, E: Error> {
     let executionTimeoutInterval: DispatchTimeInterval?
     let stopTimeoutInterval: DispatchTimeInterval?
     
-    private let supportsStopWhenExecuting: Bool
     private let execute: (@escaping Completed) -> Void
     private let stopAction: StopWhenExecuting
     private let lock = UnfairLock()
@@ -81,10 +80,6 @@ open class OnceTimeoutTask<T, E: Error> {
     
     var onDone: ((DoneType) -> Void)?
 
-    /// Whether this task supports cooperative stop while executing.
-    var isStoppable: Bool {
-        supportsStopWhenExecuting
-    }
     
     /// The current task state.
     public var state: State {
@@ -101,67 +96,18 @@ open class OnceTimeoutTask<T, E: Error> {
     ///   - stopTimeoutInterval: Maximum time to wait for `stopped()`. Pass `nil` to wait indefinitely.
     ///   - execute: Starts the task and receives a one-shot completion callback.
     ///   - stopWhenExecuting: Cooperative stop closure used when the task is executing.
-    public convenience init(
+    public init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,
-        execute: @escaping (@escaping Completed) -> Void,
-        stopWhenExecuting: @escaping StopWhenExecuting = { stopped in stopped() }
-    ) {
-        self.init(
-            flag: flag,
-            executionTimeoutInterval: executionTimeoutInterval,
-            stopTimeoutInterval: stopTimeoutInterval,
-            isStoppable: true,
-            execute: execute,
-            stopWhenExecuting: stopWhenExecuting
-        )
-    }
-
-    init(
-        flag: String,
-        executionTimeoutInterval: DispatchTimeInterval?,
-        stopTimeoutInterval: DispatchTimeInterval?,
-        isStoppable: Bool,
         execute: @escaping (@escaping Completed) -> Void,
         stopWhenExecuting: @escaping StopWhenExecuting = { stopped in stopped() }
     ) {
         self.flag = flag
         self.executionTimeoutInterval = executionTimeoutInterval
         self.stopTimeoutInterval = stopTimeoutInterval
-        self.supportsStopWhenExecuting = isStoppable
         self.execute = execute
         self.stopAction = stopWhenExecuting
-    }
-    
-    /// Creates an async timeout task.
-    ///
-    /// The async `execute` result is bridged to the callback-based initializer. The queue waits
-    /// until the async stopWhenExecuting closure returns.
-    public convenience init(
-        flag: String,
-        executionTimeoutInterval: DispatchTimeInterval?,
-        stopTimeoutInterval: DispatchTimeInterval?,
-        execute: @escaping () async -> Result<T, E>,
-        stopWhenExecuting: @escaping () async -> Void = {}
-    ) {
-        let bridgedStop: StopWhenExecuting = { stopped in
-            Task {
-                await stopWhenExecuting()
-                stopped()
-            }
-        }
-        self.init(
-            flag: flag,
-            executionTimeoutInterval: executionTimeoutInterval,
-            stopTimeoutInterval: stopTimeoutInterval,
-            execute: { completed in
-                Task {
-                    completed(await execute())
-                }
-            },
-            stopWhenExecuting: bridgedStop
-        )
     }
     
     /// Starts the task on the provided queue if the current state can run.
