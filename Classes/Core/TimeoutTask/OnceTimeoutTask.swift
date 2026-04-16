@@ -68,6 +68,7 @@ open class OnceTimeoutTask<T, E: Error> {
     let executionTimeoutInterval: DispatchTimeInterval?
     let stopTimeoutInterval: DispatchTimeInterval?
     
+    private let supportsStopWhenExecuting: Bool
     private let execute: (@escaping Completed) -> Void
     private let stopAction: StopWhenExecuting
     private let lock = UnfairLock()
@@ -82,7 +83,7 @@ open class OnceTimeoutTask<T, E: Error> {
 
     /// Whether this task supports cooperative stop while executing.
     var isStoppable: Bool {
-        true
+        supportsStopWhenExecuting
     }
     
     /// The current task state.
@@ -100,16 +101,35 @@ open class OnceTimeoutTask<T, E: Error> {
     ///   - stopTimeoutInterval: Maximum time to wait for `stopped()`. Pass `nil` to wait indefinitely.
     ///   - execute: Starts the task and receives a one-shot completion callback.
     ///   - stopWhenExecuting: Cooperative stop closure used when the task is executing.
-    public init(
+    public convenience init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping (@escaping Completed) -> Void,
         stopWhenExecuting: @escaping StopWhenExecuting = { stopped in stopped() }
     ) {
+        self.init(
+            flag: flag,
+            executionTimeoutInterval: executionTimeoutInterval,
+            stopTimeoutInterval: stopTimeoutInterval,
+            isStoppable: true,
+            execute: execute,
+            stopWhenExecuting: stopWhenExecuting
+        )
+    }
+
+    init(
+        flag: String,
+        executionTimeoutInterval: DispatchTimeInterval?,
+        stopTimeoutInterval: DispatchTimeInterval?,
+        isStoppable: Bool,
+        execute: @escaping (@escaping Completed) -> Void,
+        stopWhenExecuting: @escaping StopWhenExecuting = { stopped in stopped() }
+    ) {
         self.flag = flag
         self.executionTimeoutInterval = executionTimeoutInterval
         self.stopTimeoutInterval = stopTimeoutInterval
+        self.supportsStopWhenExecuting = isStoppable
         self.execute = execute
         self.stopAction = stopWhenExecuting
     }

@@ -1204,6 +1204,32 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         )
     }
 
+    private func makeNonStoppableTask(
+        flag: String,
+        value: Int,
+        start: XCTestExpectation? = nil,
+        gate: DispatchSemaphore? = nil,
+        onExecute: (() -> Void)? = nil,
+        onStop: (() -> Void)? = nil
+    ) -> OnceTimeoutTask<Int, TestError> {
+        OnceTimeoutTask<Int, TestError>(
+            flag: flag,
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(1),
+            isStoppable: false,
+            execute: { completed in
+                onExecute?()
+                start?.fulfill()
+                gate?.wait()
+                completed(.success(value))
+            },
+            stopWhenExecuting: { stopped in
+                onStop?()
+                stopped()
+            }
+        )
+    }
+
     private func doneType(
         of task: OnceTimeoutTask<Int, TestError>
     ) -> OnceTimeoutTask<Int, TestError>.DoneType? {
@@ -1793,6 +1819,110 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         wait(for: [allFinished], timeout: 2.0)
 
         XCTAssertEqual(executionOrder, ["current-1", "high", "current-2", "low"])
+    }
+
+    func test_stopCurrentAndDiscard_withNonStoppableCurrent_waitsForCompletion() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let allFinished = expectation(description: "all finished")
+        allFinished.expectedFulfillmentCount = 2
+        let allowCurrentToFinish = DispatchSemaphore(value: 0)
+        let counterLock = NSLock()
+        var stopCallCount = 0
+        var executionOrder: [String] = []
+        let orderLock = NSLock()
+
+        queue.taskDidFinish
+            .sink { _ in allFinished.fulfill() }
+            .store(in: &cancellables)
+
+        let current = makeNonStoppableTask(
+            flag: "current",
+            value: 1,
+            start: currentStarted,
+            gate: allowCurrentToFinish,
+            onExecute: {
+                orderLock.lock()
+                executionOrder.append("current")
+                orderLock.unlock()
+            },
+            onStop: {
+                counterLock.lock()
+                stopCallCount += 1
+                counterLock.unlock()
+            }
+        )
+        let high = makeTask(flag: "high", value: 2, onExecute: {
+            orderLock.lock()
+            executionOrder.append("high")
+            orderLock.unlock()
+        })
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndDiscard)
+
+        Thread.sleep(forTimeInterval: 0.15)
+        counterLock.lock()
+        let finalStopCallCount = stopCallCount
+        counterLock.unlock()
+        XCTAssertEqual(finalStopCallCount, 0)
+
+        allowCurrentToFinish.signal()
+        wait(for: [allFinished], timeout: 2.0)
+        XCTAssertEqual(executionOrder, ["current", "high"])
+    }
+
+    func test_stopCurrentAndRequeue_withNonStoppableCurrent_waitsForCompletion() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        let currentStarted = expectation(description: "current started")
+        let allFinished = expectation(description: "all finished")
+        allFinished.expectedFulfillmentCount = 2
+        let allowCurrentToFinish = DispatchSemaphore(value: 0)
+        let counterLock = NSLock()
+        var stopCallCount = 0
+        var executionOrder: [String] = []
+        let orderLock = NSLock()
+
+        queue.taskDidFinish
+            .sink { _ in allFinished.fulfill() }
+            .store(in: &cancellables)
+
+        let current = makeNonStoppableTask(
+            flag: "current",
+            value: 1,
+            start: currentStarted,
+            gate: allowCurrentToFinish,
+            onExecute: {
+                orderLock.lock()
+                executionOrder.append("current")
+                orderLock.unlock()
+            },
+            onStop: {
+                counterLock.lock()
+                stopCallCount += 1
+                counterLock.unlock()
+            }
+        )
+        let high = makeTask(flag: "high", value: 2, onExecute: {
+            orderLock.lock()
+            executionOrder.append("high")
+            orderLock.unlock()
+        })
+
+        queue.addTask(current, priority: 0)
+        wait(for: [currentStarted], timeout: 1.0)
+        queue.addTask(high, priority: 10, preemptionStrategy: .stopCurrentAndRequeue)
+
+        Thread.sleep(forTimeInterval: 0.15)
+        counterLock.lock()
+        let finalStopCallCount = stopCallCount
+        counterLock.unlock()
+        XCTAssertEqual(finalStopCallCount, 0)
+
+        allowCurrentToFinish.signal()
+        wait(for: [allFinished], timeout: 2.0)
+        XCTAssertEqual(executionOrder, ["current", "high"])
     }
 
     func test_stopAllWhere_stopsOnlyMatchingWaitingTasks() {
