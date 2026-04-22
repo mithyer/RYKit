@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 
 /// A single-use asynchronous task with optional execution timeout and cooperative stop support while executing.
 open class OnceTimeoutTask<T, E: Error> {
@@ -61,7 +62,7 @@ open class OnceTimeoutTask<T, E: Error> {
     /// Callback that a stopWhenExecuting closure must call after stop cleanup completes.
     public typealias Stopped = () -> Void
     /// Cooperative stop closure used only for executing tasks. Call `Stopped` when resources are actually stopped.
-    public typealias StopWhenExecuting = (@escaping Stopped) -> Void
+    public typealias StopWhenExecuting = (@escaping Stopped, CurrentValueSubject<State, Never>) -> Void
     
     /// Caller-owned identifier for queue finish events and diagnostics.
     public let flag: String
@@ -71,7 +72,12 @@ open class OnceTimeoutTask<T, E: Error> {
     private let execute: (@escaping Completed) -> Void
     private let stopAction: StopWhenExecuting
     private let lock = UnfairLock()
-    private var currentState: State = .unstart
+    private var currentState: State = .unstart {
+        didSet {
+            currentStateSubject.send(currentState)
+        }
+    }
+    private let currentStateSubject = CurrentValueSubject<State, Never>(.unstart)
     private var runGeneration: UInt64 = 0
     private var stopGeneration: UInt64 = 0
     private var executionTimeoutItem: DispatchWorkItem?
@@ -101,7 +107,7 @@ open class OnceTimeoutTask<T, E: Error> {
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping (@escaping Completed) -> Void,
-        stopWhenExecuting: @escaping StopWhenExecuting = { stopped in stopped() }
+        stopWhenExecuting: @escaping StopWhenExecuting = { stopped, _ in stopped() }
     ) {
         self.flag = flag
         self.executionTimeoutInterval = executionTimeoutInterval
@@ -220,7 +226,7 @@ open class OnceTimeoutTask<T, E: Error> {
         }
         
         return { [self] in
-            stopAction(stopped)
+            stopAction(stopped, currentStateSubject)
         }
     }
 
