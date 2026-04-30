@@ -8,7 +8,7 @@
 import Foundation
 
 public struct RYObject<T> {
-    var refer: T
+    public var refer: T
     init(_ refer: T) {
         self.refer = refer
     }
