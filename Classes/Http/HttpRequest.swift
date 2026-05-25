@@ -109,6 +109,8 @@ public final class HttpRequest {
     public let session: URLSession
     public let handlers: Handlers
     public var requestStrategy: RequestStrategy?
+    private static let requestLogIdLock = NSLock()
+    private static var requestLogIdSeed = 0
     private var processers = [Processer]()
     private var debounceTaskSubject: PassthroughSubject<() -> Void, Never>?
     private var debounceTaskSubjectCancelation: AnyCancellable?
@@ -494,6 +496,13 @@ extension HttpRequest {
     private func log_success(_ message: @autoclosure () -> String) {
         handlers.logFailureHandler?(message())
     }
+
+    private static func nextRequestLogId() -> Int {
+        requestLogIdLock.lock()
+        defer { requestLogIdLock.unlock() }
+        requestLogIdSeed &+= 1
+        return requestLogIdSeed
+    }
     
     private class Processer: Equatable {
         var isRequesting: Bool = false
@@ -525,6 +534,8 @@ extension HttpRequest {
 
         let closure = {
             let method = request.httpMethod ?? ""
+            let requestLogId = Self.nextRequestLogId()
+            let requestLogTitle = "[id:\(requestLogId)]HttpRequest(\(method))"
             let curProcesser = Processer()
             let params = nil != self.params ? "\(self.params!)" : ""
             let handlers = self.handlers
@@ -534,7 +545,7 @@ extension HttpRequest {
                 if case .cancelIfRequesting = requestStrategy {
                     for processer in self.processers {
                         if processer.isRequesting {
-                            log_err("=====>🚫\nHttpRequest(\(method)) Request Cancelled because task is requesting\n【URL】:\n\(self.baseURL)\(self.path)\n【Method】:\(self.method)\n【Parameters】:\(params)\n【Request Headers】:\n\(self.headers)\n<=====")
+                            log_err("=====>🚫\n\(requestLogTitle) Request Cancelled because task is requesting\n【URL】:\n\(self.baseURL)\(self.path)\n【Method】:\(self.method)\n【Parameters】:\(params)\n【Request Headers】:\n\(self.headers)\n<=====")
                             completed(.failure(.init(code: .local(.cancelBecauseIsRequesting).set(to: self), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             return
                         }
@@ -558,7 +569,7 @@ extension HttpRequest {
                     }
                     curProcesser.isRequesting = false
                     if curProcesser.beenAmended {
-                        log_err("=====>🚯\nHttpRequest(\(method)) Response Abandoned because it had been amended by new task\n【URL】:\n\(self.baseURL)\(self.path)\n【Method】:\(self.method)\n【Parameters】:\(params)\n【Request Headers】:\n\(self.headers)\n<=====")
+                        log_err("=====>🚯\n\(requestLogTitle) Response Abandoned because it had been amended by new task\n【URL】:\n\(self.baseURL)\(self.path)\n【Method】:\(self.method)\n【Parameters】:\(params)\n【Request Headers】:\n\(self.headers)\n<=====")
                         completed(.failure(.init(code: .local(.cancelBecauseBeAmended).set(to: self), msg: "request is requesting, cancelled").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                         return
                     }
@@ -573,13 +584,13 @@ extension HttpRequest {
                         let dataDescrypt: Data
                         do {
                             guard let data = data else {
-                                log_err("=====>❌\nHttpRequest(\(method)) Failed Data nil Error\n【URL】:\n\(requestUrl)\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n<=====")
+                                log_err("=====>❌\n\(requestLogTitle) Failed Data nil Error\n【URL】:\n\(requestUrl)\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n<=====")
                                 completed(.failure(.init(code: .local(.responseDataNil).set(to: self)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 return
                             }
                             dataDescrypt = self.isEncryptAndDecryptEnabled ? try handlers.decryptDataHandler(data) : data
                         } catch let err {
-                            log_err("=====>❌\nHttpRequest(\(method)) Failed Parse Error(\(err))\n【URL】:\n\(requestUrl)\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n<=====")
+                            log_err("=====>❌\n\(requestLogTitle) Failed Parse Error(\(err))\n【URL】:\n\(requestUrl)\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n<=====")
                             completed(.failure(.init(code: .local(.dataDescryptFailed).set(to: self)).customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                             return
                         }
@@ -592,21 +603,21 @@ extension HttpRequest {
                         if self.businessCodeValidator(intCode) {
                             if case .decodeFailed(let err) = result {
                                 if allowEmptyData {
-                                    log_success("=====>✅\nHttpRequest(\(method)) Successed with Data Decode Empty(allowEmptyData == true)(\(responseDataType), \(RESPONSE_MODEL.self))\n【Empty Reason】:\n\(err)\n【URL】:\n \(requestUrl)\n【Parameters】: \(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n<=====")
+                                    log_success("=====>✅\n\(requestLogTitle) Successed with Data Decode Empty(allowEmptyData == true)(\(responseDataType), \(RESPONSE_MODEL.self))\n【Empty Reason】:\n\(err)\n【URL】:\n \(requestUrl)\n【Parameters】: \(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n<=====")
                                     _ = ResponseCode.business(intCode ?? 0).set(to: self)
                                     completed(.success(.empty))
                                 } else {
-                                    log_err("=====>❌\nHttpRequest(\(method)) Failed Beacuse Data Decode Error(\(responseDataType), \(RESPONSE_MODEL.self))\n【Reason】:\(err)\n【URL】:\n\(requestUrl)\n【Parameters】: \(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n<=====")
+                                    log_err("=====>❌\n\(requestLogTitle) Failed Beacuse Data Decode Error(\(responseDataType), \(RESPONSE_MODEL.self))\n【Reason】:\(err)\n【URL】:\n\(requestUrl)\n【Parameters】: \(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n<=====")
                                     completed(.failure(.init(code: .local(.decodeFailed).set(to: self), msg: "Decode Failed").customizeMsg(handlers.customizeResponseErrorMessageHandler)))
                                 }
                             } else {
-                                log_success("=====>✅\nHttpRequest(\(method)) Successed\n【URL】:\n \(requestUrl)\n【Parameters】: \(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n【Decoded Model】:\n\(result)\n<=====")
+                                log_success("=====>✅\n\(requestLogTitle) Successed\n【URL】:\n \(requestUrl)\n【Parameters】: \(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n【Decoded Model】:\n\(result)\n<=====")
                                 _ = ResponseCode.business(intCode ?? 0).set(to: self)
                                 completed(.success(result))
                             }
                         } else {
                             let code: ResponseCode = nil == intCode ? .local(.noBusinessCode) : .business(intCode!)
-                            log_err("=====>❌\nHttpRequest(\(method)) Failed Bussiness Error: code(\(code))\n【URL】:\n \(requestUrl)\n【Message】: \n \(msg ?? "null")\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n<=====")
+                            log_err("=====>❌\n\(requestLogTitle) Failed Bussiness Error: code(\(code))\n【URL】:\n \(requestUrl)\n【Message】: \n \(msg ?? "null")\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n【Raw Response Data】:\n\(dataStr)\n<=====")
                             let error = ResponseError(code: code.set(to: self), msg: msg, rawData: dataStr).customizeMsg(handlers.customizeResponseErrorMessageHandler)
                             completed(.failure(error))
                             if let intCode, let onResponseBusinessErrorCodeHandler = handlers.onResponseBusinessErrorCodeHandler {
@@ -616,7 +627,7 @@ extension HttpRequest {
                             }
                         }
                     } else {
-                        log_err("=====>❌\nHttpRequest(\(method)) Failed Status Error(code: \(statusCode))\n【URL】:\n \(requestUrl)\n【Error】: \(error?.localizedDescription ?? "")\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n<=====")
+                        log_err("=====>❌\n\(requestLogTitle) Failed Status Error(code: \(statusCode))\n【URL】:\n \(requestUrl)\n【Error】: \(error?.localizedDescription ?? "")\n【Parameters】:\(params)\n【Request Headers】:\n\(headers)\n<=====")
                         let error = ResponseError(code: .httpStatus(statusCode).set(to: self), subError: error).customizeMsg(handlers.customizeResponseErrorMessageHandler)
                         completed(.failure(error))
                         if let onResponseHttpErrorStatusCodeHandler = handlers.onResponseHttpErrorStatusCodeHandler {
@@ -627,6 +638,7 @@ extension HttpRequest {
                     }
                 }
             }
+            log_success("=====>\n[id:\(requestLogId)]HttpRequest Request Start\n【URL】:\n\(request.url?.absoluteString ?? "\(self.baseURL)\(self.path)")\n<=====")
             task.resume()
         }
         if case let .amendIfRequesting(debounceInterval) = requestStrategy, let debounceInterval {
