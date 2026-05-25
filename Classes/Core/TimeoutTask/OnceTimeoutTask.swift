@@ -69,6 +69,7 @@ open class OnceTimeoutTask<T, E: Error> {
     let executionTimeoutInterval: DispatchTimeInterval?
     let stopTimeoutInterval: DispatchTimeInterval?
     
+    // Keep this behind an internal initializer so non-stoppable tasks remain an internal/test seam.
     private let supportsStopWhenExecuting: Bool
     private let execute: (@escaping Completed) -> Void
     private let stopAction: StopWhenExecuting
@@ -121,6 +122,9 @@ open class OnceTimeoutTask<T, E: Error> {
         self.stopAction = stopWhenExecuting
     }
 
+    /// Internal initializer for tests and queue-owned construction that need to model a task
+    /// that cannot be stopped. Do not merge this into the public initializer unless
+    /// `isStoppable` is meant to become public API.
     init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
