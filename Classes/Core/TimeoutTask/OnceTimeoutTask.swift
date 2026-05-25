@@ -69,6 +69,7 @@ open class OnceTimeoutTask<T, E: Error> {
     let executionTimeoutInterval: DispatchTimeInterval?
     let stopTimeoutInterval: DispatchTimeInterval?
     
+    private let supportsStopWhenExecuting: Bool
     private let execute: (@escaping Completed) -> Void
     private let stopAction: StopWhenExecuting
     private let lock = UnfairLock()
@@ -86,6 +87,9 @@ open class OnceTimeoutTask<T, E: Error> {
     
     var onDone: ((DoneType) -> Void)?
 
+    var isStoppable: Bool {
+        supportsStopWhenExecuting
+    }
     
     /// The current task state.
     public var state: State {
@@ -112,6 +116,23 @@ open class OnceTimeoutTask<T, E: Error> {
         self.flag = flag
         self.executionTimeoutInterval = executionTimeoutInterval
         self.stopTimeoutInterval = stopTimeoutInterval
+        self.supportsStopWhenExecuting = true
+        self.execute = execute
+        self.stopAction = stopWhenExecuting
+    }
+
+    init(
+        flag: String,
+        executionTimeoutInterval: DispatchTimeInterval?,
+        stopTimeoutInterval: DispatchTimeInterval?,
+        isStoppable: Bool,
+        execute: @escaping (@escaping Completed) -> Void,
+        stopWhenExecuting: @escaping StopWhenExecuting = { stopped, _ in stopped() }
+    ) {
+        self.flag = flag
+        self.executionTimeoutInterval = executionTimeoutInterval
+        self.stopTimeoutInterval = stopTimeoutInterval
+        self.supportsStopWhenExecuting = isStoppable
         self.execute = execute
         self.stopAction = stopWhenExecuting
     }

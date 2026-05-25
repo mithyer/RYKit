@@ -1176,6 +1176,7 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
             flag: flag,
             executionTimeoutInterval: .seconds(10),
             stopTimeoutInterval: .seconds(1),
+            isStoppable: false,
             execute: { completed in
                 onExecute?()
                 start?.fulfill()
