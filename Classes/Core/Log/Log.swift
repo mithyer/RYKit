@@ -9,15 +9,17 @@ import Foundation
 
 public protocol LoggerProtocol {
     
-    static func log_plain(_ str: CustomStringConvertible, type: LogType, minIntervalBetweenSameKey: TimeInterval?, file: String, line: Int, function: String)
+    static func log_plain(_ str: @escaping @autoclosure () -> String, type: LogType, minIntervalBetweenSameKey: TimeInterval?, file: StaticString, line: Int, function: StaticString)
 }
 
 struct DefaultLogger: LoggerProtocol {
     
     static let recorder = LogRecorder(logNamePrefix: "default")
     
-    static func log_plain(_ str: any CustomStringConvertible, type: LogType, minIntervalBetweenSameKey: TimeInterval?, file: String, line: Int, function: String) {
-        recorder.printAndSaveLog(content: "\(str)", style: .plainText, key: "\(type)", minIntervalBetweenSameKey: minIntervalBetweenSameKey, file: file, line: line, function: function)
+    static func log_plain(_ str: @escaping @autoclosure () -> String, type: LogType, minIntervalBetweenSameKey: TimeInterval?, file: StaticString, line: Int, function: StaticString) {
+        #if DEBUG
+        recorder.printAndSaveLog(content: str(), style: .plainText, key: "\(type)", minIntervalBetweenSameKey: minIntervalBetweenSameKey, file: file, line: line, function: function)
+        #endif
     }
 }
 
@@ -41,14 +43,14 @@ public enum LogType: CustomStringConvertible {
     }
 }
 
-public func log_info(_ message: CustomStringConvertible, infoKey: String? = nil, minIntervalBetweenSameKey: TimeInterval? = nil, file: String = #fileID, line: Int = #line, function: String = #function) {
-    activeLogger.log_plain(message, type: .info(infoKey), minIntervalBetweenSameKey: minIntervalBetweenSameKey, file: file, line: line, function: function)
+public func log_info(_ message: CustomStringConvertible, infoKey: String? = nil, minIntervalBetweenSameKey: TimeInterval? = nil, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function) {
+    activeLogger.log_plain(message.description, type: .info(infoKey), minIntervalBetweenSameKey: minIntervalBetweenSameKey, file: file, line: line, function: function)
 }
 
-public func log_warn(_ message: CustomStringConvertible, warnKey: String? = nil, minIntervalBetweenSameKey: TimeInterval? = nil, file: String = #fileID, line: Int = #line, function: String = #function) {
-    activeLogger.log_plain(message, type: .warn(warnKey), minIntervalBetweenSameKey: minIntervalBetweenSameKey, file: file, line: line, function: function)
+public func log_warn(_ message: CustomStringConvertible, warnKey: String? = nil, minIntervalBetweenSameKey: TimeInterval? = nil, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function) {
+    activeLogger.log_plain(message.description, type: .warn(warnKey), minIntervalBetweenSameKey: minIntervalBetweenSameKey, file: file, line: line, function: function)
 }
 
-public func log_err(_ message: CustomStringConvertible, errKey: String? = nil, minIntervalBetweenSameKey: TimeInterval? = nil, file: String = #fileID, line: Int = #line, function: String = #function) {
-    activeLogger.log_plain(message, type: .error(errKey), minIntervalBetweenSameKey: minIntervalBetweenSameKey, file: file, line: line, function: function)
+public func log_err(_ message: CustomStringConvertible, errKey: String? = nil, minIntervalBetweenSameKey: TimeInterval? = nil, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function) {
+    activeLogger.log_plain(message.description, type: .error(errKey), minIntervalBetweenSameKey: minIntervalBetweenSameKey, file: file, line: line, function: function)
 }

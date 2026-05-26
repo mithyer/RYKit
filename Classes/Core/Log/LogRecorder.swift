@@ -62,7 +62,7 @@ public class LogRecorder {
     ///   - content: 需要记录的内容（任何遵循 Encodable 的类型）
     ///   - key: 日志的键
     ///   - minIntervalBetweenSameKey: 相同 key 写入的最小时间间隔，nil 表示不限制
-    public func printAndSaveLog<T: Encodable>(content: @escaping @autoclosure () -> T, style: LogStyle, key: String, minIntervalBetweenSameKey: TimeInterval? = nil, file: String = #fileID, line: Int = #line, function: String = #function) {
+    public func printAndSaveLog<T: Encodable>(content: @escaping @autoclosure () -> T, style: LogStyle, key: String, minIntervalBetweenSameKey: TimeInterval? = nil, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function) {
         let now = Date()
         queue.async { [weak self] in
             guard let self = self else { return }
