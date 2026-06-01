@@ -1,0 +1,1 @@
+read $(git rev-parse --show-toplevel)/../AGENTS/AGENTS.md
