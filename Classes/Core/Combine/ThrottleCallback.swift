@@ -32,19 +32,28 @@ public class ThrottleCallback {
     /// - Parameters:
     ///   - interval: The minimum time between subsequent callback invocations.
     ///   - scheduler: The scheduler on which throttled callbacks are dispatched. Defaults to `RunLoop.main`.
-    public init<S: Scheduler>(interval: S.SchedulerTimeType.Stride, scheduler: S = RunLoop.main) {
+    public init<S: Scheduler>(interval: S.SchedulerTimeType.Stride,
+                              scheduler: S = RunLoop.main,
+                              shouldPerformFirstImmediately: Bool = true) {
 
         subject = PassthroughSubject<() -> Void, Never>()
 
-        // Immediate execution for the first call
-        subject.first().sink {
-            $0()
-        }.store(in: &cancellables)
-
-        // Throttle all subsequent calls
-        subject.dropFirst().throttle(for: interval, scheduler: scheduler, latest: true).sink {
-            $0()
-        }.store(in: &cancellables)
+        if shouldPerformFirstImmediately {
+            // Immediate execution for the first call
+            subject.first().sink {
+                $0()
+            }.store(in: &cancellables)
+            
+            // Throttle all subsequent calls
+            subject.dropFirst().throttle(for: interval, scheduler: scheduler, latest: true).sink {
+                $0()
+            }.store(in: &cancellables)
+        } else {
+            // Throttle all subsequent calls
+            subject.throttle(for: interval, scheduler: scheduler, latest: true).sink {
+                $0()
+            }.store(in: &cancellables)
+        }
     }
 
     /// Triggers the callback, subject to throttling rules.

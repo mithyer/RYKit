@@ -29,47 +29,14 @@
 		713C667E2FC4462F00AE47F4 /* Combine.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Combine.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/Combine.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		715614872F63DD580002830A /* Exceptions for "Classes" folder in "RYKit" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Core/Collections/CLAUDE.md,
-				Core/Extensions/CLAUDE.md,
-			);
-			target = 71201B452EE6635700D856CC /* RYKit */;
-		};
-		715614882F63DD700002830A /* Exceptions for "RYKitTests" folder in "RYKitTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				CLAUDE.md,
-			);
-			target = 71201B502EE6635700D856CC /* RYKitTests */;
-		};
-		715614892F63DD700002830A /* Exceptions for "Classes" folder in "RYKitTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Core/Collections/CLAUDE.md,
-				Core/Extensions/CLAUDE.md,
-			);
-			target = 71201B502EE6635700D856CC /* RYKitTests */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		71201B552EE6635700D856CC /* RYKitTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				715614882F63DD700002830A /* Exceptions for "RYKitTests" folder in "RYKitTests" target */,
-			);
 			path = RYKitTests;
 			sourceTree = "<group>";
 		};
 		71201B962EE663C500D856CC /* Classes */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				715614872F63DD580002830A /* Exceptions for "Classes" folder in "RYKit" target */,
-				715614892F63DD700002830A /* Exceptions for "Classes" folder in "RYKitTests" target */,
-			);
 			name = Classes;
 			path = ../Classes;
 			sourceTree = SOURCE_ROOT;
