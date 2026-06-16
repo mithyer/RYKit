@@ -1486,6 +1486,84 @@ final class OnceTimeoutTaskQueueTests: XCTestCase {
         }
     }
 
+    func test_stopAll_waitingTaskCallsStopBeforeExecutingBeforeFinishEvent() {
+        let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
+        queue.pause()
+
+        let stopBeforeExecutingCalled = expectation(description: "stopBeforeExecuting called")
+        let finishedBeforeStopped = expectation(description: "finished before stopped")
+        finishedBeforeStopped.isInverted = true
+        let finished = expectation(description: "finished")
+        let started = expectation(description: "started")
+        started.isInverted = true
+        var capturedStopped: OnceTimeoutTask<Int, TestError>.Stopped?
+        var eventFlags: [String] = []
+        var doneType: OnceTimeoutTask<Int, TestError>.DoneType?
+        var stoppedReleased = false
+        let lock = NSLock()
+
+        queue.taskDidFinish
+            .sink { event in
+                lock.lock()
+                eventFlags.append(event.flag)
+                doneType = event.doneType
+                let finishedTooEarly = event.flag == "waiting" && !stoppedReleased
+                lock.unlock()
+
+                if finishedTooEarly {
+                    finishedBeforeStopped.fulfill()
+                }
+                if event.flag == "waiting" {
+                    finished.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        let waiting = OnceTimeoutTask<Int, TestError>(
+            flag: "waiting",
+            executionTimeoutInterval: .seconds(10),
+            stopTimeoutInterval: .seconds(10),
+            execute: { completed in
+                started.fulfill()
+                completed(.success(1))
+            },
+            stopBeforeExecuting: { stopped, _ in
+                lock.lock()
+                capturedStopped = stopped
+                lock.unlock()
+                stopBeforeExecutingCalled.fulfill()
+            },
+            stopWhenExecuting: { stopped, _ in
+                stopped()
+            }
+        )
+
+        queue.addTask(waiting)
+        queue.stopAll()
+
+        wait(for: [stopBeforeExecutingCalled], timeout: 1.0)
+        wait(for: [finishedBeforeStopped, started], timeout: 0.2)
+
+        lock.lock()
+        let stopped = capturedStopped
+        stoppedReleased = true
+        lock.unlock()
+        stopped?()
+
+        wait(for: [finished], timeout: 1.0)
+
+        lock.lock()
+        let flags = eventFlags
+        let stoppedDoneType = doneType
+        lock.unlock()
+
+        XCTAssertEqual(flags, ["waiting"])
+        guard case .stop = stoppedDoneType else {
+            XCTFail("Expected waiting finish event to be stop")
+            return
+        }
+    }
+
     func test_allTasks_duringDiscardPreemption_includesWaitingAndStoppingExactlyOnce() {
         let queue = OnceTimeoutTaskQueue<Int, TestError>(executeQueue: .global())
         let recorder = FinishEventRecorder(queue: queue)

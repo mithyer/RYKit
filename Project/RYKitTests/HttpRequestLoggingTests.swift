@@ -106,8 +106,7 @@ final class HttpRequestLoggingTests: XCTestCase {
             contentType: nil,
             requestStrategy: nil,
             baseHeaders: [:],
-            handlers: handlers,
-            businessCodeValidator: nil
+            handlers: handlers
         )
     }
 

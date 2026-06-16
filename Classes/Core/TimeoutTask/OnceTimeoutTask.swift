@@ -59,8 +59,10 @@ open class OnceTimeoutTask<T, E: Error> {
     
     /// Completion callback passed to `execute`.
     public typealias Completed = (Result<T, E>) -> Void
-    /// Callback that a stopWhenExecuting closure must call after stop cleanup completes.
+    /// Callback that a stop closure must call after stop cleanup completes.
     public typealias Stopped = () -> Void
+    /// Cooperative stop closure used when a queued task is stopped before `execute` runs.
+    public typealias StopBeforeExecuting = (@escaping Stopped, CurrentValueSubject<State, Never>) -> Void
     /// Cooperative stop closure used only for executing tasks. Call `Stopped` when resources are actually stopped.
     public typealias StopWhenExecuting = (@escaping Stopped, CurrentValueSubject<State, Never>) -> Void
     
@@ -72,6 +74,7 @@ open class OnceTimeoutTask<T, E: Error> {
     // Keep this behind an internal initializer so non-stoppable tasks remain an internal/test seam.
     private let supportsStopWhenExecuting: Bool
     private let execute: (@escaping Completed) -> Void
+    private let stopBeforeExecutingAction: StopBeforeExecuting?
     private let stopAction: StopWhenExecuting
     private let lock = UnfairLock()
     private var currentState: State = .unstart {
@@ -106,12 +109,14 @@ open class OnceTimeoutTask<T, E: Error> {
     ///   - executionTimeoutInterval: Maximum execution duration. Pass `nil` to disable execution timeout.
     ///   - stopTimeoutInterval: Maximum time to wait for `stopped()`. Pass `nil` to wait indefinitely.
     ///   - execute: Starts the task and receives a one-shot completion callback.
+    ///   - stopBeforeExecuting: Cooperative stop closure used when the task has not entered `execute`.
     ///   - stopWhenExecuting: Cooperative stop closure used when the task is executing.
     public init(
         flag: String,
         executionTimeoutInterval: DispatchTimeInterval?,
         stopTimeoutInterval: DispatchTimeInterval?,
         execute: @escaping (@escaping Completed) -> Void,
+        stopBeforeExecuting: StopBeforeExecuting? = nil,
         stopWhenExecuting: @escaping StopWhenExecuting = { stopped, _ in stopped() }
     ) {
         self.flag = flag
@@ -119,6 +124,7 @@ open class OnceTimeoutTask<T, E: Error> {
         self.stopTimeoutInterval = stopTimeoutInterval
         self.supportsStopWhenExecuting = true
         self.execute = execute
+        self.stopBeforeExecutingAction = stopBeforeExecuting
         self.stopAction = stopWhenExecuting
     }
 
@@ -131,6 +137,7 @@ open class OnceTimeoutTask<T, E: Error> {
         stopTimeoutInterval: DispatchTimeInterval?,
         isStoppable: Bool,
         execute: @escaping (@escaping Completed) -> Void,
+        stopBeforeExecuting: StopBeforeExecuting? = nil,
         stopWhenExecuting: @escaping StopWhenExecuting = { stopped, _ in stopped() }
     ) {
         self.flag = flag
@@ -138,6 +145,7 @@ open class OnceTimeoutTask<T, E: Error> {
         self.stopTimeoutInterval = stopTimeoutInterval
         self.supportsStopWhenExecuting = isStoppable
         self.execute = execute
+        self.stopBeforeExecutingAction = stopBeforeExecuting
         self.stopAction = stopWhenExecuting
     }
     
@@ -182,6 +190,12 @@ open class OnceTimeoutTask<T, E: Error> {
     ///
     /// The task enters `.done(.stop)` immediately and notifies listeners after `stopped()` or stop timeout.
     public func stop() {
+        if let request = makeStopBeforeExecutingRequest(timeoutQueue: .global(qos: .userInitiated), onStopped: { [weak self] in
+            self?.notifyDone(.stop)
+        }) {
+            request()
+            return
+        }
         if let doneType = stopWhileQueued() {
             notifyDone(doneType)
             return
@@ -192,6 +206,48 @@ open class OnceTimeoutTask<T, E: Error> {
             return
         }
         request()
+    }
+
+    /// Builds a final-stop request for a task that has not entered `execute` yet.
+    ///
+    /// This keeps before-execute cleanup separate from executing cleanup so callers do not
+    /// accidentally run resource teardown before resources have been created.
+    func makeStopBeforeExecutingRequest(timeoutQueue: DispatchQueue, onStopped: @escaping () -> Void) -> (() -> Void)? {
+        lock.lock()
+        guard let stopBeforeExecutingAction else {
+            lock.unlock()
+            return nil
+        }
+        switch currentState {
+        case .unstart, .waitingRestart(stopped: true):
+            stopGeneration &+= 1
+            runGeneration &+= 1
+            let generation = stopGeneration
+            let stopTimeoutItem = DispatchWorkItem { [weak self] in
+                self?.finishStop(stoppedState: .done(.stop), stopGeneration: generation)
+            }
+            let stopped: Stopped = { [weak self] in
+                self?.finishStop(stoppedState: .done(.stop), stopGeneration: generation)
+            }
+            currentState = .done(.stop)
+            executionTimeoutItem = nil
+            self.stopTimeoutItem = stopTimeoutItem
+            stopFinished = onStopped
+            let interval = stopTimeoutInterval
+            lock.unlock()
+
+            if let interval, case .never = interval {
+            } else if let interval {
+                timeoutQueue.asyncAfter(deadline: .now() + interval, execute: stopTimeoutItem)
+            }
+
+            return { [self] in
+                stopBeforeExecutingAction(stopped, currentStateSubject)
+            }
+        default:
+            lock.unlock()
+            return nil
+        }
     }
     
     /// Builds a final-stop request for queue-owned stop/discard flows while the task is executing.

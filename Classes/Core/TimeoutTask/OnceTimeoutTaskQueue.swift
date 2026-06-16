@@ -151,6 +151,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
     /// stop cleanup, the queue keeps ownership until `stopped()` or stop timeout, then emits the final event.
     public func stopAll(where block: ((Task) -> Bool)? = nil) {
         var events: [TaskFinishEvent] = []
+        var beforeExecutingStopRequests: [() -> Void] = []
 
         lock.lock()
         let itemsToStop: [QueuedTask]
@@ -172,7 +173,12 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         }
 
         for item in itemsToStop {
-            if let doneType = item.task.stopWhileQueued() {
+            if let stopRequest = item.task.makeStopBeforeExecutingRequest(timeoutQueue: timeoutQueue, onStopped: { [weak self, weak task = item.task] in
+                guard let self, let task else { return }
+                self.publish([TaskFinishEvent(flag: task.flag, task: task, doneType: .stop)])
+            }) {
+                beforeExecutingStopRequests.append(stopRequest)
+            } else if let doneType = item.task.stopWhileQueued() {
                 events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
             } else if case .done(let doneType) = item.task.state {
                 events.append(TaskFinishEvent(flag: item.task.flag, task: item.task, doneType: doneType))
@@ -188,6 +194,7 @@ open class OnceTimeoutTaskQueue<T, E: Error> {
         lock.unlock()
 
         publish(events)
+        beforeExecutingStopRequests.forEach { $0() }
         currentStopRequest?()
         start(takeNextAfterCleaning())
     }
