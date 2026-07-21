@@ -40,19 +40,40 @@ public class LogRecorder {
     // MARK: - 私有属性
     private let logNamePrefix: String
     private let fileManager = FileManager.default
+    /// Directory that stores all log files created by this recorder.
+    private let logDirectoryURL: URL?
     private var logFileURL: URL?
     private let dateFormatter: DateFormatter
     private let queue = DispatchQueue(label: "com.logrecorder.queue", qos: .utility)
+    /// Identifies the recorder queue so synchronous flushes cannot deadlock during reentrant calls.
+    private let queueKey = DispatchSpecificKey<Void>()
     private var lastWriteTimestamps: [String: Date] = [:]
     private var logCount = 0
+    /// Maximum number of pending entries retained before an automatic flush.
+    private let bufferSize: Int
+    /// Encoded log data waiting to be written to the current file.
+    private var logBuffer = Data()
+    /// Number of complete log entries currently stored in the buffer.
+    private var bufferedLogCount = 0
     
     // MARK: - 初始化
-    public init(logNamePrefix: String) {
+    /// Creates a log recorder and prepares its directory in Documents.
+    /// - Parameters:
+    ///   - logNamePrefix: Prefix added to each log file name.
+    ///   - bufferSize: Number of entries retained before they are written as one batch. Values below one are treated as one.
+    /// TEST:LogRecorderTests[test_initialization_createsLogDirectory]
+    /// TEST:LogRecorderTests[test_logBelowBufferSize_isNotWrittenToFile]
+    public init(logNamePrefix: String, bufferSize: Int = 10000) {
         self.logNamePrefix = logNamePrefix
+        self.bufferSize = max(1, bufferSize)
+        logDirectoryURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("RYKitLogs", isDirectory: true)
         dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS ZZZZZ"
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.timeZone = TimeZone.current
+        createLogDirectoryIfNeeded()
+        queue.setSpecific(key: queueKey, value: ())
     }
     
     // MARK: - 公开方法
@@ -62,6 +83,8 @@ public class LogRecorder {
     ///   - content: 需要记录的内容（任何遵循 Encodable 的类型）
     ///   - key: 日志的键
     ///   - minIntervalBetweenSameKey: 相同 key 写入的最小时间间隔，nil 表示不限制
+    /// TEST:LogRecorderTests[test_logBelowBufferSize_isNotWrittenToFile]
+    /// TEST:LogRecorderTests[test_bufferSizeReached_writesAllBufferedLogs]
     public func printAndSaveLog<T: Encodable>(content: @escaping @autoclosure () -> T, style: LogStyle, key: String, minIntervalBetweenSameKey: TimeInterval? = nil, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function) {
         let now = Date()
         queue.async { [weak self] in
@@ -90,25 +113,65 @@ public class LogRecorder {
             } else {
                 let str = "\(logEntry)\n"
                 data = str.data(using: .utf8)
-                print(str)
+                //print(str)
             }
             
-            // 获取或创建日志文件
-            guard let fileURL = self.getOrCreateLogFile() else {
-                // 无法创建日志文件
-                return
+            // Buffer the complete entry so a later flush can write the batch in one operation.
+            guard let data else { return }
+            self.logBuffer.append(data)
+            self.bufferedLogCount += 1
+            self.lastWriteTimestamps[key] = Date()
+            self.logCount += 1
+
+            // Write the accumulated data once the configured entry threshold is reached.
+            if self.bufferedLogCount >= self.bufferSize {
+                self.flushBufferedLogs()
             }
-            
-            // 写入文件
-            if self.writeToFile(data: data!, fileURL: fileURL) {
-                // 更新最后写入时间
-                self.lastWriteTimestamps[key] = Date()
-                logCount += 1
-            }
+        }
+    }
+
+    /// Immediately writes all pending log entries and returns after the write attempt completes.
+    /// TEST:LogRecorderTests[test_flush_writesPendingLogsImmediately]
+    public func flush() {
+        if DispatchQueue.getSpecific(key: queueKey) != nil {
+            flushBufferedLogs()
+            return
+        }
+
+        queue.sync {
+            self.flushBufferedLogs()
         }
     }
     
     // MARK: - 私有方法
+
+    /// Creates the log directory during recorder initialization.
+    /// TEST:LogRecorderTests[test_initialization_createsLogDirectory]
+    private func createLogDirectoryIfNeeded() {
+        guard let logDirectoryURL else {
+            print("无法获取 Documents 目录")
+            return
+        }
+
+        do {
+            try fileManager.createDirectory(at: logDirectoryURL, withIntermediateDirectories: true)
+        } catch {
+            print("创建日志目录失败：\(error)")
+        }
+    }
+
+    /// Writes all pending entries in one file operation and retains them if writing fails.
+    /// TEST:LogRecorderTests[test_bufferSizeReached_writesAllBufferedLogs]
+    private func flushBufferedLogs() {
+        guard !logBuffer.isEmpty,
+              let fileURL = getOrCreateLogFile(),
+              writeToFile(data: logBuffer, fileURL: fileURL) else {
+            return
+        }
+
+        logBuffer.removeAll(keepingCapacity: true)
+        bufferedLogCount = 0
+    }
     
     /// 获取或创建日志文件
     public func getOrCreateLogFile() -> URL? {
@@ -117,8 +180,8 @@ public class LogRecorder {
             return existingURL
         }
         
-        // 获取 Documents 目录
-        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        // 获取日志目录
+        guard let logDirectoryURL else {
             print("无法获取 Documents 目录")
             return nil
         }
@@ -129,8 +192,8 @@ public class LogRecorder {
         fileNameFormatter.locale = Locale(identifier: "en_US_POSIX")
         fileNameFormatter.timeZone = TimeZone.current
         
-        let fileName = "\(fileNameFormatter.string(from: Date())).json"
-        let fileURL = documentsDirectory.appendingPathComponent("/RYKitLogs/\(logNamePrefix)_\(fileName)")
+        let fileName = "\(fileNameFormatter.string(from: Date())).log"
+        let fileURL = logDirectoryURL.appendingPathComponent("\(logNamePrefix)_\(fileName)")
         
         // 如果文件不存在，创建文件并写入初始内容
         if !fileManager.fileExists(atPath: fileURL.path) {
@@ -219,4 +282,3 @@ private struct LogEntry<T: Encodable>: Encodable, CustomStringConvertible {
         "[\(key)] \(date)<\(log_index)> \(from): \(content)"
     }
 }
-

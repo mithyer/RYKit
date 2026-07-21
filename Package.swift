@@ -34,6 +34,11 @@ let package = Package(
             dependencies: ["RYKitCore", "RYKitNetworkHttp", "RYKitNetworkStomp"],
             path: "Classes",
             sources: ["RYKit.swift"]
+        ),
+        .testTarget(
+            name: "RYKitCoreTests",
+            dependencies: ["RYKitCore"],
+            path: "Project/RYKitTests/LogRecorder"
         )
     ]
 )
