@@ -61,6 +61,69 @@ final class TinyBufferedKVTests: XCTestCase {
         }
     }
 
+    /// Verifies the configured encryptor is applied only when buffered data is flushed to storage.
+    // TEST:TinyBufferedKV.Config[test_encryptedConfig_flushesAndReads]
+    func test_encryptedConfig_flushesAndReads() async throws {
+        let dbName = randomDBName(prefix: "encrypted-buffered")
+        let tableName = "encrypted-buffered"
+        let encryptor = try TinyKVAESGCMEncryptor(keyData: Data(repeating: 0xC1, count: 32))
+        let config = TinyBufferedKV.Config(
+            maxBufferedItems: 10,
+            maxBufferedBytes: 1_048_576,
+            flushInterval: 0,
+            valueEncryptor: encryptor
+        )
+        let writer = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let rawReader = makeTinyKV(dbName: dbName, tableName: tableName)
+        let key: TinyKVKey = .string("encrypted-buffered-key")
+        let payload = SampleValue(value: "encrypted-buffered-value")
+        let plaintext = try JSONEncoder().encode(payload)
+
+        try await writer.set(value: payload, for: key)
+        let buffered: SampleValue = try await writer.getValue(for: key)
+        XCTAssertEqual(buffered, payload)
+
+        try await writer.flush()
+        let stored = try await rawReader.getData(for: key)
+        XCTAssertNotEqual(stored, plaintext)
+
+        let reader = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let persisted: SampleValue = try await reader.getValue(for: key)
+        XCTAssertEqual(persisted, payload)
+    }
+
+    /// Verifies encrypted buffered range queries flush pending values and decrypt them.
+    // TEST:TinyBufferedKVTests[test_encryptedConfig_getValuesFlushesAndDecryptsRange]
+    func test_encryptedConfig_getValuesFlushesAndDecryptsRange() async throws {
+        let dbName = randomDBName(prefix: "encrypted-buffered-range")
+        let tableName = "encrypted-buffered-range"
+        let encryptor = try TinyKVAESGCMEncryptor(keyData: Data(repeating: 0xC2, count: 32))
+        let config = TinyBufferedKV.Config(
+            maxBufferedItems: 10,
+            maxBufferedBytes: 1_048_576,
+            flushInterval: 0,
+            valueEncryptor: encryptor
+        )
+        let writer = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let rawReader = makeTinyKV(dbName: dbName, tableName: tableName)
+        let pattern: TinyKVQueryKey = .string(like: "encrypted-range-%")
+        let expected = [
+            SampleValue(value: "encrypted-range-1"),
+            SampleValue(value: "encrypted-range-2")
+        ]
+
+        try await writer.set(value: expected[0], for: .string("encrypted-range-1"))
+        try await writer.set(value: expected[1], for: .string("encrypted-range-2"))
+        try await assertRawValueMissing(rawReader, key: .string("encrypted-range-1"))
+
+        let actual: [SampleValue] = try await writer.getValues(for: pattern)
+        XCTAssertEqual(actual, expected)
+
+        let reader = TinyBufferedKV(dbName: dbName, tableName: tableName, config: config)
+        let persisted: [SampleValue] = try await reader.getValues(for: pattern)
+        XCTAssertEqual(persisted, expected)
+    }
+
     func test_setThenGet_withoutFlush_readsFromBuffer() async throws {
         let dbName = randomDBName(prefix: "buffered")
         let tableName = "buffered"

@@ -11,6 +11,19 @@ import SQLite3
 /// A lightweight SQLite-backed key-value store that persists `Codable` values as BLOB data.
 public class TinyKV: TinyKVReadWritable {
 
+    /// Runtime configuration for TinyKV persistence.
+    public struct Config {
+        /// Optional value encryptor. `nil` stores values without encryption.
+        public let valueEncryptor: (any TinyKVValueEncryptor)?
+
+        /// Creates a TinyKV configuration.
+        /// - Parameter valueEncryptor: Optional encryptor applied to persisted values.
+        // TEST:TinyKVTests[test_configNil_keepsPlaintextBehavior]
+        public init(valueEncryptor: (any TinyKVValueEncryptor)? = nil) {
+            self.valueEncryptor = valueEncryptor
+        }
+    }
+
     /// Errors that can be thrown by `TinyKV` read/query operations.
     public enum TinyKVError: Error, Equatable {
         /// Opening or creating the database file failed.
@@ -29,12 +42,27 @@ public class TinyKV: TinyKVReadWritable {
         case intKeyOutOfRange
         /// The range expression for integer-key query is invalid.
         case invalidRangeExpression
+        /// Encrypting a value before persistence failed.
+        case encryptionFailed
+        /// Decrypting a stored value or authenticating its record identity failed.
+        case decryptionFailed
+        /// The stored value uses an unsupported encryption envelope version.
+        case unsupportedEncryptionFormat
     }
 
+    private struct StoredRecord {
+        /// Plaintext SQLite key reconstructed from the selected key columns.
+        let key: TinyKVKey
+        /// Raw value BLOB returned by SQLite before optional decryption.
+        let data: Data
+    }
+
+    private let config: Config
     private let queue: DispatchQueue
     private let tableName: String
     private let quotedTableName: String
     private let databasePath: String
+    private let encryptionNamespace: Data
     private var database: OpaquePointer?
 
     private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -43,11 +71,15 @@ public class TinyKV: TinyKVReadWritable {
     /// - Parameters:
     ///   - dbName: Database file name (without extension).
     ///   - tableName: Target table name inside the database.
-    public init(dbName: String, tableName: String) {
+    ///   - config: Storage configuration. A `nil` value encryptor keeps plaintext behavior.
+    // TEST:TinyKVTests[test_configNil_keepsPlaintextBehavior, test_encryptedValue_roundTrips]
+    public init(dbName: String, tableName: String, config: Config = .init()) {
+        self.config = config
         self.tableName = tableName
         self.quotedTableName = Self.quoteIdentifier(tableName)
         self.queue = DispatchQueue(label: "com.rykit.tinykv.\(dbName).\(tableName)")
         self.databasePath = Self.makeDatabasePath(dbName: dbName)
+        self.encryptionNamespace = Self.makeEncryptionNamespace(dbName: dbName, tableName: tableName)
 
         do {
             try Self.createDatabaseDirectoryIfNeeded(for: databasePath)
@@ -75,43 +107,48 @@ public class TinyKV: TinyKVReadWritable {
     
     /// Stores raw encoded data for the given key. Existing value on the same key is replaced.
     /// - Parameters:
-    ///   - data: Raw payload to persist.
+    ///   - data: Raw encoded value to persist before optional encryption.
     ///   - key: String or integer key.
-    /// - Throws: `TinyKVError` when write fails.
+    /// - Throws: `TinyKVError` when encryption or write fails.
+    // TEST:TinyKVTests[test_encryptedValue_roundTrips, test_configNil_keepsPlaintextBehavior]
     public func set(data: Data, for key: TinyKVKey) async throws {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
+            let storedData = try encryptedData(data, for: key)
             switch key {
             case .string(let strKey):
-                try upsert(data: data, stringKey: strKey)
+                try upsert(data: storedData, stringKey: strKey)
             case .int(let intKey):
-                try upsert(data: data, intKey: intKey)
+                try upsert(data: storedData, intKey: intKey)
             }
         }
     }
 
     /// Reads raw encoded data for a single key.
     /// - Parameter key: String or integer key.
-    /// - Returns: Stored raw `Data`.
-    /// - Throws: `TinyKVError` when query fails or key is missing.
+    /// - Returns: Plaintext stored `Data` after optional decryption.
+    /// - Throws: `TinyKVError` when query, decryption, or key lookup fails.
+    // TEST:TinyKVTests[test_encryptedValue_roundTrips, test_wrongKey_failsDecryption]
     public func getData(for key: TinyKVKey) async throws -> Data {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
+            let storedData: Data
             switch key {
             case .string(let strKey):
-                return try queryData(sql: "SELECT value FROM \(quotedTableName) WHERE str_key = ? LIMIT 1;", bind: { stmt in
+                storedData = try queryData(sql: "SELECT value FROM \(quotedTableName) WHERE str_key = ? LIMIT 1;", bind: { stmt in
                     if sqlite3_bind_text(stmt, 1, strKey, -1, self.sqliteTransient) != SQLITE_OK {
                         throw TinyKVError.statementBindFailed
                     }
                 })
             case .int(let intKey):
                 let int64Key = try toInt64(intKey)
-                return try queryData(sql: "SELECT value FROM \(quotedTableName) WHERE int_key = ? LIMIT 1;", bind: { stmt in
+                storedData = try queryData(sql: "SELECT value FROM \(quotedTableName) WHERE int_key = ? LIMIT 1;", bind: { stmt in
                     if sqlite3_bind_int64(stmt, 1, int64Key) != SQLITE_OK {
                         throw TinyKVError.statementBindFailed
                     }
                 })
             }
+            return try decryptedData(storedData, for: key)
         }
     }
 
@@ -119,17 +156,19 @@ public class TinyKV: TinyKVReadWritable {
     /// - Parameters:
     ///   - rangeKey: String LIKE pattern or integer range expression.
     ///   - acend: Whether to sort ascending (`true`) or descending (`false`).
-    /// - Returns: Ordered raw `Data` array.
-    /// - Throws: `TinyKVError` when query fails.
+    /// - Returns: Ordered plaintext `Data` array after optional decryption.
+    /// - Throws: `TinyKVError` when query or decryption fails.
+    // TEST:TinyKVTests[test_encryptedRangeQueries_preserveTinyKVQueryKeyBehavior]
     public func getDatas(for rangeKey: TinyKVQueryKey, acend: Bool = true) async throws -> [Data] {
         try await runInQueue { [self] in
             try openDatabaseIfNeeded()
             let order = acend ? "ASC" : "DESC"
+            let records: [StoredRecord]
 
             switch rangeKey {
             case TinyKVQueryKey.string(like: let like):
-                let sql = "SELECT value FROM \(quotedTableName) WHERE str_key LIKE ? ORDER BY str_key \(order);"
-                return try queryDatas(sql: sql, bind: { stmt in
+                let sql = "SELECT str_key, int_key, value FROM \(quotedTableName) WHERE str_key LIKE ? ORDER BY str_key \(order);"
+                records = try queryStoredRecords(sql: sql, bind: { stmt in
                     if sqlite3_bind_text(stmt, 1, like, -1, self.sqliteTransient) != SQLITE_OK {
                         throw TinyKVError.statementBindFailed
                     }
@@ -139,8 +178,8 @@ public class TinyKV: TinyKVReadWritable {
                     return []
                 }
                 let placeholders = Array(repeating: "?", count: keys.count).joined(separator: ",")
-                let sql = "SELECT value FROM \(quotedTableName) WHERE str_key IN (\(placeholders)) ORDER BY str_key \(order);"
-                return try queryDatas(sql: sql, bind: { stmt in
+                let sql = "SELECT str_key, int_key, value FROM \(quotedTableName) WHERE str_key IN (\(placeholders)) ORDER BY str_key \(order);"
+                records = try queryStoredRecords(sql: sql, bind: { stmt in
                     for (index, key) in keys.enumerated() {
                         if sqlite3_bind_text(stmt, Int32(index + 1), key, -1, self.sqliteTransient) != SQLITE_OK {
                             throw TinyKVError.statementBindFailed
@@ -149,22 +188,26 @@ public class TinyKV: TinyKVReadWritable {
                 })
             case TinyKVQueryKey.int(condition: let condition):
                 let validatedCondition = try validatedIntRangeCondition(from: condition)
-                let sql = "SELECT value FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(validatedCondition)) ORDER BY int_key \(order);"
-                return try queryDatas(sql: sql)
+                let sql = "SELECT str_key, int_key, value FROM \(quotedTableName) WHERE int_key IS NOT NULL AND (\(validatedCondition)) ORDER BY int_key \(order);"
+                records = try queryStoredRecords(sql: sql)
             case TinyKVQueryKey.ints(in: let keys):
                 guard !keys.isEmpty else {
                     return []
                 }
                 let int64Keys = try keys.map { try toInt64($0) }
                 let placeholders = Array(repeating: "?", count: int64Keys.count).joined(separator: ",")
-                let sql = "SELECT value FROM \(quotedTableName) WHERE int_key IN (\(placeholders)) ORDER BY int_key \(order);"
-                return try queryDatas(sql: sql, bind: { stmt in
+                let sql = "SELECT str_key, int_key, value FROM \(quotedTableName) WHERE int_key IN (\(placeholders)) ORDER BY int_key \(order);"
+                records = try queryStoredRecords(sql: sql, bind: { stmt in
                     for (index, key) in int64Keys.enumerated() {
                         if sqlite3_bind_int64(stmt, Int32(index + 1), key) != SQLITE_OK {
                             throw TinyKVError.statementBindFailed
                         }
                     }
                 })
+            }
+
+            return try records.map { record in
+                try decryptedData(record.data, for: record.key)
             }
         }
     }
@@ -397,7 +440,13 @@ public class TinyKV: TinyKVReadWritable {
         throw TinyKVError.statementExecuteFailed
     }
 
-    private func queryDatas(sql: String, bind: ((OpaquePointer?) throws -> Void)? = nil) throws -> [Data] {
+    /// Reads selected key/value rows so encrypted values can be opened with their record identity.
+    /// - Parameters:
+    ///   - sql: A SELECT statement returning `str_key`, `int_key`, and `value` in that order.
+    ///   - bind: Optional statement binding closure.
+    /// - Returns: Stored records containing their typed key and raw value BLOB.
+    /// - Throws: `TinyKVError` when statement preparation, binding, or stepping fails.
+    private func queryStoredRecords(sql: String, bind: ((OpaquePointer?) throws -> Void)? = nil) throws -> [StoredRecord] {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
             throw TinyKVError.statementPrepareFailed
@@ -408,15 +457,19 @@ public class TinyKV: TinyKVReadWritable {
             try bind(statement)
         }
 
-        var values: [Data] = []
+        var records: [StoredRecord] = []
         while true {
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_ROW {
-                values.append(Self.dataFromBlobColumn(statement, index: 0))
+                guard let key = keyFromColumns(statement) else {
+                    throw TinyKVError.statementExecuteFailed
+                }
+                let data = Self.dataFromBlobColumn(statement, index: 2)
+                records.append(StoredRecord(key: key, data: data))
                 continue
             }
             if stepResult == SQLITE_DONE {
-                return values
+                return records
             }
             throw TinyKVError.statementExecuteFailed
         }
@@ -469,6 +522,106 @@ public class TinyKV: TinyKVReadWritable {
             }
             throw TinyKVError.statementExecuteFailed
         }
+    }
+
+    /// Encrypts a value when the configuration supplies an encryptor.
+    /// - Parameters:
+    ///   - data: Plaintext value bytes.
+    ///   - key: Storage key used to bind the ciphertext identity.
+    /// - Returns: Data ready to bind to SQLite.
+    /// - Throws: `TinyKVError.encryptionFailed` when the configured encryptor fails.
+    private func encryptedData(_ data: Data, for key: TinyKVKey) throws -> Data {
+        guard let encryptor = config.valueEncryptor else {
+            return data
+        }
+
+        do {
+            return try encryptor.encrypt(data, associatedData: associatedData(for: key))
+        } catch {
+            throw TinyKVError.encryptionFailed
+        }
+    }
+
+    /// Decrypts a value when the configuration supplies an encryptor.
+    /// - Parameters:
+    ///   - data: Raw value BLOB returned by SQLite.
+    ///   - key: Storage key used to authenticate the ciphertext identity.
+    /// - Returns: Plaintext value bytes.
+    /// - Throws: A decryption-related `TinyKVError` when authentication fails.
+    private func decryptedData(_ data: Data, for key: TinyKVKey) throws -> Data {
+        guard let encryptor = config.valueEncryptor else {
+            return data
+        }
+
+        do {
+            return try encryptor.decrypt(data, associatedData: associatedData(for: key))
+        } catch let error as TinyKVEncryptionError where error == .unsupportedEnvelopeVersion {
+            throw TinyKVError.unsupportedEncryptionFormat
+        } catch {
+            throw TinyKVError.decryptionFailed
+        }
+    }
+
+    /// Builds canonical non-secret identity bytes for AES-GCM Associated Data.
+    /// - Parameter key: String or integer storage key.
+    /// - Returns: Length-delimited database, table, key-type, and key bytes.
+    private func associatedData(for key: TinyKVKey) -> Data {
+        var data = Data([0x01])
+        Self.appendLengthPrefixed(encryptionNamespace, to: &data)
+
+        switch key {
+        case .string(let value):
+            data.append(0x00)
+            Self.appendLengthPrefixed(Data(value.utf8), to: &data)
+        case .int(let value):
+            data.append(0x01)
+            Self.appendLengthPrefixed(Data(String(value).utf8), to: &data)
+        }
+
+        return data
+    }
+
+    /// Reconstructs the typed key from the first two columns of a range-query row.
+    /// - Parameter statement: SQLite statement positioned on a result row.
+    /// - Returns: The stored key, or `nil` for an invalid row.
+    private func keyFromColumns(_ statement: OpaquePointer?) -> TinyKVKey? {
+        if sqlite3_column_type(statement, 0) != SQLITE_NULL,
+           let cString = sqlite3_column_text(statement, 0) {
+            return .string(String(cString: cString))
+        }
+
+        guard sqlite3_column_type(statement, 1) != SQLITE_NULL else {
+            return nil
+        }
+        let intValue = sqlite3_column_int64(statement, 1)
+        guard let intKey = Int(exactly: intValue) else {
+            return nil
+        }
+        return .int(intKey)
+    }
+
+    /// Creates a stable namespace for values stored in one database/table pair.
+    /// - Parameters:
+    ///   - dbName: Logical database name supplied by the caller.
+    ///   - tableName: Logical table name supplied by the caller.
+    /// - Returns: Length-delimited namespace bytes.
+    private static func makeEncryptionNamespace(dbName: String, tableName: String) -> Data {
+        var namespace = Data()
+        appendLengthPrefixed(Data(dbName.utf8), to: &namespace)
+        appendLengthPrefixed(Data(tableName.utf8), to: &namespace)
+        return namespace
+    }
+
+    /// Appends a length-delimited byte sequence to a canonical identity buffer.
+    /// - Parameters:
+    ///   - value: Bytes to append.
+    ///   - data: Destination identity buffer.
+    private static func appendLengthPrefixed(_ value: Data, to data: inout Data) {
+        var length = UInt64(value.count).bigEndian
+        withUnsafeBytes(of: &length) { bytes in
+            data.append(contentsOf: bytes)
+        }
+        data.append(value)
     }
 
     private func validatedIntRangeCondition(from raw: String) throws -> String {

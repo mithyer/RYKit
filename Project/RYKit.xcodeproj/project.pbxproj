@@ -7,9 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		72001B522EE6635700D856CC /* RYKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71201B462EE6635700D856CC /* RYKit.framework */; };
+		72001B622EE6635700D856CC /* RYKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 71201B462EE6635700D856CC /* RYKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		71201B522EE6635700D856CC /* RYKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71201B462EE6635700D856CC /* RYKit.framework */; };
 		71201BED2EE6648A00D856CC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71201BEC2EE6648A00D856CC /* Foundation.framework */; };
-		713C667F2FC4462F00AE47F4 /* Combine.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 713C667E2FC4462F00AE47F4 /* Combine.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -20,11 +21,33 @@
 			remoteGlobalIDString = 71201B452EE6635700D856CC;
 			remoteInfo = RYKit;
 		};
+		72001B632EE6635700D856CC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 71201B3D2EE6635700D856CC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 71201B452EE6635700D856CC;
+			remoteInfo = RYKit;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		72001B6A2EE6635700D856CC /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				72001B622EE6635700D856CC /* RYKit.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		71201B462EE6635700D856CC /* RYKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = RYKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		71201B512EE6635700D856CC /* RYKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RYKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		72001B462EE6635700D856CC /* RYKitTestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RYKitTestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		71201BEC2EE6648A00D856CC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		713C667E2FC4462F00AE47F4 /* Combine.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Combine.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/Combine.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
@@ -40,6 +63,11 @@
 			name = Classes;
 			path = ../Classes;
 			sourceTree = SOURCE_ROOT;
+		};
+		72001B552EE6635700D856CC /* RYKitTestHost */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RYKitTestHost;
+			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -61,6 +89,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		72001B412EE6635700D856CC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72001B522EE6635700D856CC /* RYKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -68,6 +104,7 @@
 			isa = PBXGroup;
 			children = (
 				71201B962EE663C500D856CC /* Classes */,
+				72001B552EE6635700D856CC /* RYKitTestHost */,
 				71201B552EE6635700D856CC /* RYKitTests */,
 				71201BEB2EE6648A00D856CC /* Frameworks */,
 				71201B472EE6635700D856CC /* Products */,
@@ -79,6 +116,7 @@
 			children = (
 				71201B462EE6635700D856CC /* RYKit.framework */,
 				71201B512EE6635700D856CC /* RYKitTests.xctest */,
+				72001B462EE6635700D856CC /* RYKitTestHost.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -128,6 +166,30 @@
 			productReference = 71201B462EE6635700D856CC /* RYKit.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		72001B452EE6635700D856CC /* RYKitTestHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72001B5A2EE6635700D856CC /* Build configuration list for PBXNativeTarget "RYKitTestHost" */;
+			buildPhases = (
+				72001B422EE6635700D856CC /* Sources */,
+				72001B412EE6635700D856CC /* Frameworks */,
+				72001B6A2EE6635700D856CC /* Embed Frameworks */,
+				72001B442EE6635700D856CC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				72001B642EE6635700D856CC /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				72001B552EE6635700D856CC /* RYKitTestHost */,
+			);
+			name = RYKitTestHost;
+			packageProductDependencies = (
+			);
+			productName = RYKitTestHost;
+			productReference = 72001B462EE6635700D856CC /* RYKitTestHost.app */;
+			productType = "com.apple.product-type.application";
+		};
 		71201B502EE6635700D856CC /* RYKitTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 71201B5D2EE6635700D856CC /* Build configuration list for PBXNativeTarget "RYKitTests" */;
@@ -140,6 +202,7 @@
 			);
 			dependencies = (
 				71201B542EE6635700D856CC /* PBXTargetDependency */,
+				72001B542EE6635700D856CC /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				71201B552EE6635700D856CC /* RYKitTests */,
@@ -168,6 +231,9 @@
 					71201B502EE6635700D856CC = {
 						CreatedOnToolsVersion = 26.1;
 					};
+					72001B452EE6635700D856CC = {
+						CreatedOnToolsVersion = 26.1;
+					};
 				};
 			};
 			buildConfigurationList = 71201B402EE6635700D856CC /* Build configuration list for PBXProject "RYKit" */;
@@ -185,6 +251,7 @@
 			projectRoot = "";
 			targets = (
 				71201B452EE6635700D856CC /* RYKit */,
+				72001B452EE6635700D856CC /* RYKitTestHost */,
 				71201B502EE6635700D856CC /* RYKitTests */,
 			);
 		};
@@ -199,6 +266,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		71201B4F2EE6635700D856CC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72001B442EE6635700D856CC /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -222,6 +296,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		72001B422EE6635700D856CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -229,6 +310,16 @@
 			isa = PBXTargetDependency;
 			target = 71201B452EE6635700D856CC /* RYKit */;
 			targetProxy = 71201B532EE6635700D856CC /* PBXContainerItemProxy */;
+		};
+		72001B542EE6635700D856CC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72001B452EE6635700D856CC /* RYKitTestHost */;
+			targetProxy = 72001B532EE6635700D856CC /* PBXContainerItemProxy */;
+		};
+		72001B642EE6635700D856CC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 71201B452EE6635700D856CC /* RYKit */;
+			targetProxy = 72001B632EE6635700D856CC /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -444,6 +535,8 @@
 		71201B5E2EE6635700D856CC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RYKitTestHost.app/RYKitTestHost";
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -466,6 +559,8 @@
 		71201B5F2EE6635700D856CC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RYKitTestHost.app/RYKitTestHost";
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -482,6 +577,54 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
+			};
+			name = Release;
+		};
+		72001B5B2EE6635700D856CC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9KPK82HSG8;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RYKitTestHost;
+				IPHONEOS_DEPLOYMENT_TARGET = 13;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mithyer.rykit.RYKitTestHost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		72001B5C2EE6635700D856CC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9KPK82HSG8;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RYKitTestHost;
+				IPHONEOS_DEPLOYMENT_TARGET = 13;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mithyer.rykit.RYKitTestHost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -511,6 +654,15 @@
 			buildConfigurations = (
 				71201B5E2EE6635700D856CC /* Debug */,
 				71201B5F2EE6635700D856CC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72001B5A2EE6635700D856CC /* Build configuration list for PBXNativeTarget "RYKitTestHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72001B5B2EE6635700D856CC /* Debug */,
+				72001B5C2EE6635700D856CC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

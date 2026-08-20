@@ -276,6 +276,30 @@ try await buffered.set(value: 42, for: .string("counter"))
 try await buffered.flush()
 ```
 
+For value encryption, create an encryptor and inject it through `Config`. Passing `nil` keeps values unencrypted.
+
+```swift
+let encryptor = try TinyKVAESGCMEncryptor.loadOrCreateFromKeychain(
+    service: "com.example.app.tinykv"
+)
+
+let secureKV = TinyKV(
+    dbName: "app",
+    tableName: "secure-cache",
+    config: TinyKV.Config(valueEncryptor: encryptor)
+)
+try await secureKV.set(value: "Alice", for: .string("user.name"))
+
+let bufferedConfig = TinyBufferedKV.Config(valueEncryptor: encryptor)
+let secureBufferedKV = TinyBufferedKV(
+    dbName: "app",
+    tableName: "secure-buffer",
+    config: bufferedConfig
+)
+```
+
+AES-GCM encrypts persisted values only. SQLite keys remain available for `TinyKVQueryKey` queries, while the encryptor instance and its key must be retained by the application.
+
 #### Lock
 ```swift
 class Store {
@@ -562,6 +586,30 @@ let buffered = TinyBufferedKV(dbName: "app", tableName: "buffer")
 try await buffered.set(value: 42, for: .string("counter"))
 try await buffered.flush()
 ```
+
+如需加密 value，可以创建加密器并通过 `Config` 注入；传入 `nil` 表示不加密。
+
+```swift
+let encryptor = try TinyKVAESGCMEncryptor.loadOrCreateFromKeychain(
+    service: "com.example.app.tinykv"
+)
+
+let secureKV = TinyKV(
+    dbName: "app",
+    tableName: "secure-cache",
+    config: TinyKV.Config(valueEncryptor: encryptor)
+)
+try await secureKV.set(value: "Alice", for: .string("user.name"))
+
+let bufferedConfig = TinyBufferedKV.Config(valueEncryptor: encryptor)
+let secureBufferedKV = TinyBufferedKV(
+    dbName: "app",
+    tableName: "secure-buffer",
+    config: bufferedConfig
+)
+```
+
+AES-GCM 只加密持久化的 value，SQLite 中的 key 仍然可用于 `TinyKVQueryKey` 查询。应用需要自行持有加密器实例及其密钥。
 
 #### Lock
 ```swift

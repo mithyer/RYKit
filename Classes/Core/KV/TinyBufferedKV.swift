@@ -18,19 +18,23 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable, @uncheck
         public let maxBufferedItems: Int
         /// Maximum total buffered payload size in bytes before forcing a flush.
         public let maxBufferedBytes: Int
-        /// Debounce interval in seconds for timer-based flush after writes.
-        /// Set to `0` to disable timer-based flushing.
+        /// Debounce delay in seconds for timer-based flush.
         public let flushInterval: TimeInterval
+        /// Optional value encryptor forwarded to the persistent TinyKV store.
+        public let valueEncryptor: (any TinyKVValueEncryptor)?
 
         /// Creates a configuration for `TinyBufferedKV`.
         /// - Parameters:
         ///   - maxBufferedItems: Maximum in-memory record count before auto flush.
         ///   - maxBufferedBytes: Maximum in-memory byte size before auto flush.
         ///   - flushInterval: Debounce delay in seconds for timer-based flush.
+        ///   - valueEncryptor: Optional encryptor for persisted values; `nil` keeps plaintext behavior.
+        // TEST:TinyBufferedKVTests[test_encryptedConfig_flushesAndReads]
         public init(
             maxBufferedItems: Int = 200,
             maxBufferedBytes: Int = 1_048_576,
-            flushInterval: TimeInterval = 0.5
+            flushInterval: TimeInterval = 0.5,
+            valueEncryptor: (any TinyKVValueEncryptor)? = nil
         ) {
             precondition(maxBufferedItems > 0, "maxBufferedItems must be positive")
             precondition(maxBufferedBytes > 0, "maxBufferedBytes must be positive")
@@ -38,6 +42,7 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable, @uncheck
             self.maxBufferedItems = maxBufferedItems
             self.maxBufferedBytes = maxBufferedBytes
             self.flushInterval = flushInterval
+            self.valueEncryptor = valueEncryptor
         }
     }
 
@@ -68,10 +73,15 @@ public final class TinyBufferedKV: TinyKVReadWritable, TinyKVFlushable, @uncheck
     /// - Parameters:
     ///   - dbName: SQLite database name.
     ///   - tableName: Target table name.
-    ///   - config: Buffer and flush strategy.
+    ///   - config: Buffer, flush, and value-encryption configuration.
+    // TEST:TinyBufferedKVTests[test_encryptedConfig_flushesAndReads]
     public init(dbName: String, tableName: String, config: Config = .init()) {
         self.config = config
-        self.storage = TinyKV(dbName: dbName, tableName: tableName)
+        self.storage = TinyKV(
+            dbName: dbName,
+            tableName: tableName,
+            config: TinyKV.Config(valueEncryptor: config.valueEncryptor)
+        )
         // Timer is not started at init; debounce scheduling is write-driven.
     }
 

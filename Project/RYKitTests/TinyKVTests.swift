@@ -25,6 +25,229 @@ final class TinyKVTests: XCTestCase {
         return TinyKV(dbName: dbName, tableName: tableName)
     }
 
+    private func makeEncryptor(seed: UInt8) throws -> TinyKVAESGCMEncryptor {
+        try TinyKVAESGCMEncryptor(keyData: Data(repeating: seed, count: 32))
+    }
+
+    private func makeEncryptedKV(dbName: String, tableName: String = "records", seed: UInt8 = 0xA1) throws -> TinyKV {
+        let encryptor = try makeEncryptor(seed: seed)
+        return TinyKV(
+            dbName: dbName,
+            tableName: tableName,
+            config: TinyKV.Config(valueEncryptor: encryptor)
+        )
+    }
+
+    /// Verifies `nil` encryption configuration preserves the existing raw-data behavior.
+    // TEST:TinyKV.Config[test_configNil_keepsPlaintextBehavior]
+    func test_configNil_keepsPlaintextBehavior() async throws {
+        let dbName = "tinykv-plain-\(UUID().uuidString)"
+        let key: TinyKVKey = .string("plain")
+        let expected = Data("plain-value".utf8)
+        let writer = TinyKV(dbName: dbName, tableName: "records", config: .init(valueEncryptor: nil))
+
+        try await writer.set(data: expected, for: key)
+
+        let reader = TinyKV(dbName: dbName, tableName: "records")
+        let actual = try await reader.getData(for: key)
+        XCTAssertEqual(actual, expected)
+    }
+
+    /// Verifies configured AES-GCM encryptors transparently round-trip values and hide the stored BLOB.
+    // TEST:TinyKV[test_encryptedValue_roundTrips]
+    func test_encryptedValue_roundTrips() async throws {
+        let dbName = "tinykv-encrypted-\(UUID().uuidString)"
+        let kv = try makeEncryptedKV(dbName: dbName)
+        let expected = SampleValue(id: 10, name: "encrypted")
+        let key: TinyKVKey = .string("encrypted-key")
+
+        try await kv.set(value: expected, for: key)
+        let actual: SampleValue = try await kv.getValue(for: key)
+        XCTAssertEqual(actual, expected)
+
+        let rawReader = TinyKV(dbName: dbName, tableName: "records")
+        let stored = try await rawReader.getData(for: key)
+        XCTAssertNotEqual(stored, try JSONEncoder().encode(expected))
+    }
+
+    /// Encryptor test double that forces TinyKV's encryption error mapping path.
+    private struct FailingEncryptor: TinyKVValueEncryptor {
+        /// Error intentionally raised by both encryptor operations.
+        private enum Failure: Error {
+            case expected
+        }
+
+        /// Always fails instead of returning encrypted data.
+        /// - Parameters:
+        ///   - data: Ignored plaintext bytes.
+        ///   - associatedData: Ignored record identity bytes.
+        /// - Returns: Never returns because the operation always throws.
+        func encrypt(_ data: Data, associatedData: Data) throws -> Data {
+            throw Failure.expected
+        }
+
+        /// Always fails instead of opening encrypted data.
+        /// - Parameters:
+        ///   - data: Ignored encrypted bytes.
+        ///   - associatedData: Ignored record identity bytes.
+        /// - Returns: Never returns because the operation always throws.
+        func decrypt(_ data: Data, associatedData: Data) throws -> Data {
+            throw Failure.expected
+        }
+    }
+
+    /// Verifies a different AES-GCM key cannot open an existing value.
+    // TEST:TinyKV[test_wrongKey_failsDecryption]
+    func test_wrongKey_failsDecryption() async throws {
+        let dbName = "tinykv-wrong-key-\(UUID().uuidString)"
+        let writer = try makeEncryptedKV(dbName: dbName, seed: 0xB1)
+        let reader = try makeEncryptedKV(dbName: dbName, seed: 0xB2)
+        let key: TinyKVKey = .string("wrong-key")
+
+        try await writer.set(data: Data("secret".utf8), for: key)
+
+        do {
+            _ = try await reader.getData(for: key)
+            XCTFail("Expected decryption to fail with a different key")
+        } catch let error as TinyKV.TinyKVError {
+            XCTAssertEqual(error, .decryptionFailed)
+        }
+    }
+
+    /// Verifies encryptor failures map to TinyKV's public encryption error.
+    // TEST:TinyKVTests[test_encryptionFailure_mapsToTinyKVError]
+    func test_encryptionFailure_mapsToTinyKVError() async throws {
+        let dbName = "tinykv-encryption-failure-\(UUID().uuidString)"
+        let kv = TinyKV(
+            dbName: dbName,
+            tableName: "records",
+            config: TinyKV.Config(valueEncryptor: FailingEncryptor())
+        )
+
+        do {
+            try await kv.set(data: Data("secret".utf8), for: .string("failing-encryptor"))
+            XCTFail("Expected the failing encryptor to reject persistence")
+        } catch {
+            XCTAssertEqual(error as? TinyKV.TinyKVError, .encryptionFailed)
+        }
+    }
+
+    func test_tamperedValue_failsDecryption() async throws {
+        let dbName = "tinykv-tampered-\(UUID().uuidString)"
+        let encrypted = try makeEncryptedKV(dbName: dbName)
+        let raw = TinyKV(dbName: dbName, tableName: "records")
+        let key: TinyKVKey = .int(7)
+
+        try await encrypted.set(data: Data("secret".utf8), for: key)
+        var tampered = try await raw.getData(for: key)
+        tampered[tampered.count - 1] ^= 0x01
+        try await raw.set(data: tampered, for: key)
+
+        do {
+            _ = try await encrypted.getData(for: key)
+            XCTFail("Expected decryption to fail for tampered data")
+        } catch let error as TinyKV.TinyKVError {
+            XCTAssertEqual(error, .decryptionFailed)
+        }
+    }
+
+    /// Verifies an unknown persisted envelope version maps to the public format error.
+    // TEST:TinyKVTests[test_unsupportedEnvelopeVersion_failsWithUnsupportedEncryptionFormat]
+    func test_unsupportedEnvelopeVersion_failsWithUnsupportedEncryptionFormat() async throws {
+        let dbName = "tinykv-unsupported-version-\(UUID().uuidString)"
+        let encrypted = try makeEncryptedKV(dbName: dbName)
+        let raw = TinyKV(dbName: dbName, tableName: "records")
+        let key: TinyKVKey = .string("unsupported-version")
+
+        try await encrypted.set(data: Data("secret".utf8), for: key)
+        var stored = try await raw.getData(for: key)
+        guard stored.count > 5 else {
+            XCTFail("Expected a versioned encrypted envelope")
+            return
+        }
+        stored[4] = 0x02
+        try await raw.set(data: stored, for: key)
+
+        do {
+            _ = try await encrypted.getData(for: key)
+            XCTFail("Expected an unsupported encryption format error")
+        } catch {
+            XCTAssertEqual(error as? TinyKV.TinyKVError, .unsupportedEncryptionFormat)
+        }
+    }
+
+    /// Verifies an encrypted store rejects persisted plaintext without a legacy fallback.
+    // TEST:TinyKVTests[test_encryptedStore_rejectsLegacyPlaintextRecord]
+    func test_encryptedStore_rejectsLegacyPlaintextRecord() async throws {
+        let dbName = "tinykv-legacy-plaintext-\(UUID().uuidString)"
+        let encrypted = try makeEncryptedKV(dbName: dbName)
+        let raw = TinyKV(dbName: dbName, tableName: "records")
+        let key: TinyKVKey = .string("legacy-plaintext")
+
+        try await raw.set(data: Data("legacy-plaintext".utf8), for: key)
+
+        do {
+            _ = try await encrypted.getData(for: key)
+            XCTFail("Expected encrypted storage to reject plaintext data")
+        } catch {
+            XCTAssertEqual(error as? TinyKV.TinyKVError, .decryptionFailed)
+        }
+    }
+
+    /// Verifies ciphertext is bound to both the key value and its key type.
+    // TEST:TinyKVTests[test_encryptedValueBoundToRecordIdentity_blobSwapFails]
+    func test_encryptedValueBoundToRecordIdentity_blobSwapFails() async throws {
+        let dbName = "tinykv-record-identity-\(UUID().uuidString)"
+        let encrypted = try makeEncryptedKV(dbName: dbName)
+        let raw = TinyKV(dbName: dbName, tableName: "records")
+        let sourceKey: TinyKVKey = .string("source")
+        let targetKeys: [TinyKVKey] = [.string("target"), .int(7)]
+        let plaintext = Data("identity-bound-secret".utf8)
+
+        try await encrypted.set(data: plaintext, for: sourceKey)
+        let sourceCiphertext = try await raw.getData(for: sourceKey)
+        for targetKey in targetKeys {
+            try await raw.set(data: sourceCiphertext, for: targetKey)
+        }
+
+        let actualSource = try await encrypted.getData(for: sourceKey)
+        XCTAssertEqual(actualSource, plaintext)
+        for targetKey in targetKeys {
+            do {
+                _ = try await encrypted.getData(for: targetKey)
+                XCTFail("Expected ciphertext copied to \(targetKey) to fail authentication")
+            } catch {
+                XCTAssertEqual(error as? TinyKV.TinyKVError, .decryptionFailed)
+            }
+        }
+    }
+
+    /// Verifies all key-based range selectors still work when only values are encrypted.
+    // TEST:TinyKV[test_encryptedRangeQueries_preserveTinyKVQueryKeyBehavior]
+    func test_encryptedRangeQueries_preserveTinyKVQueryKeyBehavior() async throws {
+        let kv = try makeEncryptedKV(dbName: "tinykv-encrypted-range-\(UUID().uuidString)")
+
+        try await kv.set(value: SampleValue(id: 1, name: "string-1"), for: .string("ab-1"))
+        try await kv.set(value: SampleValue(id: 2, name: "string-2"), for: .string("ab-2"))
+        try await kv.set(value: SampleValue(id: 3, name: "string-3"), for: .string("zz-3"))
+        try await kv.set(value: SampleValue(id: 10, name: "int-10"), for: .int(10))
+        try await kv.set(value: SampleValue(id: 20, name: "int-20"), for: .int(20))
+        try await kv.set(value: SampleValue(id: 30, name: "int-30"), for: .int(30))
+
+        let likeValues: [SampleValue] = try await kv.getValues(for: .string(like: "ab-%"), acend: true)
+        let stringInValues: [SampleValue] = try await kv.getValues(for: .strings(in: ["zz-3", "ab-1"]), acend: true)
+        let intRangeValues: [SampleValue] = try await kv.getValues(
+            for: .int(condition: "$ >= 15 AND $ <= 30"),
+            acend: false
+        )
+        let intInValues: [SampleValue] = try await kv.getValues(for: .ints(in: [30, 10]), acend: true)
+
+        XCTAssertEqual(likeValues.map(\.id), [1, 2])
+        XCTAssertEqual(stringInValues.map(\.id), [1, 3])
+        XCTAssertEqual(intRangeValues.map(\.id), [30, 20])
+        XCTAssertEqual(intInValues.map(\.id), [10, 30])
+    }
+
     private func waitUntilReleased(
         _ object: @escaping () -> AnyObject?,
         timeout: TimeInterval = 1.5,
