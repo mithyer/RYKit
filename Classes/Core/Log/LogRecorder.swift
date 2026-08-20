@@ -7,27 +7,20 @@
 
 import Foundation
 import os
-// MARK: - 使用示例
+// MARK: - Usage example
 /*
- // 示例 1：记录字符串内容
- LogRecorder.shared.saveLog(content: "应用启动", key: "app_lifecycle")
- 
- // 示例 2：记录自定义对象
- struct UserAction: Codable {
-     let action: String
-     let userId: Int
+ let recorder = LogRecorder(logNamePrefix: "app")
+ recorder.printAndSaveLog(
+     content: "App launched",
+     style: .plainText,
+     key: "app_lifecycle"
+ )
+ recorder.flush()
+
+ if let logPath = recorder.getCurrentLogFilePath() {
+     print("Log file: \(logPath)")
  }
- let action = UserAction(action: "登录", userId: 12345)
- LogRecorder.shared.saveLog(content: action, key: "user_action")
- 
- // 示例 3：使用时间间隔限制（相同 key 至少间隔 60 秒）
- LogRecorder.shared.saveLog(content: "按钮点击", key: "button_tap", minIntervalBetweenSameKey: 60)
- 
- // 获取当前日志文件路径
- if let logPath = LogRecorder.shared.getCurrentLogFilePath() {
-     print("日志文件路径：\(logPath)")
- }
- */
+*/
 
 
 /// 日志记录类

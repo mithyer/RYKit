@@ -7,13 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		72001B522EE6635700D856CC /* RYKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71201B462EE6635700D856CC /* RYKit.framework */; };
-		72001B622EE6635700D856CC /* RYKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 71201B462EE6635700D856CC /* RYKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		71201B522EE6635700D856CC /* RYKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71201B462EE6635700D856CC /* RYKit.framework */; };
 		71201BED2EE6648A00D856CC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71201BEC2EE6648A00D856CC /* Foundation.framework */; };
+		72001B522EE6635700D856CC /* RYKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71201B462EE6635700D856CC /* RYKit.framework */; };
+		72001B622EE6635700D856CC /* RYKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 71201B462EE6635700D856CC /* RYKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		710E861F3036F8CC0007D189 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 71201B3D2EE6635700D856CC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72001B452EE6635700D856CC;
+			remoteInfo = RYKitTestHost;
+		};
 		71201B532EE6635700D856CC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 71201B3D2EE6635700D856CC /* Project object */;
@@ -47,9 +54,9 @@
 /* Begin PBXFileReference section */
 		71201B462EE6635700D856CC /* RYKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = RYKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		71201B512EE6635700D856CC /* RYKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RYKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		72001B462EE6635700D856CC /* RYKitTestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RYKitTestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		71201BEC2EE6648A00D856CC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		713C667E2FC4462F00AE47F4 /* Combine.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Combine.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/Combine.framework; sourceTree = DEVELOPER_DIR; };
+		72001B462EE6635700D856CC /* RYKitTestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RYKitTestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -76,7 +83,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				713C667F2FC4462F00AE47F4 /* Combine.framework in Frameworks */,
 				71201BED2EE6648A00D856CC /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -166,30 +172,6 @@
 			productReference = 71201B462EE6635700D856CC /* RYKit.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		72001B452EE6635700D856CC /* RYKitTestHost */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 72001B5A2EE6635700D856CC /* Build configuration list for PBXNativeTarget "RYKitTestHost" */;
-			buildPhases = (
-				72001B422EE6635700D856CC /* Sources */,
-				72001B412EE6635700D856CC /* Frameworks */,
-				72001B6A2EE6635700D856CC /* Embed Frameworks */,
-				72001B442EE6635700D856CC /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				72001B642EE6635700D856CC /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				72001B552EE6635700D856CC /* RYKitTestHost */,
-			);
-			name = RYKitTestHost;
-			packageProductDependencies = (
-			);
-			productName = RYKitTestHost;
-			productReference = 72001B462EE6635700D856CC /* RYKitTestHost.app */;
-			productType = "com.apple.product-type.application";
-		};
 		71201B502EE6635700D856CC /* RYKitTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 71201B5D2EE6635700D856CC /* Build configuration list for PBXNativeTarget "RYKitTests" */;
@@ -214,6 +196,30 @@
 			productName = RYKitTests;
 			productReference = 71201B512EE6635700D856CC /* RYKitTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		72001B452EE6635700D856CC /* RYKitTestHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72001B5A2EE6635700D856CC /* Build configuration list for PBXNativeTarget "RYKitTestHost" */;
+			buildPhases = (
+				72001B422EE6635700D856CC /* Sources */,
+				72001B412EE6635700D856CC /* Frameworks */,
+				72001B6A2EE6635700D856CC /* Embed Frameworks */,
+				72001B442EE6635700D856CC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				72001B642EE6635700D856CC /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				72001B552EE6635700D856CC /* RYKitTestHost */,
+			);
+			name = RYKitTestHost;
+			packageProductDependencies = (
+			);
+			productName = RYKitTestHost;
+			productReference = 72001B462EE6635700D856CC /* RYKitTestHost.app */;
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -314,7 +320,7 @@
 		72001B542EE6635700D856CC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72001B452EE6635700D856CC /* RYKitTestHost */;
-			targetProxy = 72001B532EE6635700D856CC /* PBXContainerItemProxy */;
+			targetProxy = 710E861F3036F8CC0007D189 /* PBXContainerItemProxy */;
 		};
 		72001B642EE6635700D856CC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -535,9 +541,8 @@
 		71201B5E2EE6635700D856CC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RYKitTestHost.app/RYKitTestHost";
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 9KPK82HSG8;
@@ -553,15 +558,15 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RYKitTestHost.app/RYKitTestHost";
 			};
 			name = Debug;
 		};
 		71201B5F2EE6635700D856CC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RYKitTestHost.app/RYKitTestHost";
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 9KPK82HSG8;
@@ -577,6 +582,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RYKitTestHost.app/RYKitTestHost";
 			};
 			name = Release;
 		};
@@ -590,9 +596,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = RYKitTestHost;
 				IPHONEOS_DEPLOYMENT_TARGET = 13;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mithyer.rykit.RYKitTestHost;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -614,9 +618,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = RYKitTestHost;
 				IPHONEOS_DEPLOYMENT_TARGET = 13;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mithyer.rykit.RYKitTestHost;
 				PRODUCT_NAME = "$(TARGET_NAME)";

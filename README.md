@@ -146,30 +146,20 @@ let holder = manager.subscribe(
 ```
 
 #### Logging Example
+
 ```swift
-// Log string
-LogRecorder.shared.saveLog(content: "App launched", key: "app_lifecycle")
+// Configure the minimum level emitted by the process-wide logger.
+setLogLevel(.warn)
 
-// Log object
-struct UserAction: Codable {
-    let action: String
-    let userId: Int
-}
-let action = UserAction(action: "login", userId: 12345)
-LogRecorder.shared.saveLog(content: action, key: "user_action")
-
-// Use interval limit (at least 60 seconds)
-LogRecorder.shared.saveLog(
-    content: "Button tapped", 
-    key: "button_tap", 
-    minIntervalBetweenSameKey: 60
-)
-
-// Get log file path
-if let path = LogRecorder.shared.getCurrentLogFilePath() {
-    print("Log file: \(path)")
-}
+// Filtered messages are not evaluated when below the configured threshold.
+log("cache miss", level: .debug)
+log_warn("request retrying")
+log_err("request failed", errKey: "request-failure")
 ```
+
+The `log` entry point supports `verbose`, `debug`, `info`, `warn`, and `error` levels. The configured level is a minimum threshold: messages below it are filtered before evaluation. `DEBUG` builds default to `.debug`; non-`DEBUG` builds default to `.error`.
+
+The default logger buffers accepted messages through `LogRecorder` and writes them according to its buffer-size and flush policy under `Documents/RYKitLogs`. The default logger does not expose a public flush hook. In Release builds, the default `.error` threshold means eligible errors may create or append to log files when the recorder flushes. Use `setActiveLogger` to provide a custom `LoggerProtocol` implementation when persistence should be handled elsewhere; custom adapters are also filtered by the configured threshold.
 
 ### Package and Module Mapping
 
@@ -457,30 +447,17 @@ let holder = manager.subscribe(
 ```
 
 #### 日志记录示例
+
 ```swift
-// 记录字符串
-LogRecorder.shared.saveLog(content: "应用启动", key: "app_lifecycle")
-
-// 记录对象
-struct UserAction: Codable {
-    let action: String
-    let userId: Int
-}
-let action = UserAction(action: "登录", userId: 12345)
-LogRecorder.shared.saveLog(content: action, key: "user_action")
-
-// 使用时间间隔限制（至少间隔 60 秒）
-LogRecorder.shared.saveLog(
-    content: "按钮点击", 
-    key: "button_tap", 
-    minIntervalBetweenSameKey: 60
-)
-
-// 获取日志文件路径
-if let path = LogRecorder.shared.getCurrentLogFilePath() {
-    print("日志文件: \(path)")
-}
+setLogLevel(.warn)
+log("cache miss", level: .debug)
+log_warn("request retrying")
+log_err("request failed", errKey: "request-failure")
 ```
+
+`log` 支持 `verbose`、`debug`、`info`、`warn` 和 `error` 五个等级。配置的等级是最低阈值，低于阈值的消息会在求值前被过滤。`DEBUG` 构建默认使用 `.debug`，非 `DEBUG` 构建默认使用 `.error`。
+
+默认 logger 会通过 `LogRecorder` 缓冲已接受的消息，并按照缓冲大小和 flush 策略写入 `Documents/RYKitLogs`。默认 logger 不提供公共 flush 接口。Release 构建默认只接受 error，符合条件的错误会在 recorder flush 时创建或追加日志文件。可以通过 `setActiveLogger` 提供自定义 `LoggerProtocol` 实现；自定义 adapter 同样会受到全局等级阈值过滤。
 
 ### 包与模块对应关系
 
